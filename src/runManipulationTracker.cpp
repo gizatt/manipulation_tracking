@@ -12,7 +12,7 @@ int main(int argc, char** argv) {
   }
 
   if (argc != 2){
-    printf("Use: irb140_runEstimator <path to yaml config file>\n");
+    printf("Use: runManipulationTracker <path to yaml config file>\n");
     return 0;
   }
 
@@ -123,10 +123,10 @@ int main(int argc, char** argv) {
   VectorXd x0_manipuland = VectorXd::Zero(manipuland->num_positions + manipuland->num_velocities);
   x0_manipuland.block(0,0,manipuland->num_positions,1) = q0_manipuland;
 
-  std::unique_ptr<IRB140Estimator> estimator(new IRB140Estimator(arm, manipuland, x0_arm, x0_manipuland,
+  std::unique_ptr<ManipulationTracker> estimator(new ManipulationTracker(arm, manipuland, x0_arm, x0_manipuland,
     (std::string(drc_path) + config["config"].as<string>()).c_str(), config["manipulator"]["state_channel"].as<string>().c_str(), true, "ROBOTIQ_LEFT_STATE"));
 
-  std::cout << "IRB140 Estimator Listening" << std::endl;
+  std::cout << "Manipulation Tracker Listening" << std::endl;
   estimator->run();
   return 0;
 }

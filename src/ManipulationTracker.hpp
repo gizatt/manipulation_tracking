@@ -32,11 +32,11 @@ static double getUnixTime(void)
     return (tv.tv_sec + (tv.tv_nsec / 1000000000.0));
 }
 
-class IRB140Estimator {
+class ManipulationTracker {
 public:
-  ~IRB140Estimator() {}
+  ~ManipulationTracker() {}
 
-  IRB140Estimator(std::shared_ptr<RigidBodyTree> arm, std::shared_ptr<RigidBodyTree> manipuland, Eigen::Matrix<double, Eigen::Dynamic, 1> x0_arm, 
+  ManipulationTracker(std::shared_ptr<RigidBodyTree> arm, std::shared_ptr<RigidBodyTree> manipuland, Eigen::Matrix<double, Eigen::Dynamic, 1> x0_arm, 
     Eigen::Matrix<double, Eigen::Dynamic, 1> x0_manipuland, const char* filename, const char* state_channelname,
     bool transcribe_published_floating_base,
     const char* hand_state_channelname);

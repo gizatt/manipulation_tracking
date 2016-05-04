@@ -45,7 +45,7 @@ inline bool is_nan(const Eigen::MatrixBase<Derived>& x)
    return ((x.array() == x.array())).all();
 }
 
-IRB140Estimator::IRB140Estimator(std::shared_ptr<RigidBodyTree> arm, std::shared_ptr<RigidBodyTree> manipuland, 
+ManipulationTracker::ManipulationTracker(std::shared_ptr<RigidBodyTree> arm, std::shared_ptr<RigidBodyTree> manipuland, 
       Eigen::Matrix<double, Eigen::Dynamic, 1> x0_arm, Eigen::Matrix<double, Eigen::Dynamic, 1> x0_manipuland,
     const char* filename, const char* state_channelname, bool transcribe_published_floating_base,
     const char* hand_state_channelname) :
@@ -122,11 +122,11 @@ IRB140Estimator::IRB140Estimator(std::shared_ptr<RigidBodyTree> arm, std::shared
 
   //visualizer = make_shared<Drake::BotVisualizer<Drake::RigidBodySystem::StateVector>>(make_shared<lcm::LCM>(lcm),manipuland);
 
-  cv::namedWindow( "IRB140EstimatorDebug", cv::WINDOW_AUTOSIZE );
+  cv::namedWindow( "ManipulationTrackerDebug", cv::WINDOW_AUTOSIZE );
   cv::startWindowThread();
 }
 
-void IRB140Estimator::initBotConfig(const char* filename)
+void ManipulationTracker::initBotConfig(const char* filename)
 {
   if (filename && filename[0])
     {
@@ -142,7 +142,7 @@ void IRB140Estimator::initBotConfig(const char* filename)
   botframes_ = bot_frames_get_global(this->lcm.getUnderlyingLCM(), botparam_);
 }
 
-int IRB140Estimator::get_trans_with_utime(std::string from_frame, std::string to_frame,
+int ManipulationTracker::get_trans_with_utime(std::string from_frame, std::string to_frame,
                                long long utime, Eigen::Isometry3d & mat)
 {
   if (!botframes_)
@@ -163,7 +163,7 @@ int IRB140Estimator::get_trans_with_utime(std::string from_frame, std::string to
   return status;
 }
 
-void IRB140Estimator::update(double dt){
+void ManipulationTracker::update(double dt){
   Eigen::Matrix3Xd full_cloud;
   Eigen::MatrixXd full_depth_image;
   latest_cloud_mutex.lock();
@@ -288,7 +288,7 @@ void IRB140Estimator::update(double dt){
   }
 }  
 
-void IRB140Estimator::performCompleteICP(Eigen::Isometry3d& kinect2world, Eigen::MatrixXd& depth_image, Eigen::Matrix3Xd& points){
+void ManipulationTracker::performCompleteICP(Eigen::Isometry3d& kinect2world, Eigen::MatrixXd& depth_image, Eigen::Matrix3Xd& points){
   int nq = manipuland->num_positions;
   VectorXd q_old = x_manipuland.block(0, 0, manipuland->num_positions, 1);
   manipuland_kinematics_cache.initialize(q_old);
@@ -541,7 +541,7 @@ void IRB140Estimator::performCompleteICP(Eigen::Isometry3d& kinect2world, Eigen:
     cv::Mat image_disp;
     cv::addWeighted(image, 1.0, image_bg, 0.0, 0.0, image_disp);
     cv::resize(image_disp, image_disp, cv::Size(640, 480));
-    cv::imshow("IRB140EstimatorDebug", image_disp);
+    cv::imshow("ManipulationTrackerDebug", image_disp);
 
     // calculate projection direction to try to resolve this.
     // following Ganapathi / Thrun 2010, we'll do this by balancing
@@ -800,23 +800,23 @@ void IRB140Estimator::performCompleteICP(Eigen::Isometry3d& kinect2world, Eigen:
 
 }
 
-void IRB140Estimator::setupSubscriptions(const char* state_channelname,
+void ManipulationTracker::setupSubscriptions(const char* state_channelname,
   const char* hand_state_channelname){
-  //lcm->subscribe("SCAN", &IRB140EstimatorSystem::handlePointlatest_cloud, this);
-  //lcm.subscribe("SCAN", &IRB140Estimator::handlePlanarLidarMsg, this);
-  //lcm.subscribe("PRE_SPINDLE_TO_POST_SPINDLE", &IRB140Estimator::handleSpindleFrameMsg, this);
-  auto kinect_frame_sub = lcm.subscribe("KINECT_FRAME", &IRB140Estimator::handleKinectFrameMsg, this);
+  //lcm->subscribe("SCAN", &ManipulationTrackerSystem::handlePointlatest_cloud, this);
+  //lcm.subscribe("SCAN", &ManipulationTracker::handlePlanarLidarMsg, this);
+  //lcm.subscribe("PRE_SPINDLE_TO_POST_SPINDLE", &ManipulationTracker::handleSpindleFrameMsg, this);
+  auto kinect_frame_sub = lcm.subscribe("KINECT_FRAME", &ManipulationTracker::handleKinectFrameMsg, this);
   kinect_frame_sub->setQueueCapacity(1);
-  auto state_sub = lcm.subscribe(state_channelname, &IRB140Estimator::handleRobotStateMsg, this);
+  auto state_sub = lcm.subscribe(state_channelname, &ManipulationTracker::handleRobotStateMsg, this);
   state_sub->setQueueCapacity(1);
-  auto save_pc_sub = lcm.subscribe("IRB140_ESTIMATOR_SAVE_POINTCLOUD", &IRB140Estimator::handleSavePointcloudMsg, this);
+  auto save_pc_sub = lcm.subscribe("IRB140_ESTIMATOR_SAVE_POINTCLOUD", &ManipulationTracker::handleSavePointcloudMsg, this);
   save_pc_sub->setQueueCapacity(1);
-  auto hand_state_sub = lcm.subscribe(hand_state_channelname, &IRB140Estimator::handleLeftHandStateMsg, this);
+  auto hand_state_sub = lcm.subscribe(hand_state_channelname, &ManipulationTracker::handleLeftHandStateMsg, this);
   hand_state_sub->setQueueCapacity(1);
 
 }
 
-void IRB140Estimator::handleSavePointcloudMsg(const lcm::ReceiveBuffer* rbuf,
+void ManipulationTracker::handleSavePointcloudMsg(const lcm::ReceiveBuffer* rbuf,
                            const std::string& chan,
                            const bot_core::raw_t* msg){
   string filename(msg->data.begin(), msg->data.end());
@@ -855,14 +855,14 @@ void IRB140Estimator::handleSavePointcloudMsg(const lcm::ReceiveBuffer* rbuf,
   ofile.close();
 }
 
-void IRB140Estimator::handlePlanarLidarMsg(const lcm::ReceiveBuffer* rbuf,
+void ManipulationTracker::handlePlanarLidarMsg(const lcm::ReceiveBuffer* rbuf,
                            const std::string& chan,
                            const bot_core::planar_lidar_t* msg){
   printf("Received scan on channel %s\n", chan.c_str());
   // transform according 
 }
 
-void IRB140Estimator::handleSpindleFrameMsg(const lcm::ReceiveBuffer* rbuf,
+void ManipulationTracker::handleSpindleFrameMsg(const lcm::ReceiveBuffer* rbuf,
                            const std::string& chan,
                            const bot_core::rigid_transform_t* msg){
   //printf("Received transform on channel %s\n", chan.c_str());
@@ -871,7 +871,7 @@ void IRB140Estimator::handleSpindleFrameMsg(const lcm::ReceiveBuffer* rbuf,
 }
 
 
-void IRB140Estimator::handleLeftHandStateMsg(const lcm::ReceiveBuffer* rbuf,
+void ManipulationTracker::handleLeftHandStateMsg(const lcm::ReceiveBuffer* rbuf,
                            const std::string& chan,
                            const bot_core::joint_state_t* msg){
   //printf("Received hand state on channel  %s\n", chan.c_str());
@@ -898,7 +898,7 @@ void IRB140Estimator::handleLeftHandStateMsg(const lcm::ReceiveBuffer* rbuf,
 
 }
 
-void IRB140Estimator::handleRobotStateMsg(const lcm::ReceiveBuffer* rbuf,
+void ManipulationTracker::handleRobotStateMsg(const lcm::ReceiveBuffer* rbuf,
                          const std::string& chan,
                          const bot_core::robot_state_t* msg){
   //printf("Received robot state on channel  %s\n", chan.c_str());
@@ -929,7 +929,7 @@ void IRB140Estimator::handleRobotStateMsg(const lcm::ReceiveBuffer* rbuf,
 }
 
 
-void IRB140Estimator::handleKinectFrameMsg(const lcm::ReceiveBuffer* rbuf,
+void ManipulationTracker::handleKinectFrameMsg(const lcm::ReceiveBuffer* rbuf,
                            const std::string& chan,
                            const kinect::frame_msg_t* msg){
   //printf("Received kinect frame on channel %s\n", chan.c_str());
