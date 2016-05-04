@@ -53,6 +53,18 @@ public:
     }
   }
 
+  // bounds to cut down point cloud, in world coords
+  struct BoundingBox
+  {
+      double xMin = -100.;
+      double xMax = 100.;
+      double yMin = -100.;
+      double yMax = 100.;
+      double zMin = -100.;
+      double zMax = 100.;
+  };
+  void setBounds(BoundingBox bounds); 
+
   void update(double dt);
   void performCompleteICP(Eigen::Isometry3d& kinect2world, Eigen::MatrixXd& depth_image, Eigen::Matrix3Xd& points);
 
@@ -123,33 +135,7 @@ private:
   BotFrames* botframes_ = NULL;
 
   std::shared_ptr<Drake::BotVisualizer<Drake::RigidBodySystem::StateVector>> visualizer;
-
-  // box and table
-  /*
-  double manip_x_bounds[2] = {0.45, 0.75};
-  double manip_y_bounds[2] = {-0.1, 0.2};
-  double manip_z_bounds[2] = {0.7, 1.05};
-  */
-
-  // just hand
-  /*
-  double manip_x_bounds[2] = {0.45, 0.75};
-  double manip_y_bounds[2] = {-0.1, 0.2};
-  double manip_z_bounds[2] = {1.15, 1.35};
-  */
-
-  // hand and box and table
-  /*
-  double manip_x_bounds[2] = {0.45, 0.75};
-  double manip_y_bounds[2] = {-0.1, 0.2};
-  double manip_z_bounds[2] = {0.7, 1.35};
-  */
-
-  // arm and box and table
-  double manip_x_bounds[2] = {0.3, 1.0};
-  double manip_y_bounds[2] = {-0.4, 0.4};
-  double manip_z_bounds[2] = {0.7, 1.5};
-
+  BoundingBox pointcloud_bounds;
 
 };
 

@@ -32,4 +32,9 @@ manipulands:
       base_x: 0.67
       base_z: 0.71
 
+bounds:
+  x: [0.3, 1.0]
+  y: [-0.4, 0.4]
+  z: [0.7, 1.5]
+
 config: "/software/config/irb140/irb140.cfg"
