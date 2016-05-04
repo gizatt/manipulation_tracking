@@ -1,0 +1,236 @@
+<?xml version="1.0"?>
+<robot
+  name="cardboard_box">
+  <link name="box_bottom">
+    <visual>
+      <geometry>
+        <box size="0.345 0.27 0.005"/>
+      </geometry>
+    </visual>
+    <collision>
+      <geometry>
+        <box size="0.345 0.27 0.005"/>
+      </geometry>
+      <origin xyz="0 0 0"/>
+    </collision>
+    <inertial>
+      <mass value="0.2"/>
+      <inertia ixx="0.01" ixy="0.0" ixz="0.0" iyy="0.01" iyz="0.0" izz="0.01"/>
+
+      <origin xyz="0 0 0"/>
+    </inertial>
+  </link>
+
+
+  <link name="box_wall_px">
+    <visual>
+      <geometry>
+        <box size="0.005 0.27 0.29"/>
+      </geometry>
+    </visual>
+    <collision>
+      <geometry>
+        <box size="0.005 0.27 0.29"/>
+      </geometry>
+      <origin xyz="0 0 0"/>
+    </collision>
+    <inertial>
+      <mass value="0.1"/>
+      <inertia ixx="0.01" ixy="0.0" ixz="0.0" iyy="0.01" iyz="0.0" izz="0.01"/>
+      <origin xyz="0 0 0"/>
+    </inertial>
+  </link>
+  <joint name="box_bottom_to_wall_px" type="fixed">
+    <parent link="box_bottom"/>
+    <child link="box_wall_px"/>
+    <origin rpy="0 0 0" xyz="0.1725 0 0.145"/>
+  </joint>
+
+  <link name="box_wall_nx">
+    <visual>
+      <geometry>
+        <box size="0.005 0.27 0.29"/>
+      </geometry>
+    </visual>
+    <collision>
+      <geometry>
+        <box size="0.005 0.27 0.29"/>
+      </geometry>
+      <origin xyz="0 0 0"/>
+    </collision>
+    <inertial>
+      <mass value="0.1"/>
+      <inertia ixx="0.01" ixy="0.0" ixz="0.0" iyy="0.01" iyz="0.0" izz="0.01"/>
+      <origin xyz="0 0 0"/>
+    </inertial>
+  </link>
+  <joint name="box_bottom_to_wall_nx" type="fixed">
+    <parent link="box_bottom"/>
+    <child link="box_wall_nx"/>
+    <origin rpy="0 0 0" xyz="-0.1725 0 0.145"/>
+  </joint>
+
+  <link name="box_wall_py">
+    <visual>
+      <geometry>
+        <box size="0.345 0.005 0.29"/>
+      </geometry>
+    </visual>
+    <collision>
+      <geometry>
+        <box size="0.345 0.005 0.29"/>
+      </geometry>
+      <origin xyz="0 0 0"/>
+    </collision>
+    <inertial>
+      <mass value="0.1"/>
+      <inertia ixx="0.01" ixy="0.0" ixz="0.0" iyy="0.01" iyz="0.0" izz="0.01"/>
+      <origin xyz="0 0 0"/>
+    </inertial>
+  </link>
+  <joint name="box_bottom_to_wall_py" type="fixed">
+    <parent link="box_bottom"/>
+    <child link="box_wall_py"/>
+    <origin rpy="0 0 0" xyz="0 0.135 0.145"/>
+  </joint>
+
+  <link name="box_wall_ny">
+    <visual>
+      <geometry>
+        <box size="0.345 0.005 0.29"/>
+      </geometry>
+    </visual>
+    <collision>
+      <geometry>
+        <box size="0.345 0.005 0.29"/>
+      </geometry>
+      <origin xyz="0 0 0"/>
+    </collision>
+    <inertial>
+      <mass value="0.1"/>
+      <inertia ixx="0.01" ixy="0.0" ixz="0.0" iyy="0.01" iyz="0.0" izz="0.01"/>
+      <origin xyz="0 0 0"/>
+    </inertial>
+  </link>
+  <joint name="box_bottom_to_wall_ny" type="fixed">
+    <parent link="box_bottom"/>
+    <child link="box_wall_ny"/>
+    <origin rpy="0 0 0" xyz="0 -0.135 0.145"/>
+  </joint>
+
+  <link name="box_lid_px">
+    <visual>
+      <geometry>
+        <box size="0.125 0.27 0.005"/>
+      </geometry>
+      <origin xyz="0.0625 0 0"/>
+    </visual>
+    <collision>
+      <geometry>
+        <box size="0.125 0.27 0.005"/>
+      </geometry>
+      <origin xyz="0.0625 0 0"/>
+    </collision>
+    <inertial>
+      <mass value="0.1"/>
+      <inertia ixx="0.01" ixy="0.0" ixz="0.0" iyy="0.01" iyz="0.0" izz="0.01"/>
+      <origin xyz="0.0625 0 0"/>
+    </inertial>
+  </link>
+  <joint name="box_wall_px_to_box_lid_px" type="revolute">
+    <parent link="box_wall_px"/>
+    <child link="box_lid_px"/>
+    <origin rpy="0 0 0" xyz="0 0 0.145"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-4.71" upper="1.57079632679" effort="1000" velocity="-1"/>
+    <dynamics damping="0.00" friction="0.0"/>
+  </joint>
+
+  <link name="box_lid_nx">
+    <visual>
+      <geometry>
+        <box size="0.125 0.27 0.005"/>
+      </geometry>
+      <origin xyz="-0.0625 0 0"/>
+    </visual>
+    <collision>
+      <geometry>
+        <box size="0.125 0.27 0.005"/>
+      </geometry>
+      <origin xyz="-0.0625 0 0"/>
+    </collision>
+    <inertial>
+      <mass value="0.1"/>
+      <inertia ixx="0.01" ixy="0.0" ixz="0.0" iyy="0.01" iyz="0.0" izz="0.01"/>
+      <origin xyz="-0.0625 0 0"/>
+    </inertial>
+  </link>
+  <joint name="box_wall_nx_to_box_lid_nx" type="revolute">
+    <parent link="box_wall_nx"/>
+    <child link="box_lid_nx"/>
+    <origin rpy="0 0 0" xyz="0 0 0.145"/>
+    <axis xyz="0 -1 0"/>
+    <limit lower="-4.71" upper="1.57079632679" effort="1000" velocity="-1"/>
+    <dynamics damping="0.00" friction="0.0"/>
+  </joint>
+
+  <link name="box_lid_py">
+    <visual>
+      <geometry>
+        <box size="0.345 0.125 0.005"/>
+      </geometry>
+      <origin xyz="0 0.0625 0"/>
+    </visual>
+    <collision>
+      <geometry>
+        <box size="0.345 0.125 0.005"/>
+      </geometry>
+      <origin xyz="0 0.0625 0"/>
+    </collision>
+    <inertial>
+      <mass value="0.1"/>
+      <inertia ixx="0.01" ixy="0.0" ixz="0.0" iyy="0.01" iyz="0.0" izz="0.01"/>
+      <origin xyz="0 0.0625 0"/>
+    </inertial>
+  </link>
+  <joint name="box_wall_py_to_box_lid_py" type="revolute">
+    <parent link="box_wall_py"/>
+    <child link="box_lid_py"/>
+    <origin rpy="0 0 0" xyz="0 0 0.145"/>
+    <axis xyz="-1 0 0"/>
+    <limit lower="-4.71" upper="1.57079632679" effort="1000" velocity="-1"/>
+    <dynamics damping="0.00" friction="0.0"/>
+  </joint>
+
+  <link name="box_lid_ny">
+    <visual>
+      <geometry>
+        <box size="0.345 0.125 0.005"/>
+      </geometry>
+      <origin xyz="0 -0.0625 0"/>
+    </visual>
+    <collision>
+      <geometry>
+        <box size="0.345 0.125 0.005"/>
+      </geometry>
+      <origin xyz="0 -0.0625 0"/>
+    </collision>
+    <inertial>
+      <mass value="0.1"/>
+      <inertia ixx="0.01" ixy="0.0" ixz="0.0" iyy="0.01" iyz="0.0" izz="0.01"/>
+      <origin xyz="0 -0.0625 0"/>
+    </inertial>
+  </link>
+  <joint name="box_wall_ny_to_box_lid_ny" type="revolute">
+    <parent link="box_wall_ny"/>
+    <child link="box_lid_ny"/>
+    <origin rpy="0 0 0" xyz="0 0 0.145"/>
+    <axis xyz="1 0 0"/>
+    <limit lower="-4.71" upper="1.57079632679" effort="1000" velocity="-1"/>
+    <dynamics damping="0.00" friction="0.0"/>
+  </joint>
+
+</robot>
+
+
+  

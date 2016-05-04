@@ -1,0 +1,35 @@
+manipulator:
+  urdf: "/software/drake/drake/examples/IRB140/urdf/irb_140.urdf"
+  state_channel: "EST_ROBOT_STATE"
+
+manipulands:
+  irb140:
+    urdf: "/software/perception/manipulation_tracking/urdf/irb140_chull_robotiq_actuated_fingers.urdf"
+    q0:
+      base_x: -0.17
+      base_z: 0.91
+  desk:
+    urdf: "/software/perception/manipulation_tracking/urdf/desk.urdf"
+    q0:
+      base_x: 0.67
+      base_z: 0.5
+  cardboard_box:
+    urdf: "/software/perception/manipulation_tracking/urdf/cardbox_box_hollow_with_lid.urdf"
+    q0: 
+      base_x: 0.67
+      base_z: 0.71
+      #box_wall_px_to_box_lid_px: -0.8
+      #box_wall_nx_to_box_lid_nx: -0.8
+      box_wall_py_to_box_lid_py: -0.8
+      box_wall_ny_to_box_lid_ny: -0.8
+      box_wall_px_to_box_lid_px: 1.57
+      box_wall_nx_to_box_lid_nx: 1.57
+      #box_wall_py_to_box_lid_py: -3.14
+      #box_wall_ny_to_box_lid_ny: -3.14
+  jasmine_tea_box:
+    urdf: "/software/perception/manipulation_tracking/urdf/jasmine_tea_box.urdf"
+    q0: 
+      base_x: 0.67
+      base_z: 0.71
+
+config: "/software/config/irb140/irb140.cfg"

@@ -1,0 +1,67 @@
+manipulator:
+  urdf: "/software/drake/drake/examples/IRB140/urdf/irb_140.urdf"
+  state_channel: "EST_ROBOT_STATE"
+
+manipulands:
+  irb140:
+    #urdf: "/software/perception/manipulation_tracking/urdf/irb140_chull_robotiq_actuated_fingers.urdf"
+    urdf: "/software/perception/manipulation_tracking/urdf/irb140_chull_robotiq_fourbar_fingers.urdf"
+    q0:
+      base_x: -0.17
+      base_z: 0.91
+      finger_1_joint_1: 0.339477
+      finger_1_joint_2: 0.778470
+      finger_1_joint_3: 0.383365
+      finger_1_fourbar_0_joint_1: -1.245221
+      finger_1_fourbar_0_joint_2: 1.321350
+      finger_1_fourbar_0_joint_3: -0.933647
+      finger_1_fourbar_3_joint_1: -0.961210
+      finger_1_fourbar_3_joint_2: 1.247278
+      finger_1_fourbar_3_joint_3: -1.011859
+      finger_1_fourbar_linkage_joint_1: 1.471269
+      finger_2_joint_1: 0.400276
+      finger_2_joint_2: 0.623641
+      finger_2_joint_3: 0.371457
+      finger_2_fourbar_0_joint_1: -1.264557
+      finger_2_fourbar_0_joint_2: 1.397440
+      finger_2_fourbar_0_joint_3: -1.093030
+      finger_2_fourbar_3_joint_1: -0.965760
+      finger_2_fourbar_3_joint_2: 1.250744
+      finger_2_fourbar_3_joint_3: -1.009455
+      finger_2_fourbar_linkage_joint_1: 1.471281
+      finger_middle_joint_1: 0.170630
+      finger_middle_joint_2: 0.800355
+      finger_middle_joint_3: 0.484916
+      finger_middle_fourbar_0_joint_1: -1.403969
+      finger_middle_fourbar_0_joint_2: 1.312035
+      finger_middle_fourbar_0_joint_3: -0.913138
+      finger_middle_fourbar_3_joint_1: -0.962583
+      finger_middle_fourbar_3_joint_2: 1.248322
+      finger_middle_fourbar_3_joint_3: -1.116284
+      finger_middle_fourbar_linkage_joint_1: 1.471276
+
+  desk:
+    urdf: "/software/perception/manipulation_tracking/urdf/desk.urdf"
+    q0:
+      base_x: 0.67
+      base_z: 0.5
+  cardboard_box:
+    urdf: "/software/perception/manipulation_tracking/urdf/cardbox_box_hollow_with_lid.urdf"
+    q0: 
+      base_x: 0.5
+      base_z: 0.71
+      #box_wall_px_to_box_lid_px: -0.8
+      #box_wall_nx_to_box_lid_nx: -0.8
+      #box_wall_py_to_box_lid_py: -0.8
+      #box_wall_ny_to_box_lid_ny: -0.8
+      box_wall_px_to_box_lid_px: 1.57
+      box_wall_nx_to_box_lid_nx: 1.57
+      box_wall_py_to_box_lid_py: -3.14
+      box_wall_ny_to_box_lid_ny: -3.14
+  jasmine_tea_box:
+    urdf: "/software/perception/manipulation_tracking/urdf/jasmine_tea_box.urdf"
+    q0: 
+      base_x: 0.67
+      base_z: 0.71
+
+config: "/software/config/irb140/irb140.cfg"
