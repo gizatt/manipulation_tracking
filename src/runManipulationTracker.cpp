@@ -118,6 +118,9 @@ int main(int argc, char** argv) {
     if (config["costs"]["dynamics"]){
       cost_info.dynamics_floating_base_var = config["costs"]["dynamics"]["dynamics_floating_base_var"].as<double>();
       cost_info.dynamics_other_var = config["costs"]["dynamics"]["dynamics_other_var"].as<double>();
+    }    
+    if (config["costs"]["gelsight"]){
+      cost_info.gelsight_depth_var = config["costs"]["gelsight"]["gelsight_depth_var"].as<double>();
     }
     estimator->setCosts(cost_info);
     cout << "Costs loaded." << endl;

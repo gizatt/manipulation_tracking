@@ -88,6 +88,9 @@ costs:
     dynamics_floating_base_var: 0.0001 # m per frame
     dynamics_other_var: 0.1 # rad per frame
 
+  gelsight:
+    gelsight_depth_var: 0.0001 
+    
 bounds:
   x: [0.3, 1.0]
   y: [-0.4, 0.4]

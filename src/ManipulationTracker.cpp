@@ -123,6 +123,7 @@ ManipulationTracker::ManipulationTracker(std::shared_ptr<RigidBodyTree> arm, std
   //visualizer = make_shared<Drake::BotVisualizer<Drake::RigidBodySystem::StateVector>>(make_shared<lcm::LCM>(lcm),manipuland);
 
   cv::namedWindow( "ManipulationTrackerDebug", cv::WINDOW_AUTOSIZE );
+  cv::namedWindow( "ManipulationTrackerGelsightDepth", cv::WINDOW_AUTOSIZE );
   cv::startWindowThread();
 }
 
@@ -771,6 +772,22 @@ void ManipulationTracker::performCompleteICP(Eigen::Isometry3d& kinect2world, Ei
     //printf("Spent %f in position constraints.\n", getUnixTime() - now);
   }
 
+
+  /***********************************************
+                POSITION CONSTRAINTS
+    *********************************************/  
+  if (!std::isinf(cost_info.gelsight_depth_var)){
+    cv::Mat image_disp;
+    gelsight_frame_mutex.lock();
+    eigen2cv(latest_gelsight_image, image_disp);
+    gelsight_frame_mutex.unlock();
+    if (latest_gelsight_image.size() > 0){
+      cv::resize(image_disp, image_disp, cv::Size(640, 480));
+      cv::imshow("ManipulationTrackerGelsightDepth", image_disp);
+    }
+  }
+
+    
   /***********************************************
                        SOLVE
     *********************************************/
@@ -811,6 +828,8 @@ void ManipulationTracker::setupSubscriptions(const char* state_channelname,
   auto hand_state_sub = lcm.subscribe(hand_state_channelname, &ManipulationTracker::handleLeftHandStateMsg, this);
   hand_state_sub->setQueueCapacity(1);
 
+  auto gelsight_frame_sub = lcm.subscribe("GELSIGHT_CONTACT", &ManipulationTracker::handleGelsightFrameMsg, this);
+  gelsight_frame_sub->setQueueCapacity(1);
 }
 
 void ManipulationTracker::handleSavePointcloudMsg(const lcm::ReceiveBuffer* rbuf,
@@ -925,6 +944,35 @@ void ManipulationTracker::handleRobotStateMsg(const lcm::ReceiveBuffer* rbuf,
 
 }
 
+void ManipulationTracker::handleGelsightFrameMsg(const lcm::ReceiveBuffer* rbuf,
+                         const std::string& chan,
+                         const bot_core::image_t* msg){
+  gelsight_frame_mutex.lock();
+
+  // gelsight frame comes in as an image
+  bool success = false;
+  cv::Mat decodedImage;
+  if (msg->pixelformat == bot_core::image_t::PIXEL_FORMAT_MJPEG){
+    decodedImage = cv::imdecode(msg->data, 0);
+    success = (decodedImage.rows > 0);
+  } else {
+    printf("Got a Gelsight image in a format I don't understand: %d\n", msg->pixelformat);
+  }
+  if (success){
+    if (latest_gelsight_image.rows() != msg->height || latest_gelsight_image.cols() != msg->width){
+      latest_gelsight_image.resize(msg->height, msg->width);
+      gelsight_num_pixel_rows = msg->height;
+      gelsight_num_pixel_cols = msg->width;
+    }
+    for(long int v=0; v<gelsight_num_pixel_rows; v++) { // t2b self->height 480
+      for(long int u=0; u<gelsight_num_pixel_cols; u++ ) {  //l2r self->width 640
+        latest_gelsight_image(v, u) = ((float) decodedImage.at<uint8_t>(v, u)) / 255.0;
+      }
+    }
+  }
+
+  gelsight_frame_mutex.unlock();
+}
 
 void ManipulationTracker::handleKinectFrameMsg(const lcm::ReceiveBuffer* rbuf,
                            const std::string& chan,

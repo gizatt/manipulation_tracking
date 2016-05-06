@@ -17,6 +17,7 @@
 #include "lcmtypes/kinect/frame_msg_t.hpp"
 #include "lcmtypes/bot_core/robot_state_t.hpp"
 #include "lcmtypes/bot_core/joint_state_t.hpp"
+#include "lcmtypes/bot_core/image_t.hpp"
 #include <kinect/kinect-utils.h>
 #include <mutex>
 #include <bot_lcmgl_client/lcmgl.h>
@@ -77,6 +78,7 @@ public:
     double dynamics_floating_base_var = INFINITY; // m per frame
     double dynamics_other_var = INFINITY; // rad per frame
     double free_space_var = INFINITY;
+    double gelsight_depth_var = INFINITY;
   };
   void setCosts(CostInfoStore cost_info_);
 
@@ -101,6 +103,10 @@ public:
                            const std::string& chan,
                            const bot_core::rigid_transform_t* msg);
 
+  void handleGelsightFrameMsg(const lcm::ReceiveBuffer* rbuf,
+                         const std::string& chan,
+                         const bot_core::image_t* msg);
+
   void handleKinectFrameMsg(const lcm::ReceiveBuffer* rbuf,
                            const std::string& chan,
                            const kinect::frame_msg_t* msg);
@@ -123,6 +129,7 @@ private:
   Eigen::Matrix<double, Eigen::Dynamic, 1> lambda_manipuland;
 
   std::mutex x_manipuland_measured_mutex;
+  std::mutex gelsight_frame_mutex;
   bool transcribe_published_floating_base;
   Eigen::Matrix<double, Eigen::Dynamic, 1> x_manipuland_measured;
   std::vector<bool> x_manipuland_measured_known;
@@ -132,6 +139,11 @@ private:
   Eigen::Matrix<double, 3, Eigen::Dynamic> latest_cloud;
   Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> latest_depth_image;
   Eigen::Matrix<double, 3, Eigen::Dynamic> raycast_endpoints;
+
+  Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> latest_gelsight_image;
+  int gelsight_num_pixel_cols = 640;
+  int gelsight_num_pixel_rows = 640;
+
 
   double downsample_amount = 15.0;
   int input_num_pixel_cols = 640;
