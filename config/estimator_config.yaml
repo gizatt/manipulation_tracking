@@ -39,7 +39,6 @@ manipulands:
       finger_middle_fourbar_3_joint_2: 1.248322
       finger_middle_fourbar_3_joint_3: -1.116284
       finger_middle_fourbar_linkage_joint_1: 1.471276
-
   desk:
     urdf: "/software/perception/manipulation_tracking/urdf/desk.urdf"
     q0:
@@ -65,6 +64,29 @@ manipulands:
       base_z: 0.71
 
 config: "/software/config/irb140/irb140.cfg"
+
+costs:
+  icp_kinect:
+    icp_var: 0.05 # m
+    max_considered_icp_distance: 0.075
+    min_considered_joint_distance: 0.03
+
+  free_space:
+    free_space_var: 0.1
+
+  known_position:
+    joint_known_fb_var: 0.1 # m
+    joint_known_encoder_var: 0.001 # radian
+
+  joint_limit:
+    joint_limit_var: 0.01 # one-sided, radians
+
+  position_constraint:
+    position_constraint_var: 0.1 # one-sided, radians
+
+  dynamics:
+    dynamics_floating_base_var: 0.0001 # m per frame
+    dynamics_other_var: 0.1 # rad per frame
 
 bounds:
   x: [0.3, 1.0]

@@ -65,6 +65,21 @@ public:
   };
   void setBounds(BoundingBox bounds); 
 
+  struct CostInfoStore
+  {
+    double icp_var = INFINITY; // m
+    double MAX_CONSIDERED_ICP_DISTANCE = INFINITY;
+    double MIN_CONSIDERED_JOINT_DISTANCE = 0.0;
+    double joint_known_fb_var = INFINITY; // m
+    double joint_known_encoder_var = INFINITY; // radian
+    double joint_limit_var = INFINITY; // one-sided, radians
+    double position_constraint_var = INFINITY; // one-sided, radians
+    double dynamics_floating_base_var = INFINITY; // m per frame
+    double dynamics_other_var = INFINITY; // rad per frame
+    double free_space_var = INFINITY;
+  };
+  void setCosts(CostInfoStore cost_info_);
+
   void update(double dt);
   void performCompleteICP(Eigen::Isometry3d& kinect2world, Eigen::MatrixXd& depth_image, Eigen::Matrix3Xd& points);
 
@@ -137,6 +152,8 @@ private:
   std::shared_ptr<Drake::BotVisualizer<Drake::RigidBodySystem::StateVector>> visualizer;
   BoundingBox pointcloud_bounds;
 
+  // costs info, mostly initialized from yaml
+  CostInfoStore cost_info;
 };
 
 #endif

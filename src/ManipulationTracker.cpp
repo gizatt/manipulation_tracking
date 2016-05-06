@@ -130,6 +130,10 @@ void ManipulationTracker::setBounds(BoundingBox bounds){
   pointcloud_bounds = bounds;
 }
 
+void ManipulationTracker::setCosts(CostInfoStore cost_info_){
+  cost_info = cost_info_;
+}
+
 void ManipulationTracker::initBotConfig(const char* filename)
 {
   if (filename && filename[0])
@@ -310,33 +314,11 @@ void ManipulationTracker::performCompleteICP(Eigen::Isometry3d& kinect2world, Ei
   Q.setZero();
   double K = 0.;
 
-  double icp_var = 0.05; // m
-  double joint_known_fb_var = 0.1; // m
-  double joint_known_encoder_var = 0.001; // radian
-  double joint_limit_var = 0.01; // one-sided, radians
-  double position_constraint_var = 0.1; // one-sided, radians
-
-  double dynamics_floating_base_var = 0.0001; // m per frame
-  double dynamics_other_var = 0.1; // rad per frame
-
-  double free_space_var = 0.1;
-
-  double ICP_WEIGHT = 1 / (2. * icp_var * icp_var);
-  double FREE_SPACE_WEIGHT = 1 / (2. * free_space_var * free_space_var);
-  double JOINT_LIMIT_WEIGHT = 1 / (2. * joint_limit_var * joint_limit_var);
-  double POSITION_CONSTRAINT_WEIGHT = 1 / (2. * position_constraint_var * position_constraint_var);
-  double JOINT_KNOWN_FLOATING_BASE_WEIGHT = 1 / (2. * joint_known_fb_var * joint_known_fb_var);
-  double JOINT_KNOWN_ENCODER_WEIGHT = 1 / (2. * joint_known_encoder_var * joint_known_encoder_var);
-  double DYNAMICS_FLOATING_BASE_WEIGHT = 1 / (2. * dynamics_floating_base_var * dynamics_floating_base_var);
-  double DYNAMICS_OTHER_WEIGHT = 1 / (2. * dynamics_other_var * dynamics_other_var);
-
-  double MAX_CONSIDERED_ICP_DISTANCE = 0.075;
-  double MIN_CONSIDERED_JOINT_DISTANCE = 0.03;
-
   /***********************************************
                 Articulated ICP 
     *********************************************/
-  if (ICP_WEIGHT > 0){
+  if (!std::isinf(cost_info.icp_var)){
+    double ICP_WEIGHT = 1. / (2. * cost_info.icp_var * cost_info.icp_var);
     now = getUnixTime();
 
     VectorXd phi(points.cols());
@@ -371,7 +353,7 @@ void ManipulationTracker::performCompleteICP(Eigen::Isometry3d& kinect2world, Ei
             if (points(0, j) == 0.0){
               cout << "Zero points " << points.block<3, 1>(0, j).transpose() << " slipping in at bdyidx " << body_idx[j] << endl;
             }
-            if ((points.block<3, 1>(0, j) - x.block<3, 1>(0, j)).norm() <= MAX_CONSIDERED_ICP_DISTANCE){
+            if ((points.block<3, 1>(0, j) - x.block<3, 1>(0, j)).norm() <= cost_info.MAX_CONSIDERED_ICP_DISTANCE){
               auto joint = dynamic_cast<const RevoluteJoint *>(&manipuland->bodies[body_idx[j]]->getJoint());
               bool too_close_to_joint = false;
               if (joint){
@@ -382,7 +364,7 @@ void ManipulationTracker::performCompleteICP(Eigen::Isometry3d& kinect2world, Ei
                 // distance to that axis:
                 double np = p.transpose() * n;
                 double dist_to_joint_axis = (p - (np*n)).norm();
-                if (dist_to_joint_axis <= MIN_CONSIDERED_JOINT_DISTANCE){
+                if (dist_to_joint_axis <= cost_info.MIN_CONSIDERED_JOINT_DISTANCE){
                   too_close_to_joint = true;
                 }
               }
@@ -417,7 +399,6 @@ void ManipulationTracker::performCompleteICP(Eigen::Isometry3d& kinect2world, Ei
         // for Ks = (z - z_prime + Jz*q_old)
 
         bool POINT_TO_PLANE = false;
-
         for (int j=0; j < k; j++){
           MatrixXd Ks = z.col(j) - z_prime.col(j) + J.block(3*j, 0, 3, nq)*q_old;
           if (POINT_TO_PLANE){
@@ -436,7 +417,7 @@ void ManipulationTracker::performCompleteICP(Eigen::Isometry3d& kinect2world, Ei
             if (z(0, j) == 0.0){
               cout << "Got zero z " << z.block<3, 1>(0, j).transpose() << " at z prime " << z_prime.block<3, 1>(0, j).transpose() << endl;
             }
-            double dist_normalized = fmin(MAX_CONSIDERED_ICP_DISTANCE, (z.col(j) - z_prime.col(j)).norm()) / MAX_CONSIDERED_ICP_DISTANCE;
+            double dist_normalized = fmin(cost_info.MAX_CONSIDERED_ICP_DISTANCE, (z.col(j) - z_prime.col(j)).norm()) / cost_info.MAX_CONSIDERED_ICP_DISTANCE;
    
             bot_lcmgl_begin(lcmgl_icp_, LCMGL_LINES);
             bot_lcmgl_color3f(lcmgl_icp_, dist_normalized*dist_normalized, 0, (1.0-dist_normalized)*(1.0-dist_normalized));
@@ -465,7 +446,9 @@ void ManipulationTracker::performCompleteICP(Eigen::Isometry3d& kinect2world, Ei
   /***********************************************
                 FREE SPACE CONSTRAINT
     *********************************************/
-  if (FREE_SPACE_WEIGHT > 0){
+  if (!std::isinf(cost_info.free_space_var)){
+    double FREE_SPACE_WEIGHT = 1. / (2. * cost_info.free_space_var * cost_info.free_space_var);
+
     now = getUnixTime();
 
     // calculate SDFs in the image plane (not voxel grid like DART... too expensive
@@ -681,7 +664,10 @@ void ManipulationTracker::performCompleteICP(Eigen::Isometry3d& kinect2world, Ei
   /***********************************************
                 DYNAMICS HINTS
     *********************************************/
-  if (DYNAMICS_OTHER_WEIGHT > 0 || DYNAMICS_FLOATING_BASE_WEIGHT > 0){
+  if (!std::isinf(cost_info.dynamics_other_var) || !std::isinf(cost_info.dynamics_floating_base_var)){
+    double DYNAMICS_OTHER_WEIGHT = std::isinf(cost_info.dynamics_other_var) ? 0.0 : 1. / (2. * cost_info.dynamics_other_var * cost_info.dynamics_other_var);
+    double DYNAMICS_FLOATING_BASE_WEIGHT = std::isinf(cost_info.dynamics_floating_base_var) ? 0.0 : 1. / (2. * cost_info.dynamics_floating_base_var * cost_info.dynamics_floating_base_var);
+
     now = getUnixTime();
     // for now, foh on dynamics
     // min (x - x')^2
@@ -703,7 +689,10 @@ void ManipulationTracker::performCompleteICP(Eigen::Isometry3d& kinect2world, Ei
   /***********************************************
                 KNOWN POSITION HINTS
     *********************************************/
-  if (JOINT_KNOWN_ENCODER_WEIGHT > 0 || JOINT_KNOWN_FLOATING_BASE_WEIGHT > 0){
+  if (!std::isinf(cost_info.joint_known_fb_var) || !std::isinf(cost_info.joint_known_encoder_var)){
+    double JOINT_KNOWN_FLOATING_BASE_WEIGHT = std::isinf(cost_info.joint_known_fb_var) ? 0.0 : 1. / (2. * cost_info.joint_known_fb_var * cost_info.joint_known_fb_var);
+    double JOINT_KNOWN_ENCODER_WEIGHT = std::isinf(cost_info.joint_known_encoder_var) ? 0.0 : 1. / (2. * cost_info.joint_known_encoder_var * cost_info.joint_known_encoder_var);
+
     now = getUnixTime();
     // min (x - x')^2
     // i.e. min x^2 - 2xx' + x'^2
@@ -732,7 +721,9 @@ void ManipulationTracker::performCompleteICP(Eigen::Isometry3d& kinect2world, Ei
   /***********************************************
                 JOINT LIMIT CONSTRAINTS
     *********************************************/
-  if (JOINT_LIMIT_WEIGHT > 0){
+  if (!std::isinf(cost_info.joint_limit_var)){
+    double JOINT_LIMIT_WEIGHT = 1. / (2. * cost_info.joint_limit_var * cost_info.joint_limit_var);
+
     now = getUnixTime();
     // push negative ones back towards their limits
     // phi_jl(i) = J_jl(i,i)*(x - lim)
@@ -757,8 +748,10 @@ void ManipulationTracker::performCompleteICP(Eigen::Isometry3d& kinect2world, Ei
 
   /***********************************************
                 POSITION CONSTRAINTS
-    *********************************************/
-  if (POSITION_CONSTRAINT_WEIGHT > 0){
+    *********************************************/  
+  if (!std::isinf(cost_info.position_constraint_var)){
+    double POSITION_CONSTRAINT_WEIGHT = 1. / (2. * cost_info.position_constraint_var * cost_info.position_constraint_var);
+
     now = getUnixTime();
 
     VectorXd positionConstraints = manipuland->positionConstraints(manipuland_kinematics_cache);

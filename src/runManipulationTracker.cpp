@@ -94,6 +94,37 @@ int main(int argc, char** argv) {
     cout << "Bounds not set" << endl;
   }
 
+  // if the yaml file has cost info, set them in the estimator
+  if (config["costs"]){
+    ManipulationTracker::CostInfoStore cost_info;
+    if (config["costs"]["icp_kinect"]){
+      cost_info.icp_var = config["costs"]["icp_kinect"]["icp_var"].as<double>();
+      cost_info.MAX_CONSIDERED_ICP_DISTANCE = config["costs"]["icp_kinect"]["max_considered_icp_distance"].as<double>();
+      cost_info.MIN_CONSIDERED_JOINT_DISTANCE = config["costs"]["icp_kinect"]["min_considered_joint_distance"].as<double>();
+    }
+    if (config["costs"]["free_space"]){
+      cost_info.free_space_var = config["costs"]["free_space"]["free_space_var"].as<double>();
+    }
+    if (config["costs"]["known_position"]){
+      cost_info.joint_known_fb_var = config["costs"]["known_position"]["joint_known_fb_var"].as<double>();
+      cost_info.joint_known_encoder_var = config["costs"]["known_position"]["joint_known_encoder_var"].as<double>();
+    }
+    if (config["costs"]["joint_limit"]){
+      cost_info.joint_limit_var = config["costs"]["joint_limit"]["joint_limit_var"].as<double>();
+    }
+    if (config["costs"]["position_constraint"]){
+      cost_info.position_constraint_var = config["costs"]["position_constraint"]["position_constraint_var"].as<double>();
+    }
+    if (config["costs"]["dynamics"]){
+      cost_info.dynamics_floating_base_var = config["costs"]["dynamics"]["dynamics_floating_base_var"].as<double>();
+      cost_info.dynamics_other_var = config["costs"]["dynamics"]["dynamics_other_var"].as<double>();
+    }
+    estimator->setCosts(cost_info);
+    cout << "Costs loaded." << endl;
+  } else {
+    cout << "Costs not loaded." << endl;
+  }
+
   std::cout << "Manipulation Tracker Listening" << std::endl;
   estimator->run();
   return 0;
