@@ -149,8 +149,10 @@ void ManipulationTracker::update(){
   // generate from registered costs:
   for (auto it=registeredCosts.begin(); it != registeredCosts.end(); it++){
     VectorXd f_new(nq);
+    f_new.setZero();
     MatrixXd Q_new(nq, nq);
-    double K_new;
+    Q_new.setZero();
+    double K_new = 0.0;
     bool use = (*it)->constructCost(Q_new, f_new, K_new);
     if (use){
       f += f_new;
@@ -160,13 +162,46 @@ void ManipulationTracker::update(){
   }
   // solve if we had any useful costs:
   if (K > 0.0){
-    VectorXd q_new = Q.colPivHouseholderQr().solve(-f);
+    // cut out variables that do not enter at all -- i.e., their row and column of Q, and row of f, are 0
+    MatrixXd Q_reduced;
+    VectorXd f_reduced;
+
+    std::vector<bool> rows_used(nq, false);
+    int nq_reduced = 0;
+    for (int i=0; i < nq; i++){
+      if ( !(fabs(f[i]) <= 1E-10 && Q.block(i, 0, 1, nq).norm() <= 1E-10 && Q.block(0, i, nq, 1).norm() <= 1E-10) ){
+        rows_used[i] = true;
+        nq_reduced++;
+      }
+    }
+    Q_reduced.resize(nq_reduced, nq_reduced);
+    f_reduced.resize(nq_reduced, 1);
+    int ir = 0, jr = 0;
+    for (int i=0; i < nq; i++){
+      if (rows_used[i]){
+        jr = 0;
+        for (int j=0; j < nq; j++){
+          if (rows_used[j]){
+            Q_reduced(ir, jr) = Q(i, j);
+            jr++;
+          }
+        }
+        f_reduced[ir] = f[i];
+        ir++;
+      }
+    }
+
+    VectorXd q_new_reduced = Q_reduced.colPivHouseholderQr().solve(-f_reduced);
     // for now only dealing with positions. Should actually
     // require setting of the full-size Q, F, K, and at this point
     // cut out appropriate rows that are totally unconstrained.
-    for (int i=0; i < nq; i++)
-      if (q_new[i] == q_new[i]) // filter for nan
-        x_robot[i] = q_new[i];
+    ir = 0;
+    for (int i=0; i < nq; i++){
+      if (rows_used[i] && q_new_reduced[ir] == q_new_reduced[ir]){
+        x_robot[i] = q_new_reduced[ir];
+        ir++;
+      }
+    }
   }
 
   if (verbose)
