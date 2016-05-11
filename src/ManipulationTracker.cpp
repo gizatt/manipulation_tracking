@@ -166,6 +166,7 @@ void ManipulationTracker::update(){
     MatrixXd Q_reduced;
     VectorXd f_reduced;
 
+    // is it used?
     std::vector<bool> rows_used(nq, false);
     int nq_reduced = 0;
     for (int i=0; i < nq; i++){
@@ -174,6 +175,7 @@ void ManipulationTracker::update(){
         nq_reduced++;
       }
     }
+    // do this reduction (collapse the rows/cols of vars that don't correspond)
     Q_reduced.resize(nq_reduced, nq_reduced);
     f_reduced.resize(nq_reduced, 1);
     int ir = 0, jr = 0;
@@ -191,10 +193,10 @@ void ManipulationTracker::update(){
       }
     }
 
+    // perform reduced solve
     VectorXd q_new_reduced = Q_reduced.colPivHouseholderQr().solve(-f_reduced);
-    // for now only dealing with positions. Should actually
-    // require setting of the full-size Q, F, K, and at this point
-    // cut out appropriate rows that are totally unconstrained.
+
+    // reexpand
     ir = 0;
     for (int i=0; i < nq; i++){
       if (rows_used[i] && q_new_reduced[ir] == q_new_reduced[ir]){
