@@ -6,11 +6,18 @@ pods_use_pkg_config_packages(test_2D_sdf eigen3)
 pods_install_executables(test_2D_sdf)
 
 add_library(ManipulationTracker SHARED ManipulationTracker.cpp)
-pods_use_pkg_config_packages(ManipulationTracker lcmtypes_drc_lcmtypes lcm drake-convex-hull kinect-utils lcmtypes_kinect bot2-lcmgl-client bot2-core bot2-frames bot2-param-client opencv yaml-cpp eigen3)
-target_link_libraries(ManipulationTracker drakeRBM lcmtypes_kinect)
+pods_use_pkg_config_packages(ManipulationTracker drake-convex-hull eigen3)
+target_link_libraries(ManipulationTracker drakeRBM yaml-cpp)
 pods_install_libraries(ManipulationTracker)
-pods_install_headers(ManipulationTracker.hpp DESTINATION control)
+pods_install_headers(ManipulationTracker.hpp DESTINATION perception_manipulation_tracker)
+
+
+add_library(RobotStateCost SHARED RobotStateCost.cpp)
+pods_use_pkg_config_packages(RobotStateCost lcmtypes_drc_lcmtypes lcm bot2-core)
+target_link_libraries(RobotStateCost ManipulationTracker yaml-cpp)
+pods_install_libraries(RobotStateCost)
+pods_install_headers(RobotStateCost.hpp DESTINATION perception_manipulation_tracker)
 
 add_executable(runManipulationTracker runManipulationTracker.cpp)
-target_link_libraries(runManipulationTracker ManipulationTracker)
+target_link_libraries(runManipulationTracker ManipulationTracker RobotStateCost yaml-cpp)
 pods_install_executables(runManipulationTracker)

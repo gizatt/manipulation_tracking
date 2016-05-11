@@ -1,171 +1,39 @@
-#ifndef IRB140_ESTIMATOR_H
-#define IRB140_ESTIMATOR_H
+#ifndef MANIPULATION_TRACKER_H
+#define MANIPULATION_TRACKER_H
 
 #include <stdexcept>
 #include <iostream>
+
+#include "drake/systems/plants/RigidBodyTree.h"
+#include "ManipulationTrackerCost.hpp"
+#include "yaml-cpp/yaml.h"
 #include <lcm/lcm-cpp.hpp>
 
-#include <sys/select.h>
-#include "drake/systems/plants/RigidBodyTree.h"
-#include "drake/systems/plants/BotVisualizer.h"
-#include "drake/systems/plants/RigidBodySystem.h"
-#include "lcmtypes/drc/utime_t.hpp"
-#include "lcmtypes/drake/lcmt_robot_state.hpp"
-#include "lcmtypes/bot_core/planar_lidar_t.hpp"
-#include "lcmtypes/bot_core/rigid_transform_t.hpp"
-#include "lcmtypes/bot_core/raw_t.hpp"
-#include "lcmtypes/kinect/frame_msg_t.hpp"
-#include "lcmtypes/bot_core/robot_state_t.hpp"
-#include "lcmtypes/bot_core/joint_state_t.hpp"
-#include "lcmtypes/bot_core/image_t.hpp"
-#include <kinect/kinect-utils.h>
-#include <mutex>
-#include <bot_lcmgl_client/lcmgl.h>
-#include <bot_frames/bot_frames.h>
-#include <bot_param/param_client.h>
-
-static double getUnixTime(void)
-{
-    struct timespec tv;
-
-    if(clock_gettime(CLOCK_REALTIME, &tv) != 0) return 0;
-
-    return (tv.tv_sec + (tv.tv_nsec / 1000000000.0));
-}
+std::shared_ptr<RigidBodyTree> setupRobotFromConfig(YAML::Node config, Eigen::VectorXd& x0_robot, std::string base_path, bool verbose = false);
 
 class ManipulationTracker {
 public:
-  ~ManipulationTracker() {}
+  ManipulationTracker(std::shared_ptr<RigidBodyTree> robot, Eigen::Matrix<double, Eigen::Dynamic, 1> x0_robot_, std::shared_ptr<lcm::LCM> lcm_, bool verbose_ = false);
+  ~ManipulationTracker() {};
 
-  ManipulationTracker(std::shared_ptr<RigidBodyTree> arm, std::shared_ptr<RigidBodyTree> manipuland, Eigen::Matrix<double, Eigen::Dynamic, 1> x0_arm, 
-    Eigen::Matrix<double, Eigen::Dynamic, 1> x0_manipuland, const char* filename, const char* state_channelname,
-    bool transcribe_published_floating_base,
-    const char* hand_state_channelname);
-  void run() {
-    while(1){
-      for (int i=0; i < 100; i++)
-        this->lcm.handleTimeout(0);
-
-      double dt = getUnixTime() - last_update_time;
-      if (dt > timestep){
-        last_update_time = getUnixTime();
-        this->update(dt);
-      }
-    }
+  // register a cost function with the solver
+  void addCost(std::shared_ptr<ManipulationTrackerCost> newCost){
+    registeredCosts.push_back(newCost);
   }
 
-  // bounds to cut down point cloud, in world coords
-  struct BoundingBox
-  {
-      double xMin = -100.;
-      double xMax = 100.;
-      double yMin = -100.;
-      double yMax = 100.;
-      double zMin = -100.;
-      double zMax = 100.;
-  };
-  void setBounds(BoundingBox bounds); 
+  void update();
+  Eigen::Matrix<double, Eigen::Dynamic, 1> output() { return x_robot; }
 
-  struct CostInfoStore
-  {
-    double icp_var = INFINITY; // m
-    double MAX_CONSIDERED_ICP_DISTANCE = INFINITY;
-    double MIN_CONSIDERED_JOINT_DISTANCE = 0.0;
-    double joint_known_fb_var = INFINITY; // m
-    double joint_known_encoder_var = INFINITY; // radian
-    double joint_limit_var = INFINITY; // one-sided, radians
-    double position_constraint_var = INFINITY; // one-sided, radians
-    double dynamics_floating_base_var = INFINITY; // m per frame
-    double dynamics_other_var = INFINITY; // rad per frame
-    double free_space_var = INFINITY;
-    double gelsight_depth_var = INFINITY;
-  };
-  void setCosts(CostInfoStore cost_info_);
-
-  void update(double dt);
-  void performCompleteICP(Eigen::Isometry3d& kinect2world, Eigen::MatrixXd& depth_image, Eigen::Matrix3Xd& points);
-
-  void setupSubscriptions(const char* state_channelname,
-    const char* hand_state_channelname);
-  void initBotConfig(const char* filename);
-  int get_trans_with_utime(std::string from_frame, std::string to_frame,
-                               long long utime, Eigen::Isometry3d & mat);
-
-  void handleSavePointcloudMsg(const lcm::ReceiveBuffer* rbuf,
-                           const std::string& chan,
-                           const bot_core::raw_t* msg);
-
-  void handlePlanarLidarMsg(const lcm::ReceiveBuffer* rbuf,
-                           const std::string& chan,
-                           const bot_core::planar_lidar_t* msg);
-
-  void handleSpindleFrameMsg(const lcm::ReceiveBuffer* rbuf,
-                           const std::string& chan,
-                           const bot_core::rigid_transform_t* msg);
-
-  void handleGelsightFrameMsg(const lcm::ReceiveBuffer* rbuf,
-                         const std::string& chan,
-                         const bot_core::image_t* msg);
-
-  void handleKinectFrameMsg(const lcm::ReceiveBuffer* rbuf,
-                           const std::string& chan,
-                           const kinect::frame_msg_t* msg);
-
-  void handleRobotStateMsg(const lcm::ReceiveBuffer* rbuf,
-                           const std::string& chan,
-                           const bot_core::robot_state_t* msg);
-
-  void handleLeftHandStateMsg(const lcm::ReceiveBuffer* rbuf,
-                           const std::string& chan,
-                           const bot_core::joint_state_t* msg);
+  // helper to publish out to lcm
+  void publish();
 
 private:
-  std::shared_ptr<RigidBodyTree> arm;
-  std::shared_ptr<RigidBodyTree> manipuland;
-  KinematicsCache<double> manipuland_kinematics_cache;
-
-  Eigen::Matrix<double, Eigen::Dynamic, 1> x_arm;
-  Eigen::Matrix<double, Eigen::Dynamic, 1> x_manipuland;
-  Eigen::Matrix<double, Eigen::Dynamic, 1> lambda_manipuland;
-
-  std::mutex x_manipuland_measured_mutex;
-  std::mutex gelsight_frame_mutex;
-  bool transcribe_published_floating_base;
-  Eigen::Matrix<double, Eigen::Dynamic, 1> x_manipuland_measured;
-  std::vector<bool> x_manipuland_measured_known;
-
-  std::mutex latest_cloud_mutex;
-  KinectCalibration* kcal;
-  Eigen::Matrix<double, 3, Eigen::Dynamic> latest_cloud;
-  Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> latest_depth_image;
-  Eigen::Matrix<double, 3, Eigen::Dynamic> raycast_endpoints;
-
-  Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> latest_gelsight_image;
-  int gelsight_num_pixel_cols = 640;
-  int gelsight_num_pixel_rows = 640;
-
-
-  double downsample_amount = 15.0;
-  int input_num_pixel_cols = 640;
-  int input_num_pixel_rows = 480;
-  int num_pixel_cols, num_pixel_rows;
-
-  double last_update_time;
-  double timestep = 0.02; // 50 hz target to not overload director
-
-  lcm::LCM lcm;
-  bot_lcmgl_t* lcmgl_lidar_ = NULL;
-  bot_lcmgl_t* lcmgl_manipuland_ = NULL;
-  bot_lcmgl_t* lcmgl_icp_ = NULL;
-  bot_lcmgl_t* lcmgl_measurement_model_ = NULL;
-  BotParam* botparam_ = NULL;
-  BotFrames* botframes_ = NULL;
-
-  std::shared_ptr<Drake::BotVisualizer<Drake::RigidBodySystem::StateVector>> visualizer;
-  BoundingBox pointcloud_bounds;
-
-  // costs info, mostly initialized from yaml
-  CostInfoStore cost_info;
+  std::shared_ptr<RigidBodyTree> robot;
+  KinematicsCache<double> robot_kinematics_cache;
+  Eigen::Matrix<double, Eigen::Dynamic, 1> x_robot;
+  std::shared_ptr<lcm::LCM> lcm;
+  std::vector<std::shared_ptr<ManipulationTrackerCost>> registeredCosts;
+  bool verbose;
 };
 
 #endif

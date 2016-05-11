@@ -1,8 +1,4 @@
-manipulator:
-  urdf: "/software/drake/drake/examples/IRB140/urdf/irb_140.urdf"
-  state_channel: "EST_ROBOT_STATE"
-
-manipulands:
+robots:
   irb140:
     #urdf: "/software/perception/manipulation_tracking/urdf/irb140_chull_robotiq_actuated_fingers.urdf"
     urdf: "/software/perception/manipulation_tracking/urdf/irb140_chull_robotiq_fourbar_fingers.urdf"
@@ -74,9 +70,11 @@ costs:
   free_space:
     free_space_var: 0.1
 
-  known_position:
+  RobotStateCost:
     joint_known_fb_var: 0.1 # m
     joint_known_encoder_var: 0.001 # radian
+    verbose: False
+    state_channelname: "EST_ROBOT_STATE"
 
   joint_limit:
     joint_limit_var: 0.01 # one-sided, radians
