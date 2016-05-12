@@ -22,6 +22,7 @@ public:
 private:
   double dynamics_floating_base_var = INFINITY;
   double dynamics_other_var = INFINITY;
+  double joint_limit_var = INFINITY;
   bool verbose = false;
 
   std::shared_ptr<lcm::LCM> lcm;

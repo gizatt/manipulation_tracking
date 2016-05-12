@@ -11,12 +11,17 @@ target_link_libraries(ManipulationTracker drakeRBM yaml-cpp)
 pods_install_libraries(ManipulationTracker)
 pods_install_headers(ManipulationTracker.hpp DESTINATION perception_manipulation_tracker)
 
-
 add_library(RobotStateCost SHARED RobotStateCost.cpp)
 pods_use_pkg_config_packages(RobotStateCost lcmtypes_drc_lcmtypes lcm bot2-core)
 target_link_libraries(RobotStateCost ManipulationTracker yaml-cpp)
 pods_install_libraries(RobotStateCost)
 pods_install_headers(RobotStateCost.hpp DESTINATION perception_manipulation_tracker)
+
+add_library(JointStateCost SHARED JointStateCost.cpp)
+pods_use_pkg_config_packages(JointStateCost lcmtypes_drc_lcmtypes lcm bot2-core)
+target_link_libraries(JointStateCost ManipulationTracker yaml-cpp)
+pods_install_libraries(JointStateCost)
+pods_install_headers(JointStateCost.hpp DESTINATION perception_manipulation_tracker)
 
 add_library(DynamicsCost SHARED DynamicsCost.cpp)
 pods_use_pkg_config_packages(DynamicsCost lcmtypes_drc_lcmtypes lcm bot2-core bot2-lcmgl-client bot2-frames bot2-param-client kinect-utils opencv)
@@ -31,5 +36,5 @@ pods_install_libraries(KinectFrameCost)
 pods_install_headers(KinectFrameCost.hpp DESTINATION perception_manipulation_tracker)
 
 add_executable(runManipulationTracker runManipulationTracker.cpp)
-target_link_libraries(runManipulationTracker ManipulationTracker RobotStateCost KinectFrameCost DynamicsCost yaml-cpp)
+target_link_libraries(runManipulationTracker ManipulationTracker RobotStateCost JointStateCost KinectFrameCost DynamicsCost yaml-cpp)
 pods_install_executables(runManipulationTracker)

@@ -77,7 +77,7 @@ bool RobotStateCost::constructCost(ManipulationTracker * tracker, Eigen::Matrix<
       }
     }
     if (verbose)
-      printf("Spent %f in joint known weight constraints.\n", getUnixTime() - now);
+      printf("Spent %f in robot reported state constraints, channel %s\n", getUnixTime() - now, state_channelname.c_str());
     return true;
   }
 }

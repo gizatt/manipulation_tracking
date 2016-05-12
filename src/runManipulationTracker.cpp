@@ -1,6 +1,7 @@
 
 #include "ManipulationTracker.hpp"
 #include "RobotStateCost.hpp"
+#include "JointStateCost.hpp"
 #include "KinectFrameCost.hpp"
 #include "DynamicsCost.hpp"
 #include "yaml-cpp/yaml.h"
@@ -37,18 +38,23 @@ int main(int argc, char** argv) {
 
   // and register all of the costs that we know how to handle
   if (config["costs"]){
-    
-    if (config["costs"]["RobotStateCost"]){
-      std::shared_ptr<RobotStateCost> cost(new RobotStateCost(robot, lcm, config["costs"]["RobotStateCost"]));
-      estimator.addCost(dynamic_pointer_cast<ManipulationTrackerCost, RobotStateCost>(cost));
-    }
-    if (config["costs"]["KinectFrameCost"]){
-      std::shared_ptr<KinectFrameCost> cost(new KinectFrameCost(robot, lcm, config["costs"]["KinectFrameCost"]));
-      estimator.addCost(dynamic_pointer_cast<ManipulationTrackerCost, KinectFrameCost>(cost));
-    }
-    if (config["costs"]["DynamicsCost"]){
-      std::shared_ptr<DynamicsCost> cost(new DynamicsCost(robot, lcm, config["costs"]["DynamicsCost"]));
-      estimator.addCost(dynamic_pointer_cast<ManipulationTrackerCost, DynamicsCost>(cost));
+    for (auto iter = config["costs"].begin(); iter != config["costs"].end(); iter++){
+      std::string cost_type = (*iter)["type"].as<string>();
+      if (cost_type == "RobotStateCost"){
+        std::shared_ptr<RobotStateCost> cost(new RobotStateCost(robot, lcm, *iter));
+        estimator.addCost(dynamic_pointer_cast<ManipulationTrackerCost, RobotStateCost>(cost));
+      } else if (cost_type == "KinectFrameCost") {
+        std::shared_ptr<KinectFrameCost> cost(new KinectFrameCost(robot, lcm, *iter));
+        estimator.addCost(dynamic_pointer_cast<ManipulationTrackerCost, KinectFrameCost>(cost));
+      } else if (cost_type == "DynamicsCost") { 
+        std::shared_ptr<DynamicsCost> cost(new DynamicsCost(robot, lcm, *iter));
+        estimator.addCost(dynamic_pointer_cast<ManipulationTrackerCost, DynamicsCost>(cost));
+      } else if (cost_type == "JointStateCost") { 
+        std::shared_ptr<JointStateCost> cost(new JointStateCost(robot, lcm, *iter));
+        estimator.addCost(dynamic_pointer_cast<ManipulationTrackerCost, JointStateCost>(cost));
+      } else {
+        cout << "Got cost type " << cost_type << " but I don't know what to do with it!" << endl;
+      }
     }
   }
 

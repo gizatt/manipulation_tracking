@@ -62,7 +62,7 @@ robots:
 config: "/software/config/irb140/irb140.cfg"
 
 costs:
-  KinectFrameCost:
+  - type: "KinectFrameCost"
     icp_var: 0.05 # m
     free_space_var: 0.1
     max_considered_icp_distance: 0.075
@@ -76,24 +76,33 @@ costs:
       zMin: 0.7
       zMax: 1.5
 
-  RobotStateCost:
+  - type: "RobotStateCost"
     joint_known_fb_var: 0.1 # m
     joint_known_encoder_var: 0.001 # radian
     verbose: False
     state_channelname: "EST_ROBOT_STATE"
 
-  joint_limit:
-    joint_limit_var: 0.01 # one-sided, radians
+  - type: "RobotiqStateCost"
+    joint_known_encoder_var: 0.001 # 
 
-  position_constraint:
+  - type: "JointStateCost"
+    state_channelname: "ROBOTIQ_LEFT_STATE"
+    joint_reported_var: 0.001
+    listen_joints:
+      - "left_finger_1_joint_1"
+      - "left_finger_2_joint_1"
+      - "left_finger_middle_joint_1"
+
+  - type: "position_constraint"
     position_constraint_var: 0.1 # one-sided, radians
 
-  DynamicsCost:
+  - type: "DynamicsCost"
     dynamics_floating_base_var: 0.0001 # m per frame
     dynamics_other_var: 0.1 # rad per frame
+    joint_limit_var: 0.01 # one-sided, radians
     verbose: False
 
-  gelsight:
+  - type: "gelsight"
     gelsight_depth_var: 0.0001 
     
 bounds:
