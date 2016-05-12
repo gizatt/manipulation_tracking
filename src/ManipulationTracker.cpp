@@ -12,49 +12,10 @@
 #include <cfloat>
 #include "drake/systems/plants/joints/RevoluteJoint.h"
 #include "lcmtypes/bot_core/robot_state_t.hpp"
+#include "common.hpp"
 
 using namespace std;
 using namespace Eigen;
-
-#define MAX_SCAN_DIST 10.0
-
-static double getUnixTime(void)
-{
-    struct timespec tv;
-
-    if(clock_gettime(CLOCK_REALTIME, &tv) != 0) return 0;
-
-    return (tv.tv_sec + (tv.tv_nsec / 1000000000.0));
-}
-
-template<typename _Tp, int _rows, int _cols, int _options, int _maxRows, int _maxCols>
-void eigen2cv( const Eigen::Matrix<_Tp, _rows, _cols, _options, _maxRows, _maxCols>& src, cv::Mat& dst)
-{
-    if( !(src.Flags & Eigen::RowMajorBit) )
-    {
-        cv::Mat _src(src.cols(), src.rows(), cv::DataType<_Tp>::type,
-              (void*)src.data(), src.stride()*sizeof(_Tp));
-        transpose(_src, dst);
-    }
-    else
-    {
-        cv::Mat _src(src.rows(), src.cols(), cv::DataType<_Tp>::type,
-                 (void*)src.data(), src.stride()*sizeof(_Tp));
-        _src.copyTo(dst);
-    }
-}
-
-// from https://forum.kde.org/viewtopic.php?f=74&t=91514
-template<typename Derived>
-inline bool is_finite(const Eigen::MatrixBase<Derived>& x)
-{
-   return ( (x - x).array() == (x - x).array()).all();
-}
-template<typename Derived>
-inline bool is_nan(const Eigen::MatrixBase<Derived>& x)
-{
-   return ((x.array() == x.array())).all();
-}
 
 std::shared_ptr<RigidBodyTree> setupRobotFromConfig(YAML::Node config, Eigen::VectorXd& x0_robot, std::string base_path, bool verbose){
   // generate robot from yaml file by adding each robot in sequence
@@ -153,7 +114,7 @@ void ManipulationTracker::update(){
     MatrixXd Q_new(nq, nq);
     Q_new.setZero();
     double K_new = 0.0;
-    bool use = (*it)->constructCost(Q_new, f_new, K_new);
+    bool use = (*it)->constructCost(this, Q_new, f_new, K_new);
     if (use){
       f += f_new;
       Q += Q_new;

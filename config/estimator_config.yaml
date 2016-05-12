@@ -62,13 +62,19 @@ robots:
 config: "/software/config/irb140/irb140.cfg"
 
 costs:
-  icp_kinect:
+  KinectFrameCost:
     icp_var: 0.05 # m
+    free_space_var: 0.1
     max_considered_icp_distance: 0.075
     min_considered_joint_distance: 0.03
-
-  free_space:
-    free_space_var: 0.1
+    verbose: False
+    bounds:
+      xMin: 0.3
+      xMax: 1.0
+      yMin: -0.4
+      yMax: 0.4
+      zMin: 0.7
+      zMax: 1.5
 
   RobotStateCost:
     joint_known_fb_var: 0.1 # m
@@ -82,14 +88,12 @@ costs:
   position_constraint:
     position_constraint_var: 0.1 # one-sided, radians
 
-  dynamics:
+  DynamicsCost:
     dynamics_floating_base_var: 0.0001 # m per frame
     dynamics_other_var: 0.1 # rad per frame
+    verbose: False
 
   gelsight:
     gelsight_depth_var: 0.0001 
     
 bounds:
-  x: [0.3, 1.0]
-  y: [-0.4, 0.4]
-  z: [0.7, 1.5]

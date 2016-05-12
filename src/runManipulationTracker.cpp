@@ -1,19 +1,13 @@
 
 #include "ManipulationTracker.hpp"
 #include "RobotStateCost.hpp"
+#include "KinectFrameCost.hpp"
+#include "DynamicsCost.hpp"
 #include "yaml-cpp/yaml.h"
+#include "common.hpp"
 
 using namespace std;
 using namespace Eigen;
-
-static double getUnixTime(void)
-{
-    struct timespec tv;
-
-    if(clock_gettime(CLOCK_REALTIME, &tv) != 0) return 0;
-
-    return (tv.tv_sec + (tv.tv_nsec / 1000000000.0));
-}
 
 int main(int argc, char** argv) {
   const char* drc_path = std::getenv("DRC_BASE");
@@ -45,10 +39,17 @@ int main(int argc, char** argv) {
   if (config["costs"]){
     
     if (config["costs"]["RobotStateCost"]){
-      std::shared_ptr<RobotStateCost> state_cost(new RobotStateCost(robot, lcm, config["costs"]["RobotStateCost"]));
-      estimator.addCost(dynamic_pointer_cast<ManipulationTrackerCost, RobotStateCost>(state_cost));
+      std::shared_ptr<RobotStateCost> cost(new RobotStateCost(robot, lcm, config["costs"]["RobotStateCost"]));
+      estimator.addCost(dynamic_pointer_cast<ManipulationTrackerCost, RobotStateCost>(cost));
     }
-
+    if (config["costs"]["KinectFrameCost"]){
+      std::shared_ptr<KinectFrameCost> cost(new KinectFrameCost(robot, lcm, config["costs"]["KinectFrameCost"]));
+      estimator.addCost(dynamic_pointer_cast<ManipulationTrackerCost, KinectFrameCost>(cost));
+    }
+    if (config["costs"]["DynamicsCost"]){
+      std::shared_ptr<DynamicsCost> cost(new DynamicsCost(robot, lcm, config["costs"]["DynamicsCost"]));
+      estimator.addCost(dynamic_pointer_cast<ManipulationTrackerCost, DynamicsCost>(cost));
+    }
   }
 
   std::cout << "Manipulation Tracker Listening" << std::endl;
