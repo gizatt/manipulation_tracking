@@ -4,12 +4,12 @@
     <visual>
       <origin rpy="0 0 0" xyz="0.15 0 0.35"/>
       <geometry>
-        <mesh filename="oil_bottle.stl"/>
+        <mesh filename="oil_bottle_big.stl" scale="0.0254 0.0254 0.0254"/>
       </geometry>
     </visual>
     <collision>
       <geometry>
-        <mesh filename="oil_bottle.stl"/>
+        <mesh filename="oil_bottle_big.stl" scale="0.0254 0.0254 0.0254"/>
       </geometry>
     </collision>
     <inertial>
