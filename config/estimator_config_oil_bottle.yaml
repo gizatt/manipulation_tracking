@@ -1,0 +1,22 @@
+manipulator:
+  urdf: "/software/drake/drake/examples/IRB140/urdf/irb_140.urdf"
+  state_channel: "EST_ROBOT_STATE"
+
+manipulands:
+  irb140:
+    urdf: "/software/control/src/urdf/irb140_chull_robotiq_actuated_fingers.urdf"
+    q0:
+      base_x: -0.17
+      base_z: 0.91
+  desk:
+    urdf: "/software/control/src/desk.urdf"
+    q0:
+      base_x: 0.67
+      base_z: 0.5
+  oil_bottle:
+    urdf: "/software/control/src/urdf/oil_bottle.urdf" 
+    q0:
+      base_x: 0.5
+      base_z: 0.6   
+
+config: "/software/config/irb140/irb140.cfg"

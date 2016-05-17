@@ -1,0 +1,21 @@
+<?xml version="1.0" ?>
+<robot name="oil_bottle">
+  <link name="bottle">
+    <visual>
+      <origin rpy="0 0 0" xyz="0.15 0 0.35"/>
+      <geometry>
+        <mesh filename="oil_bottle.stl"/>
+      </geometry>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="oil_bottle.stl"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="0.5"/>
+      <inertia ixx="0.01" ixy="0.0" ixz="0.0" iyy="0.01" iyz="0.0" izz="0.01"/>
+      <origin xyz="0 0 0"/>
+    </inertial>  
+  </link>
+</robot>
