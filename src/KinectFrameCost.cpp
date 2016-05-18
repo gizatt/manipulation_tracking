@@ -68,7 +68,7 @@ KinectFrameCost::KinectFrameCost(std::shared_ptr<RigidBodyTree> robot_, std::sha
 
   const char * filename = NULL;
   if (config["filename"])
-    filename = config["min_considered_joint_distance"].as<string>().c_str();
+    filename = config["filename"].as<string>().c_str();
   this->initBotConfig(filename);
 
 
@@ -341,15 +341,7 @@ bool KinectFrameCost::constructCost(ManipulationTracker * tracker, Eigen::Matrix
               bot_lcmgl_vertex3f(lcmgl_icp_, z(0, j), z(1, j), z(2, j));
               bot_lcmgl_vertex3f(lcmgl_icp_, z_prime(0, j), z_prime(1, j), z_prime(2, j));
               bot_lcmgl_end(lcmgl_icp_);  
-
-    /*
-              bot_lcmgl_line_width(lcmgl_icp_, 1.0f);
-              bot_lcmgl_color3f(lcmgl_icp_, 1.0, 0.0, 1.0);
-              bot_lcmgl_begin(lcmgl_icp_, LCMGL_LINES);
-              bot_lcmgl_vertex3f(lcmgl_icp_, z_prime(0, j)+z_norms(0, j)*0.01, z_prime(1, j)+z_norms(1, j)*0.01, z_prime(2, j)+z_norms(2, j)*0.01);
-              bot_lcmgl_vertex3f(lcmgl_icp_, z_prime(0, j), z_prime(1, j), z_prime(2, j));
-              bot_lcmgl_end(lcmgl_icp_);  
-    */
+              
             }
           }
         }

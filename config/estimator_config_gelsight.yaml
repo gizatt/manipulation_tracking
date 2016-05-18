@@ -1,0 +1,49 @@
+robots:
+  cube:
+    urdf: "/software/perception/manipulation_tracking/urdf/cube.urdf"
+    q0:
+      base_x: 0.0
+      base_z: 0.0
+
+costs:
+  - type: "AttachedApriltagCost"
+    verbose: true
+    timeout_time: 0.2
+    localization_var: 0.01
+    attached_manipuland: "cube"
+    apriltags:
+      - id: 1
+        body: "cube"
+        pos: [0.05, 0.0, 0.0]
+        rot: [180.0, -90.0, -90.0]
+        channel: APRIL_TAG_0001_TO_CAMERA_LEFT
+      - id: 3
+        body: "cube"
+        pos: [-0.05, 0.0, 0.0]
+        rot: [0.0, 90.0, -90.0]
+        channel: APRIL_TAG_0003_TO_CAMERA_LEFT
+      - id: 2
+        body: "cube"
+        pos: [0.0, 0.05, 0.0]
+        rot: [90.0, 0.0, 180.0]
+        channel: APRIL_TAG_0002_TO_CAMERA_LEFT
+      - id: 4
+        body: "cube"
+        pos: [0.0, -0.05, 0.0]
+        rot: [-90.0, 0.0, 0.0]
+        channel: APRIL_TAG_0004_TO_CAMERA_LEFT
+      - id: 5
+        body: "cube"
+        pos: [0.0, 0.0, 0.05]
+        rot: [180.0, 0.0, -90.0]
+        channel: APRIL_TAG_0005_TO_CAMERA_LEFT
+      - id: 6
+        body: "cube"
+        pos: [0.0, 0.0, -0.05]
+        rot: [0.0, 0.0, 90.0]
+        channel: APRIL_TAG_0006_TO_CAMERA_LEFT
+
+
+  - type: "GelsightCost"
+    gelsight_depth_var: 0.0001 
+    verbose: true
