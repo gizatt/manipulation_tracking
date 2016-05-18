@@ -131,6 +131,7 @@ bool AttachedApriltagCost::constructCost(ManipulationTracker * tracker, Eigen::M
   this->get_trans_with_utime("local", "robot_yplus_tag", utime2, world2tag);
   Eigen::Isometry3d kinect2world =  world2tag.inverse() * kinect2tag;
   kinect2world.setIdentity();
+  this->get_trans_with_utime("KINECT_RGB", "local", utime, kinect2world);
 
   detectionsMutex.lock();
   for (auto it = attachedApriltags.begin(); it != attachedApriltags.end(); it++){

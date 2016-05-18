@@ -59,10 +59,10 @@ robots:
       base_x: 0.67
       base_z: 0.71
 
-config: "/software/config/irb140/irb140.cfg"
 
 costs:
   - type: "KinectFrameCost"
+    config: "/software/config/irb140/irb140.cfg"
     icp_var: 0.05 # m
     free_space_var: 0.1
     max_considered_icp_distance: 0.075
@@ -101,8 +101,3 @@ costs:
     dynamics_other_var: 0.1 # rad per frame
     joint_limit_var: 0.01 # one-sided, radians
     verbose: False
-
-  - type: "gelsight"
-    gelsight_depth_var: 0.0001 
-    
-bounds:
