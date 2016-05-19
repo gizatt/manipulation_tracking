@@ -4,10 +4,15 @@ robots:
     q0:
       base_x: 0.0
       base_z: 0.0
-
+  gelsight_rig:
+    urdf: "/software/perception/manipulation_tracking/urdf/gelsight_rig.urdf"
+    q0:
+      base_x: 0.0
+      base_z: 0.0
 costs:
+
   - type: "AttachedApriltagCost"
-    verbose: true
+    verbose: false
     timeout_time: 0.2
     localization_var: 0.01
     attached_manipuland: "cube"
@@ -43,6 +48,25 @@ costs:
         rot: [0.0, 0.0, 90.0]
         channel: APRIL_TAG_0006_TO_CAMERA_LEFT
 
+  - type: "AttachedApriltagCost"
+    verbose: false
+    timeout_time: 0.2
+    localization_var: 0.01
+    attached_manipuland: "gelsight_rig"
+    apriltags:
+      - id: 0
+        body: "apriltag_mount"
+        #pos: [-0.0125, -0.095, -0.065]
+        #rot: [180.0, 90.0, -90.0]
+        pos: [0., 0., 0.]
+        rot: [0., 0., 0.]
+        channel: APRIL_TAG_0000_TO_CAMERA_LEFT
+
+  - type: "DynamicsCost"
+    dynamics_floating_base_var: 0.01 # m per frame
+    dynamics_other_var: 0.01 # rad per frame
+    joint_limit_var: 0.01 # one-sided, radians
+    verbose: False
 
   - type: "GelsightCost"
     gelsight_depth_var: 0.0001 

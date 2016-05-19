@@ -32,7 +32,7 @@ public:
                            const bot_core::rigid_transform_t* msg);
 
 private:
-  int robot_id = -1;
+  std::string robot_name = "";
   struct ApriltagAttachment {
     int body_id;
     Eigen::Transform<double, 3, Eigen::Isometry> body_transform;

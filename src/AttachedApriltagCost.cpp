@@ -16,8 +16,17 @@ AttachedApriltagCost::AttachedApriltagCost(std::shared_ptr<RigidBodyTree> robot_
     lcm(lcm_),
     nq(robot->num_positions)
 {
+  if (config["attached_manipuland"]){
+    // try to find this robot
+    robot_name = config["attached_manipuland"].as<string>();
+    auto it = find(robot->robot_name.begin(), robot->robot_name.end(), robot_name);
+    if (it == robot->robot_name.end()){
+      printf("ApriltagCost setup: Couldn't find robot %s.\n", robot_name.c_str());
+      exit(1);
+    }
+  }
 
-  lcmgl_tag_ = bot_lcmgl_init(lcm->getUnderlyingLCM(), "attachedapriltags");
+  lcmgl_tag_ = bot_lcmgl_init(lcm->getUnderlyingLCM(), (std::string("at_apr_") + robot_name).c_str());
 
   const char * filename = NULL;
   if (config["filename"])
@@ -31,23 +40,20 @@ AttachedApriltagCost::AttachedApriltagCost(std::shared_ptr<RigidBodyTree> robot_
   if (config["verbose"])
     verbose = config["verbose"].as<bool>();
 
-  if (config["attached_manipuland"]){
-    // try to find this robot
-    std::string robotname = config["attached_manipuland"].as<string>();
-    auto it = find(robot->robot_name.begin(), robot->robot_name.end(), robotname);
-    if (it == robot->robot_name.end()){
-      printf("Couldn't find robot %s. Invalid Apriltag Cost.\n", robotname.c_str());
-    } else {
-      robot_id = it - robot->robot_name.begin() - 1;
-    }
-  }
+
 
   if (config["apriltags"]){
     for (auto iter=config["apriltags"].begin(); iter!=config["apriltags"].end(); iter++){
       ApriltagAttachment attachment;
 
-      // first try to find the body id
-      attachment.body_id = robot->findLinkId((*iter)["body"].as<string>(), robot_id);
+      // first try to find the robot name
+      std:string linkname = (*iter)["body"].as<string>();
+      auto search = robot->findLink(linkname, robot_name);
+      if (search == nullptr){
+        printf("Couldn't find link name %s on robot %s", linkname.c_str(), robot_name.c_str());
+        exit(1);
+      }
+      attachment.body_id = search->body_index;
       
       // and parse transformation
       
@@ -194,6 +200,21 @@ bool AttachedApriltagCost::constructCost(ManipulationTracker * tracker, Eigen::M
 
 
     if (now - attachment->last_received < timeout_time){
+      VectorXd z_c(6);
+      z_c << z_current, rpy_current;
+      VectorXd z_d(6);
+      z_d << z_des, rpy_des;
+      MatrixXd J(6, robot->num_positions);
+      J << J_xyz, J_rpy;
+
+      // 0.5 * x.' Q x + f.' x
+      // position error:
+      // min (z_current - z_des)^2
+      // min ( (z_current + J*(q_new - q_old)) - z_des )^2
+      MatrixXd Ks = z_c - z_d - J*q_old;
+      f += ATTACHED_APRILTAG_WEIGHT * (2. * Ks.transpose() * J).transpose();
+      Q += ATTACHED_APRILTAG_WEIGHT * (2. * J.transpose() * J);
+      K += ATTACHED_APRILTAG_WEIGHT * Ks.squaredNorm();
 
       bot_lcmgl_begin(lcmgl_tag_, LCMGL_QUADS);
       bot_lcmgl_color3f(lcmgl_tag_, 0.5, 0.5, 0.5);
@@ -215,33 +236,15 @@ bool AttachedApriltagCost::constructCost(ManipulationTracker * tracker, Eigen::M
       bot_lcmgl_vertex3f(lcmgl_tag_, points_des(0, 7), points_des(1, 7), points_des(2, 7));
       bot_lcmgl_end(lcmgl_tag_);
 
-      cout << endl << endl << endl << "********* TAG " << it->first << " **************" << endl;
-
-      cout << "Body trans: " << endl << attachment->body_transform.matrix() << endl;
-
-      VectorXd z_c(6);
-      z_c << z_current, rpy_current;
-      VectorXd z_d(6);
-      z_d << z_des, rpy_des;
-      MatrixXd J(6, 6);
-      J << J_xyz, J_rpy;
-
-      // 0.5 * x.' Q x + f.' x
-      // position error:
-      // min (z_current - z_des)^2
-      // min ( (z_current + J*(q_new - q_old)) - z_des )^2
-      cout << "J: " << J << endl;
-      cout << "z_c: " << z_c.transpose() << endl;
-      cout << "z_d: " << z_d.transpose() << endl;
-      cout << "Q old: " << q_old.transpose() << endl;
-      MatrixXd Ks = z_c - z_d - J*q_old;
-      cout << "KS: " << Ks.transpose() << endl;
-      f += ATTACHED_APRILTAG_WEIGHT * (2. * Ks.transpose() * J).transpose();
-      Q += ATTACHED_APRILTAG_WEIGHT * (2. * J.transpose() * J);
-      K += ATTACHED_APRILTAG_WEIGHT * Ks.squaredNorm();
-
-      if (fabs(q_old[0]) >= 2.0)
-        exit(1);
+      if (verbose){
+        cout << endl << endl << endl << "********* TAG " << it->first << " **************" << endl;
+        cout << "Body trans: " << endl << attachment->body_transform.matrix() << endl;
+        cout << "J: " << J << endl;
+        cout << "z_c: " << z_c.transpose() << endl;
+        cout << "z_d: " << z_d.transpose() << endl;
+        cout << "Q old: " << q_old.transpose() << endl;
+        cout << "KS: " << Ks.transpose() << endl;
+      }
 
       /*
       // position error:
