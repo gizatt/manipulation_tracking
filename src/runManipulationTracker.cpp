@@ -33,7 +33,7 @@ int main(int argc, char** argv) {
   YAML::Node config = YAML::LoadFile(configFile);
 
   VectorXd x0_robot;
-  std::shared_ptr<RigidBodyTree> robot = setupRobotFromConfig(config, x0_robot, string(drc_path), true);
+  std::shared_ptr<const RigidBodyTree> robot = setupRobotFromConfig(config, x0_robot, string(drc_path), true);
 
   // initialize tracker itself
   ManipulationTracker estimator(robot, x0_robot, lcm, true);
@@ -46,7 +46,8 @@ int main(int argc, char** argv) {
         std::shared_ptr<RobotStateCost> cost(new RobotStateCost(robot, lcm, *iter));
         estimator.addCost(dynamic_pointer_cast<ManipulationTrackerCost, RobotStateCost>(cost));
       } else if (cost_type == "KinectFrameCost") {
-        std::shared_ptr<KinectFrameCost> cost(new KinectFrameCost(robot, lcm, *iter));
+        // demands a modifiable copy of the robot to do collision calls
+        std::shared_ptr<KinectFrameCost> cost(new KinectFrameCost(setupRobotFromConfig(config, x0_robot, string(drc_path), true), lcm, *iter));
         estimator.addCost(dynamic_pointer_cast<ManipulationTrackerCost, KinectFrameCost>(cost));
       } else if (cost_type == "DynamicsCost") { 
         std::shared_ptr<DynamicsCost> cost(new DynamicsCost(robot, lcm, *iter));
@@ -55,7 +56,8 @@ int main(int argc, char** argv) {
         std::shared_ptr<JointStateCost> cost(new JointStateCost(robot, lcm, *iter));
         estimator.addCost(dynamic_pointer_cast<ManipulationTrackerCost, JointStateCost>(cost));
       } else if (cost_type == "GelsightCost") { 
-        std::shared_ptr<GelsightCost> cost(new GelsightCost(robot, lcm, *iter));
+        // demands a modifiable copy of the robot
+        std::shared_ptr<GelsightCost> cost(new GelsightCost(setupRobotFromConfig(config, x0_robot, string(drc_path), true), lcm, *iter));
         estimator.addCost(dynamic_pointer_cast<ManipulationTrackerCost, GelsightCost>(cost));
       } else if (cost_type == "AttachedApriltagCost") { 
         std::shared_ptr<AttachedApriltagCost> cost(new AttachedApriltagCost(robot, lcm, *iter));

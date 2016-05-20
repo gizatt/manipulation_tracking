@@ -69,6 +69,13 @@ GelsightCost::GelsightCost(std::shared_ptr<RigidBodyTree> robot_, std::shared_pt
     exit(1);
   }
 
+  // remove collision geometry from gelsight collision group
+  auto filter = [&](const std::string& group_name) {
+    return group_name == std::string("gelsight");
+  };
+  robot->removeCollisionGroupsIf(filter);
+  robot->compile();
+
   num_pixel_cols = (int) floor( ((double)input_num_pixel_cols) / downsample_amount);
   num_pixel_rows = (int) floor( ((double)input_num_pixel_rows) / downsample_amount);
 

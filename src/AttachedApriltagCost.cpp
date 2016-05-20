@@ -10,7 +10,7 @@
 using namespace std;
 using namespace Eigen;
 
-AttachedApriltagCost::AttachedApriltagCost(std::shared_ptr<RigidBodyTree> robot_, std::shared_ptr<lcm::LCM> lcm_, YAML::Node config) :
+AttachedApriltagCost::AttachedApriltagCost(std::shared_ptr<const RigidBodyTree> robot_, std::shared_ptr<lcm::LCM> lcm_, YAML::Node config) :
     robot(robot_),
     robot_kinematics_cache(robot->bodies),
     lcm(lcm_),

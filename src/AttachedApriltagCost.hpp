@@ -18,7 +18,7 @@
 
 class AttachedApriltagCost : public ManipulationTrackerCost {
 public:
-  AttachedApriltagCost(std::shared_ptr<RigidBodyTree> robot_, std::shared_ptr<lcm::LCM> lcm_, YAML::Node config);
+  AttachedApriltagCost(std::shared_ptr<const RigidBodyTree> robot_, std::shared_ptr<lcm::LCM> lcm_, YAML::Node config);
   ~AttachedApriltagCost() {};
 
   void initBotConfig(const char* filename);
@@ -53,7 +53,7 @@ private:
   BotFrames* botframes_ = NULL;
 
   std::shared_ptr<lcm::LCM> lcm;
-  std::shared_ptr<RigidBodyTree> robot;
+  std::shared_ptr<const RigidBodyTree> robot;
   KinematicsCache<double> robot_kinematics_cache;
   int nq;
 

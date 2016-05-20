@@ -16,7 +16,7 @@ std::shared_ptr<RigidBodyTree> setupRobotFromConfig(YAML::Node config, Eigen::Ve
 
 class ManipulationTracker {
 public:
-  ManipulationTracker(std::shared_ptr<RigidBodyTree> robot, Eigen::Matrix<double, Eigen::Dynamic, 1> x0_robot_, std::shared_ptr<lcm::LCM> lcm_, bool verbose_ = false);
+  ManipulationTracker(std::shared_ptr<const RigidBodyTree> robot, Eigen::Matrix<double, Eigen::Dynamic, 1> x0_robot_, std::shared_ptr<lcm::LCM> lcm_, bool verbose_ = false);
   ~ManipulationTracker() {};
 
   // register a cost function with the solver
@@ -31,7 +31,7 @@ public:
   void publish();
 
 private:
-  std::shared_ptr<RigidBodyTree> robot;
+  std::shared_ptr<const RigidBodyTree> robot;
   KinematicsCache<double> robot_kinematics_cache;
   Eigen::Matrix<double, Eigen::Dynamic, 1> x_robot;
   std::shared_ptr<lcm::LCM> lcm;

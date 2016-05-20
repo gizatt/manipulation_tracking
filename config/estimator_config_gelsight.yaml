@@ -75,7 +75,7 @@ costs:
     verbose: true
     surface:
       body: "gelsight_box"
-      lower_left:  [-0.0125, -0.0125, 0.0]
-      lower_right: [-0.0125,  0.0125, 0.0]
-      upper_left:  [ 0.0125, -0.0125, 0.0]
-      upper_right:  [ 0.0125,  0.0125, 0.0]
+      lower_left:  [-0.0125, 0.0125, 0.0]
+      lower_right: [-0.0125,  -0.0125, 0.0]
+      upper_left:  [ 0.0125, 0.0125, 0.0]
+      upper_right:  [ 0.0125,  -0.0125, 0.0]

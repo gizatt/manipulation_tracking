@@ -70,7 +70,7 @@ std::shared_ptr<RigidBodyTree> setupRobotFromConfig(YAML::Node config, Eigen::Ve
 }
 
 
-ManipulationTracker::ManipulationTracker(std::shared_ptr<RigidBodyTree> robot_, Eigen::Matrix<double, Eigen::Dynamic, 1> x0_robot_, std::shared_ptr<lcm::LCM> lcm_, bool verbose_) :
+ManipulationTracker::ManipulationTracker(std::shared_ptr<const RigidBodyTree> robot_, Eigen::Matrix<double, Eigen::Dynamic, 1> x0_robot_, std::shared_ptr<lcm::LCM> lcm_, bool verbose_) :
     robot(robot_),
     lcm(lcm_),
     x_robot(x0_robot_),

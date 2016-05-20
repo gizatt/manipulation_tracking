@@ -10,7 +10,7 @@
 using namespace std;
 using namespace Eigen;
 
-DynamicsCost::DynamicsCost(std::shared_ptr<RigidBodyTree> robot_, std::shared_ptr<lcm::LCM> lcm_, YAML::Node config) :
+DynamicsCost::DynamicsCost(std::shared_ptr<const RigidBodyTree> robot_, std::shared_ptr<lcm::LCM> lcm_, YAML::Node config) :
     robot(robot_),
     lcm(lcm_),
     nq(robot->num_positions)

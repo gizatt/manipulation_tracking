@@ -14,7 +14,7 @@
 
 class RobotStateCost : public ManipulationTrackerCost {
 public:
-  RobotStateCost(std::shared_ptr<RigidBodyTree> robot_, std::shared_ptr<lcm::LCM> lcm_, YAML::Node config);
+  RobotStateCost(std::shared_ptr<const RigidBodyTree> robot_, std::shared_ptr<lcm::LCM> lcm_, YAML::Node config);
   ~RobotStateCost() {};
 
   bool constructCost(ManipulationTracker * tracker, Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>& Q, Eigen::Matrix<double, Eigen::Dynamic, 1>& f, double& K);
@@ -32,7 +32,7 @@ private:
 
   std::shared_ptr<lcm::LCM> lcm;
   lcm::Subscription * state_sub;
-  std::shared_ptr<RigidBodyTree> robot;
+  std::shared_ptr<const RigidBodyTree> robot;
   int nq;
 
   Eigen::Matrix<double, Eigen::Dynamic, 1> x_robot_measured;
