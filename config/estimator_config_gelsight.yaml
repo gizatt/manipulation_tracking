@@ -70,4 +70,12 @@ costs:
 
   - type: "GelsightCost"
     gelsight_depth_var: 0.0001 
+    gelsight_freespace_var: 0.0001 
+    num_sample_points: 100
     verbose: true
+    surface:
+      body: "gelsight_box"
+      lower_left:  [-0.0125, -0.0125, 0.0]
+      lower_right: [-0.0125,  0.0125, 0.0]
+      upper_left:  [ 0.0125, -0.0125, 0.0]
+      upper_right:  [ 0.0125,  0.0125, 0.0]

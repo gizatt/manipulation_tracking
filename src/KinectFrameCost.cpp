@@ -197,8 +197,8 @@ bool KinectFrameCost::constructCost(ManipulationTracker * tracker, Eigen::Matrix
       }
       for (size_t v=0; v<num_pixel_rows; v++) {
         for (size_t u=0; u<num_pixel_cols; u++) {
-          int full_v = min((int)floor(((double)v)*downsample_amount) + rand()%(int)downsample_amount, input_num_pixel_rows);
-          int full_u = min((int)floor(((double)u)*downsample_amount) + rand()%(int)downsample_amount, input_num_pixel_cols);
+          int full_v = min((int)floor(((double)v)*downsample_amount) + rand()%(int)downsample_amount, input_num_pixel_rows-1);
+          int full_u = min((int)floor(((double)u)*downsample_amount) + rand()%(int)downsample_amount, input_num_pixel_cols-1);
 
           // cut down to just point cloud in our manipulation space
           //(todo: bring in this info externally somehow)

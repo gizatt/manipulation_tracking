@@ -4,7 +4,7 @@
 #include "JointStateCost.hpp"
 #include "KinectFrameCost.hpp"
 #include "DynamicsCost.hpp"
-//#include "GelsightCost.hpp"
+#include "GelsightCost.hpp"
 #include "AttachedApriltagCost.hpp"
 #include "yaml-cpp/yaml.h"
 #include "common.hpp"
@@ -54,9 +54,9 @@ int main(int argc, char** argv) {
       } else if (cost_type == "JointStateCost") { 
         std::shared_ptr<JointStateCost> cost(new JointStateCost(robot, lcm, *iter));
         estimator.addCost(dynamic_pointer_cast<ManipulationTrackerCost, JointStateCost>(cost));
-      //} else if (cost_type == "GelsightCost") { 
-      //  std::shared_ptr<GelsightCost> cost(new GelsightCost(robot, lcm, *iter));
-      //  estimator.addCost(dynamic_pointer_cast<ManipulationTrackerCost, GelsightCost>(cost));
+      } else if (cost_type == "GelsightCost") { 
+        std::shared_ptr<GelsightCost> cost(new GelsightCost(robot, lcm, *iter));
+        estimator.addCost(dynamic_pointer_cast<ManipulationTrackerCost, GelsightCost>(cost));
       } else if (cost_type == "AttachedApriltagCost") { 
         std::shared_ptr<AttachedApriltagCost> cost(new AttachedApriltagCost(robot, lcm, *iter));
         estimator.addCost(dynamic_pointer_cast<ManipulationTrackerCost, AttachedApriltagCost>(cost));
