@@ -37,7 +37,7 @@ GelsightCost::GelsightCost(std::shared_ptr<RigidBodyTree> robot_, std::shared_pt
     robot(robot_),
     robot_kinematics_cache(robot->bodies),
     lcm(lcm_),
-    nq(robot->num_positions)
+    nq(robot->number_of_positions())
 {
   if (config["downsample_amount"])
     downsample_amount = config["downsample_amount"].as<double>();
@@ -47,6 +47,8 @@ GelsightCost::GelsightCost(std::shared_ptr<RigidBodyTree> robot_, std::shared_pt
     gelsight_depth_var = config["gelsight_depth_var"].as<double>();
   if (config["timeout_time"])
     timeout_time = config["timeout_time"].as<double>();
+  if (config["max_considered_corresp_distance"])
+    max_considered_corresp_distance = config["max_considered_corresp_distance"].as<double>();
   if (config["verbose"])
     verbose = config["verbose"].as<bool>();
 
@@ -69,17 +71,22 @@ GelsightCost::GelsightCost(std::shared_ptr<RigidBodyTree> robot_, std::shared_pt
     exit(1);
   }
 
+/*
+ // don't know why this doesn't work. for now, just gonna use URDF with no 
+ // collision...
   // remove collision geometry from gelsight collision group
   auto filter = [&](const std::string& group_name) {
     return group_name == std::string("gelsight");
   };
   robot->removeCollisionGroupsIf(filter);
   robot->compile();
+*/
 
   num_pixel_cols = (int) floor( ((double)input_num_pixel_cols) / downsample_amount);
   num_pixel_rows = (int) floor( ((double)input_num_pixel_rows) / downsample_amount);
 
   lcmgl_gelsight_ = bot_lcmgl_init(lcm->getUnderlyingLCM(), "gelsight");
+  lcmgl_corresp_ = bot_lcmgl_init(lcm->getUnderlyingLCM(), "gelsight_corrs");
 
   latest_gelsight_image.resize(input_num_pixel_rows, input_num_pixel_cols);
 
@@ -105,7 +112,7 @@ bool GelsightCost::constructCost(ManipulationTracker * tracker, Eigen::Matrix<do
   }
   else {
     VectorXd x_old = tracker->output();
-    VectorXd q_old = x_old.block(0, 0, robot->num_positions, 1);
+    VectorXd q_old = x_old.block(0, 0, robot->number_of_positions(), 1);
     robot_kinematics_cache.initialize(q_old);
     robot->doKinematics(robot_kinematics_cache);
 
@@ -156,8 +163,11 @@ bool GelsightCost::constructCost(ManipulationTracker * tracker, Eigen::Matrix<do
     noncontact_points = robot->transformPoints(robot_kinematics_cache, noncontact_points, sensor_body_id, 0);
 
     // draw them for debug
+
+    /*
     bot_lcmgl_point_size(lcmgl_gelsight_, 4.0f);
     bot_lcmgl_begin(lcmgl_gelsight_, LCMGL_POINTS);
+
     bot_lcmgl_color3f(lcmgl_gelsight_, 0, 1, 0);  
     for (int i=0; i < contact_points.cols(); i++){
       bot_lcmgl_vertex3f(lcmgl_gelsight_, contact_points(0, i), contact_points(1, i), contact_points(2, i));
@@ -167,15 +177,204 @@ bool GelsightCost::constructCost(ManipulationTracker * tracker, Eigen::Matrix<do
       bot_lcmgl_vertex3f(lcmgl_gelsight_, noncontact_points(0, i), noncontact_points(1, i), noncontact_points(2, i));
     }    
     bot_lcmgl_end(lcmgl_gelsight_);
+    */
+
+
+    // for each point for which we have contact, attract nearby surfaces
+    if (!std::isinf(gelsight_depth_var) && contact_points.cols() > 0){
+      double DEPTH_WEIGHT = 1. / (2. * gelsight_depth_var * gelsight_depth_var);
+      
+      VectorXd phi(contact_points.cols());
+      Matrix3Xd normal(3, contact_points.cols()), x(3, contact_points.cols()), body_x(3, contact_points.cols());
+      std::vector<int> body_idx(contact_points.cols());
+      // project points onto object surfaces (minus gelsight collision group)
+      // via the last state estimate
+      double now1 = getUnixTime();
+      robot->collisionDetectFromPoints(robot_kinematics_cache, contact_points,
+                           phi, normal, x, body_x, body_idx, false);
+      if (verbose)
+        printf("Gelsight Contact Points SDF took %f\n", getUnixTime()-now1);
+
+      // for every unique body points have returned onto...
+      std::vector<int> num_points_on_body(robot->bodies.size(), 0);
+      for (int i=0; i < body_idx.size(); i++)
+        num_points_on_body[body_idx[i]] += 1;
+
+      // for every body...
+      for (int i=0; i < robot->bodies.size(); i++){
+        if (num_points_on_body[i] > 0){
+
+          // collect results from raycast that correspond to this body out in the world
+          Matrix3Xd z(3, num_points_on_body[i]); // points, in world frame, near this body
+          Matrix3Xd z_prime(3, num_points_on_body[i]); // same points projected onto surface of body
+          Matrix3Xd body_z_prime(3, num_points_on_body[i]); // projected points in body frame
+          Matrix3Xd z_norms(3, num_points_on_body[i]); // normals corresponding to these points
+          int k = 0;
+          for (int j=0; j < body_idx.size(); j++){
+            assert(k < body_idx.size());
+            if (body_idx[j] == i){
+              assert(j < contact_points.cols());
+              if (contact_points(0, j) == 0.0){
+                cout << "Zero points " << contact_points.block<3, 1>(0, j).transpose() << " slipping in at bdyidx " << body_idx[j] << endl;
+              }
+              if ((contact_points.block<3, 1>(0, j) - x.block<3, 1>(0, j)).norm() <= max_considered_corresp_distance){
+                z.block<3, 1>(0, k) = contact_points.block<3, 1>(0, j);
+                z_prime.block<3, 1>(0, k) = x.block<3, 1>(0, j);
+                body_z_prime.block<3, 1>(0, k) = body_x.block<3, 1>(0, j);
+                z_norms.block<3, 1>(0, k) = normal.block<3, 1>(0, j);
+                k++;
+              }
+            }
+          }
+
+          z.conservativeResize(3, k);
+          z_prime.conservativeResize(3, k);
+          body_z_prime.conservativeResize(3, k);
+          z_norms.conservativeResize(3, k);
+
+          // forwardkin to get our jacobians on the body we're currently iterating on, as well as from
+          // the sensor body id
+          MatrixXd J_prime = robot->transformPointsJacobian(robot_kinematics_cache, body_z_prime, i, 0, false);
+          MatrixXd J_z = robot->transformPointsJacobian(robot_kinematics_cache, z, sensor_body_id, 0, false);
+          MatrixXd J = J_prime - J_z;
+
+          // minimize distance between the given set of points on the sensor surface,
+          // and the given set of points on the body surface
+          // min_{q_new} [ z - z_prime ]
+          // min_{q_new} [ (z + J_z*(q_new - q_old)) - (z_prime + J_prime*(q_new - q_old)) ]
+          // min_{q_new} [ (z - z_prime) + (J_z - J_prime)*(q_new - q_old) ]
+          bot_lcmgl_begin(lcmgl_corresp_, LCMGL_LINES);
+          bot_lcmgl_line_width(lcmgl_corresp_, 4.0f);
+          bot_lcmgl_color3f(lcmgl_corresp_, 0.0, 0.0, 1.0);
+              
+          for (int j=0; j < k; j++){
+            MatrixXd Ks = z.col(j) - z_prime.col(j) + J.block(3*j, 0, 3, nq)*q_old;
+            f -= DEPTH_WEIGHT*(2. * Ks.transpose() * J.block(3*j, 0, 3, nq)).transpose()/(double)k;
+            Q += DEPTH_WEIGHT*(2. *  J.block(3*j, 0, 3, nq).transpose() * J.block(3*j, 0, 3, nq))/(double)k;
+            K += DEPTH_WEIGHT*Ks.squaredNorm()/(double)k;
+
+            if (j % 1 == 0){
+              // visualize point correspondences and normals
+              double dist_normalized = fmin(max_considered_corresp_distance, (z.col(j) - z_prime.col(j)).norm()) / max_considered_corresp_distance;
+              //bot_lcmgl_color3f(lcmgl_corresp_, dist_normalized*dist_normalized, 0, (1.0-dist_normalized)*(1.0-dist_normalized));
+              bot_lcmgl_vertex3f(lcmgl_corresp_, z(0, j), z(1, j), z(2, j));
+              bot_lcmgl_vertex3f(lcmgl_corresp_, z_prime(0, j), z_prime(1, j), z_prime(2, j));
+              
+            }
+          }
+          bot_lcmgl_end(lcmgl_corresp_);  
+        }
+      }
+    }
+
+
+    // and for each point for which we have no contact, repel nearby surfaces
+    if (!std::isinf(gelsight_freespace_var) && noncontact_points.cols() > 0){
+      double FREESPACE_WEIGHT = 1. / (2. * gelsight_freespace_var * gelsight_freespace_var);
+      
+      VectorXd phi(noncontact_points.cols());
+      Matrix3Xd normal(3, noncontact_points.cols()), x(3, noncontact_points.cols()), body_x(3, noncontact_points.cols());
+      std::vector<int> body_idx(noncontact_points.cols());
+      // project points onto object surfaces (minus gelsight collision group)
+      // via the last state estimate
+      double now1 = getUnixTime();
+      robot->collisionDetectFromPoints(robot_kinematics_cache, noncontact_points,
+                           phi, normal, x, body_x, body_idx, false);
+      if (verbose)
+        printf("Gelsight Contact Points SDF took %f\n", getUnixTime()-now1);
+
+      // for every unique body points have returned onto...
+      std::vector<int> num_points_on_body(robot->bodies.size(), 0);
+      for (int i=0; i < body_idx.size(); i++)
+        num_points_on_body[body_idx[i]] += 1;
+
+      // for every body...
+      for (int i=0; i < robot->bodies.size(); i++){
+        if (num_points_on_body[i] > 0){
+
+          // collect results from raycast that correspond to this body out in the world
+          VectorXd phis(num_points_on_body[i]);
+          Matrix3Xd z(3, num_points_on_body[i]); // points, in world frame, near this body
+          Matrix3Xd z_prime(3, num_points_on_body[i]); // same points projected onto surface of body
+          Matrix3Xd body_z_prime(3, num_points_on_body[i]); // projected points in body frame
+          Matrix3Xd z_norms(3, num_points_on_body[i]); // normals corresponding to these points
+          int k = 0;
+
+          bot_lcmgl_begin(lcmgl_gelsight_, LCMGL_POINTS);
+          for (int j=0; j < body_idx.size(); j++){
+            assert(k < body_idx.size());
+            if (body_idx[j] == i){
+              assert(j < noncontact_points.cols());
+              if (noncontact_points(0, j) == 0.0){
+                cout << "Zero points " << noncontact_points.block<3, 1>(0, j).transpose() << " slipping in at bdyidx " << body_idx[j] << endl;
+              }
+              if (phi(j) != 0.0){ // why is this necessary?
+                cout << "Pt " << noncontact_points.block<3,1>(0,j).transpose() << " with phi " << phi(j) << endl;
+                bot_lcmgl_color3f(lcmgl_gelsight_, 1, 0, 0);  
+                bot_lcmgl_vertex3f(lcmgl_gelsight_, z(0, k), z(1, k), z(2, k));
+
+                z.block<3, 1>(0, k) = noncontact_points.block<3, 1>(0, j);
+                z_prime.block<3, 1>(0, k) = x.block<3, 1>(0, j);
+                body_z_prime.block<3, 1>(0, k) = body_x.block<3, 1>(0, j);
+                z_norms.block<3, 1>(0, k) = normal.block<3, 1>(0, j);
+                phis(k) = phi(j);
+                k++;
+              } else {
+                bot_lcmgl_color3f(lcmgl_gelsight_, 0, 1, 0);  
+                bot_lcmgl_vertex3f(lcmgl_gelsight_, noncontact_points(0, j), noncontact_points(1, j), noncontact_points(2, j));
+              }
+            }
+          }
+          bot_lcmgl_end(lcmgl_gelsight_);
+
+          z.conservativeResize(3, k);
+          z_prime.conservativeResize(3, k);
+          body_z_prime.conservativeResize(3, k);
+          z_norms.conservativeResize(3, k);
+          phis.conservativeResize(k);
+
+          // forwardkin to get our jacobians on the body we're currently iterating on, as well as from
+          // the sensor body id
+          MatrixXd J_prime = robot->transformPointsJacobian(robot_kinematics_cache, body_z_prime, i, 0, false);
+          MatrixXd J_z = robot->transformPointsJacobian(robot_kinematics_cache, z, sensor_body_id, 0, false);
+          MatrixXd J = J_prime - J_z;
+
+          // minimize distance between the given set of points on the sensor surface,
+          // and the given set of points on the body surface
+          // min_{q_new} [ z - z_prime ]
+          // min_{q_new} [ (z + J_z*(q_new - q_old)) - (z_prime + J_prime*(q_new - q_old)) ]
+          // min_{q_new} [ (z - z_prime) + (J_z - J_prime)*(q_new - q_old) ]
+          FREESPACE_WEIGHT = 0.0;
+          bot_lcmgl_begin(lcmgl_corresp_, LCMGL_LINES);
+          bot_lcmgl_line_width(lcmgl_corresp_, 4.0f);   
+          bot_lcmgl_color3f(lcmgl_corresp_, 1.0, 0.0, 0.0);
+
+          for (int j=0; j < k; j++){
+            MatrixXd Ks = z.col(j) - z_prime.col(j) + J.block(3*j, 0, 3, nq)*q_old;
+            f -= FREESPACE_WEIGHT*(2. * Ks.transpose() * J.block(3*j, 0, 3, nq)).transpose()/(double)k;
+            Q += FREESPACE_WEIGHT*(2. *  J.block(3*j, 0, 3, nq).transpose() * J.block(3*j, 0, 3, nq))/(double)k;
+            K += FREESPACE_WEIGHT*Ks.squaredNorm()/(double)k;
+
+            if (j % 1 == 0){
+              // visualize point correspondences and normals
+              double dist_normalized = fmin(max_considered_corresp_distance, (z.col(j) - z_prime.col(j)).norm()) / max_considered_corresp_distance;
+            //  bot_lcmgl_color3f(lcmgl_corresp_, 1.0, 0.0, (1.0-dist_normalized)*(1.0-dist_normalized));
+             // bot_lcmgl_vertex3f(lcmgl_corresp_, z(0, j), z(1, j), z(2, j));
+              Vector3d norm_endpt = z_prime.block<3,1>(0,j) + z_norms.block<3,1>(0,j)*0.01;
+              bot_lcmgl_vertex3f(lcmgl_corresp_, norm_endpt(0), norm_endpt(1), norm_endpt(2));
+              bot_lcmgl_vertex3f(lcmgl_corresp_, z_prime(0, j), z_prime(1, j), z_prime(2, j));
+              
+            }
+          }
+          bot_lcmgl_end(lcmgl_corresp_);  
+        }
+      }
+      bot_lcmgl_switch_buffer(lcmgl_corresp_);  
+
+    }
+
     bot_lcmgl_switch_buffer(lcmgl_gelsight_);  
 
-
-    // for each point for which we have contact, attract nearby surfaces.
-
-   /* TODO: gotta play tricks with the active collision groups / model.
-    for now, probably duplicate the rigidbody tree, one with the gelsightt robot collision gruop added,
-    one with it not added.
-*/
     if (verbose)
       printf("Spend %f in gelsight constraints.\n", getUnixTime() - now);
 

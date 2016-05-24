@@ -48,6 +48,7 @@ private:
 
   double gelsight_depth_var = INFINITY;
   double gelsight_freespace_var = INFINITY;
+  double max_considered_corresp_distance = 0.05;
   double timeout_time = 0.5;
   bool verbose = false;
 
@@ -57,6 +58,7 @@ private:
   int nq;
 
   bot_lcmgl_t* lcmgl_gelsight_ = NULL;
+  bot_lcmgl_t* lcmgl_corresp_ = NULL;
 
   std::mutex gelsight_frame_mutex;
   Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> latest_gelsight_image;

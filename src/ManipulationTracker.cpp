@@ -23,9 +23,9 @@ std::shared_ptr<RigidBodyTree> setupRobotFromConfig(YAML::Node config, Eigen::Ve
   int old_num_positions = 0;
   auto manip = config["robots"].begin();
   std::shared_ptr<RigidBodyTree> robot(new RigidBodyTree(base_path + manip->second["urdf"].as<string>()));
-  x0_robot.resize(robot->num_positions);
+  x0_robot.resize(robot->number_of_positions());
   if (manip->second["q0"] && manip->second["q0"].Type() == YAML::NodeType::Map){
-    for (int i=old_num_positions; i < robot->num_positions; i++){
+    for (int i=old_num_positions; i < robot->number_of_positions(); i++){
       auto find = manip->second["q0"][robot->getPositionName(i)];
       if (find)
         x0_robot(i) = find.as<double>();
@@ -33,14 +33,14 @@ std::shared_ptr<RigidBodyTree> setupRobotFromConfig(YAML::Node config, Eigen::Ve
         x0_robot(i) = 0.0;
     }
   }
-  old_num_positions = robot->num_positions;
+  old_num_positions = robot->number_of_positions();
   manip++;
   // each new robot can be added via addRobotFromURDF
   while (manip != config["robots"].end()){
     robot->addRobotFromURDF(base_path + manip->second["urdf"].as<string>(), DrakeJoint::ROLLPITCHYAW);
-    x0_robot.conservativeResize(robot->num_positions);
+    x0_robot.conservativeResize(robot->number_of_positions());
     if (manip->second["q0"] && manip->second["q0"].Type() == YAML::NodeType::Map){
-      for (int i=old_num_positions; i < robot->num_positions; i++){
+      for (int i=old_num_positions; i < robot->number_of_positions(); i++){
         auto find = manip->second["q0"][robot->getPositionName(i)];
         if (find){
           x0_robot(i) = find.as<double>();
@@ -50,19 +50,19 @@ std::shared_ptr<RigidBodyTree> setupRobotFromConfig(YAML::Node config, Eigen::Ve
         }
       }
     } else {
-      x0_robot.block(old_num_positions, 0, robot->num_positions-old_num_positions, 1) *= 0.0;
+      x0_robot.block(old_num_positions, 0, robot->number_of_positions()-old_num_positions, 1) *= 0.0;
     }
 
-    old_num_positions = robot->num_positions;
+    old_num_positions = robot->number_of_positions();
     manip++;
   }
   robot->compile();
 
-  x0_robot.conservativeResize(robot->num_positions + robot->num_velocities);
+  x0_robot.conservativeResize(robot->number_of_positions() + robot->number_of_velocities());
 
   if (verbose){
     cout << "All position names and init values: " << endl;
-    for (int i=0; i < robot->num_positions; i++){
+    for (int i=0; i < robot->number_of_positions(); i++){
       cout << "\t " << i << ": \"" << robot->getPositionName(i) << "\" = " << x0_robot[i] << endl;
     }
   }
@@ -77,9 +77,15 @@ ManipulationTracker::ManipulationTracker(std::shared_ptr<const RigidBodyTree> ro
     verbose(verbose_),
     robot_kinematics_cache(robot->bodies)
 {
-  if (robot->num_positions + robot->num_velocities != x_robot.rows()){
-    printf("Expected initial condition with %d rows, got %ld rows.\n", robot->num_positions + robot->num_velocities, x_robot.rows());
+  if (robot->number_of_positions() + robot->number_of_velocities() != x_robot.rows()){
+    printf("Expected initial condition with %d rows, got %ld rows.\n", robot->number_of_positions() + robot->number_of_velocities(), x_robot.rows());
     exit(0);
+  }
+
+  for (auto it=robot->bodies.begin(); it!=robot->bodies.end(); it++){
+    auto findit = find(robot_names.begin(), robot_names.end(), (*it)->model_name());
+    if (findit == robot_names.end())
+      robot_names.push_back((*it)->model_name());
   }
 }
 
@@ -90,8 +96,8 @@ void ManipulationTracker::update(){
   // and since we're unconstrained then solve as linear system
   // Qx = -f
 
-  VectorXd q_old = x_robot.block(0, 0, robot->num_positions, 1);
-  int nq = robot->num_positions;
+  VectorXd q_old = x_robot.block(0, 0, robot->number_of_positions(), 1);
+  int nq = robot->number_of_positions();
   robot_kinematics_cache.initialize(q_old);
   robot->doKinematics(robot_kinematics_cache);
   
@@ -175,15 +181,15 @@ void ManipulationTracker::update(){
 void ManipulationTracker::publish(){
   // Publish the object state
   //cout << "robot robot name vector: " << robot->robot_name.size() << endl;
-  for (int roboti=1; roboti < robot->robot_name.size(); roboti++){
+  for (int roboti=1; roboti < robot_names.size(); roboti++){
     bot_core::robot_state_t manipulation_state;
     manipulation_state.utime = getUnixTime();
-    std::string robot_name = robot->robot_name[roboti];
+    std::string robot_name = robot_names[roboti];
 
     manipulation_state.num_joints = 0;
     bool found_floating = false;
     for (int i=0; i<robot->bodies.size(); i++){
-      if (robot->bodies[i]->model_name == robot_name){
+      if (robot->bodies[i]->model_name() == robot_name){
         if (robot->bodies[i]->getJoint().isFloating()){
           manipulation_state.pose.translation.x = x_robot[robot->bodies[i]->position_num_start + 0];
           manipulation_state.pose.translation.y = x_robot[robot->bodies[i]->position_num_start + 1];
@@ -204,7 +210,7 @@ void ManipulationTracker::publish(){
           for (int j=0; j < robot->bodies[i]->getJoint().getNumPositions(); j++){
             manipulation_state.joint_name.push_back(robot->bodies[i]->getJoint().getPositionName(j));
             manipulation_state.joint_position.push_back(x_robot[robot->bodies[i]->position_num_start + j]);
-            manipulation_state.joint_velocity.push_back(x_robot[robot->bodies[i]->position_num_start + j + robot->num_positions]);
+            manipulation_state.joint_velocity.push_back(x_robot[robot->bodies[i]->position_num_start + j + robot->number_of_positions()]);
           }
         }
       }

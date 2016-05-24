@@ -32,6 +32,7 @@ public:
 
 private:
   std::shared_ptr<const RigidBodyTree> robot;
+  std::vector<std::string> robot_names;
   KinematicsCache<double> robot_kinematics_cache;
   Eigen::Matrix<double, Eigen::Dynamic, 1> x_robot;
   std::shared_ptr<lcm::LCM> lcm;

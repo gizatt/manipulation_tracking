@@ -1,0 +1,58 @@
+<?xml version="1.0"?>
+<robot
+  name="gelsight_rig">
+  <link name="gelsight_box">
+    <visual>
+      <geometry>
+        <box size="0.033 0.033 0.033"/>
+      </geometry>
+      <origin xyz="0 0 -0.0166"/>
+    </visual>
+    <inertial>
+      <mass value="0.1"/>
+      <inertia ixx="0.01" ixy="0.0" ixz="0.0" iyy="0.01" iyz="0.0" izz="0.01"/>
+      <origin xyz="0 0 -0.166"/>
+    </inertial>
+  </link>
+  <link name="rod">
+    <visual>
+      <geometry>
+        <box size="0.025 0.5 0.025"/>
+      </geometry>
+      <origin xyz="0 -0.2 0"/>
+    </visual>
+    <inertial>
+      <mass value="0.1"/>
+      <inertia ixx="0.01" ixy="0.0" ixz="0.0" iyy="0.01" iyz="0.0" izz="0.01"/>
+      <origin xyz="0 0 0"/>
+    </inertial>
+  </link>
+  <link name="apriltag_mount">
+    <visual>
+      <geometry>
+        <box size="0.133 .16 0.005"/>
+      </geometry>
+      <origin xyz="0 -0.03 0"/>
+    </visual>
+    <inertial>
+      <mass value="0.1"/>
+      <inertia ixx="0.01" ixy="0.0" ixz="0.0" iyy="0.01" iyz="0.0" izz="0.01"/>
+      <origin xyz="0 0 -0.03"/>
+    </inertial>
+  </link>
+
+  <joint name="gelsight_box_to_rod" type="fixed">
+    <parent link="gelsight_box"/>
+    <child link="rod"/>
+    <origin rpy="0 0 0" xyz="0 0 -0.0453"/>
+  </joint>
+
+
+  <joint name="gelsight_rod_to_apriltag_mount" type="fixed">
+    <parent link="rod"/>
+    <child link="apriltag_mount"/>
+    <origin rpy="1.57 0 1.57" xyz="-0.0125 -0.095 -0.065"/>
+  </joint>
+
+
+</robot>

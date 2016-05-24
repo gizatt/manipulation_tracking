@@ -14,16 +14,11 @@ AttachedApriltagCost::AttachedApriltagCost(std::shared_ptr<const RigidBodyTree> 
     robot(robot_),
     robot_kinematics_cache(robot->bodies),
     lcm(lcm_),
-    nq(robot->num_positions)
+    nq(robot->number_of_positions())
 {
   if (config["attached_manipuland"]){
     // try to find this robot
     robot_name = config["attached_manipuland"].as<string>();
-    auto it = find(robot->robot_name.begin(), robot->robot_name.end(), robot_name);
-    if (it == robot->robot_name.end()){
-      printf("ApriltagCost setup: Couldn't find robot %s.\n", robot_name.c_str());
-      exit(1);
-    }
   }
 
   lcmgl_tag_ = bot_lcmgl_init(lcm->getUnderlyingLCM(), (std::string("at_apr_") + robot_name).c_str());
@@ -124,7 +119,7 @@ bool AttachedApriltagCost::constructCost(ManipulationTracker * tracker, Eigen::M
   double ATTACHED_APRILTAG_WEIGHT = std::isinf(localization_var) ? 0.0 : 1. / (2. * localization_var * localization_var);
 
   VectorXd x_old = tracker->output();
-  VectorXd q_old = x_old.block(0, 0, robot->num_positions, 1);
+  VectorXd q_old = x_old.block(0, 0, robot->number_of_positions(), 1);
   robot_kinematics_cache.initialize(q_old);
   robot->doKinematics(robot_kinematics_cache);
 
@@ -204,7 +199,7 @@ bool AttachedApriltagCost::constructCost(ManipulationTracker * tracker, Eigen::M
       z_c << z_current, rpy_current;
       VectorXd z_d(6);
       z_d << z_des, rpy_des;
-      MatrixXd J(6, robot->num_positions);
+      MatrixXd J(6, robot->number_of_positions());
       J << J_xyz, J_rpy;
 
       // 0.5 * x.' Q x + f.' x

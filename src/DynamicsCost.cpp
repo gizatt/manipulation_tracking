@@ -13,7 +13,7 @@ using namespace Eigen;
 DynamicsCost::DynamicsCost(std::shared_ptr<const RigidBodyTree> robot_, std::shared_ptr<lcm::LCM> lcm_, YAML::Node config) :
     robot(robot_),
     lcm(lcm_),
-    nq(robot->num_positions)
+    nq(robot->number_of_positions())
 {
   if (config["dynamics_floating_base_var"])
     dynamics_floating_base_var = config["dynamics_floating_base_var"].as<double>();
@@ -33,7 +33,7 @@ bool DynamicsCost::constructCost(ManipulationTracker * tracker, Eigen::Matrix<do
   double now = getUnixTime();
 
   VectorXd x_old = tracker->output();
-  VectorXd q_old = x_old.block(0, 0, robot->num_positions, 1);
+  VectorXd q_old = x_old.block(0, 0, robot->number_of_positions(), 1);
 
   /***********************************************
                 DYNAMICS HINTS

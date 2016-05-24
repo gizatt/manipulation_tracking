@@ -11,7 +11,6 @@
       <geometry>
         <box size="0.103 0.103 0.103"/>
       </geometry>
-      <origin xyz="0 0 0"/>
     </collision>
     <inertial>
       <mass value="0.1"/>

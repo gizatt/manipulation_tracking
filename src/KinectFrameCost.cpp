@@ -38,7 +38,7 @@ KinectFrameCost::KinectFrameCost(std::shared_ptr<RigidBodyTree> robot_, std::sha
     robot(robot_),
     robot_kinematics_cache(robot->bodies),
     lcm(lcm_),
-    nq(robot->num_positions)
+    nq(robot->number_of_positions())
 {
   if (config["icp_var"])
     icp_var = config["icp_var"].as<double>();
@@ -164,7 +164,7 @@ bool KinectFrameCost::constructCost(ManipulationTracker * tracker, Eigen::Matrix
   }
   else {
     VectorXd x_old = tracker->output();
-    VectorXd q_old = x_old.block(0, 0, robot->num_positions, 1);
+    VectorXd q_old = x_old.block(0, 0, robot->number_of_positions(), 1);
     robot_kinematics_cache.initialize(q_old);
     robot->doKinematics(robot_kinematics_cache);
 
