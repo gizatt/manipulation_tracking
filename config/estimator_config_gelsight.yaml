@@ -14,7 +14,7 @@ costs:
   - type: "AttachedApriltagCost"
     verbose: false
     timeout_time: 0.2
-    localization_var: 0.01
+    localization_var: 0.1
     attached_manipuland: "cube"
     apriltags:
       - id: 1
@@ -51,7 +51,7 @@ costs:
   - type: "AttachedApriltagCost"
     verbose: false
     timeout_time: 0.2
-    localization_var: 0.01
+    localization_var: 0.1
     attached_manipuland: "gelsight_rig"
     apriltags:
       - id: 0
@@ -70,7 +70,7 @@ costs:
 
   - type: "GelsightCost"
     max_considered_corresp_distance: 0.1
-    gelsight_depth_var: .inf
+    gelsight_depth_var: 0.01
     gelsight_freespace_var: 0.001
     num_sample_points: 1000
     timeout_time: 0.2

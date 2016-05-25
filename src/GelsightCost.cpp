@@ -164,7 +164,7 @@ bool GelsightCost::constructCost(ManipulationTracker * tracker, Eigen::Matrix<do
 
     // draw them for debug
 
-    /*
+    
     bot_lcmgl_point_size(lcmgl_gelsight_, 4.0f);
     bot_lcmgl_begin(lcmgl_gelsight_, LCMGL_POINTS);
 
@@ -177,7 +177,7 @@ bool GelsightCost::constructCost(ManipulationTracker * tracker, Eigen::Matrix<do
       bot_lcmgl_vertex3f(lcmgl_gelsight_, noncontact_points(0, i), noncontact_points(1, i), noncontact_points(2, i));
     }    
     bot_lcmgl_end(lcmgl_gelsight_);
-    */
+    
 
 
     // for each point for which we have contact, attract nearby surfaces
@@ -308,20 +308,13 @@ bool GelsightCost::constructCost(ManipulationTracker * tracker, Eigen::Matrix<do
               if (noncontact_points(0, j) == 0.0){
                 cout << "Zero points " << noncontact_points.block<3, 1>(0, j).transpose() << " slipping in at bdyidx " << body_idx[j] << endl;
               }
-              if (phi(j) != 0.0){ // why is this necessary?
-                cout << "Pt " << noncontact_points.block<3,1>(0,j).transpose() << " with phi " << phi(j) << endl;
-                bot_lcmgl_color3f(lcmgl_gelsight_, 1, 0, 0);  
-                bot_lcmgl_vertex3f(lcmgl_gelsight_, z(0, k), z(1, k), z(2, k));
-
+              if (phi(j) < 0.0){
                 z.block<3, 1>(0, k) = noncontact_points.block<3, 1>(0, j);
                 z_prime.block<3, 1>(0, k) = x.block<3, 1>(0, j);
                 body_z_prime.block<3, 1>(0, k) = body_x.block<3, 1>(0, j);
                 z_norms.block<3, 1>(0, k) = normal.block<3, 1>(0, j);
                 phis(k) = phi(j);
                 k++;
-              } else {
-                bot_lcmgl_color3f(lcmgl_gelsight_, 0, 1, 0);  
-                bot_lcmgl_vertex3f(lcmgl_gelsight_, noncontact_points(0, j), noncontact_points(1, j), noncontact_points(2, j));
               }
             }
           }
@@ -344,7 +337,7 @@ bool GelsightCost::constructCost(ManipulationTracker * tracker, Eigen::Matrix<do
           // min_{q_new} [ z - z_prime ]
           // min_{q_new} [ (z + J_z*(q_new - q_old)) - (z_prime + J_prime*(q_new - q_old)) ]
           // min_{q_new} [ (z - z_prime) + (J_z - J_prime)*(q_new - q_old) ]
-          FREESPACE_WEIGHT = 0.0;
+          //FREESPACE_WEIGHT = 0.0;
           bot_lcmgl_begin(lcmgl_corresp_, LCMGL_LINES);
           bot_lcmgl_line_width(lcmgl_corresp_, 4.0f);   
           bot_lcmgl_color3f(lcmgl_corresp_, 1.0, 0.0, 0.0);
@@ -359,9 +352,9 @@ bool GelsightCost::constructCost(ManipulationTracker * tracker, Eigen::Matrix<do
               // visualize point correspondences and normals
               double dist_normalized = fmin(max_considered_corresp_distance, (z.col(j) - z_prime.col(j)).norm()) / max_considered_corresp_distance;
             //  bot_lcmgl_color3f(lcmgl_corresp_, 1.0, 0.0, (1.0-dist_normalized)*(1.0-dist_normalized));
-             // bot_lcmgl_vertex3f(lcmgl_corresp_, z(0, j), z(1, j), z(2, j));
-              Vector3d norm_endpt = z_prime.block<3,1>(0,j) + z_norms.block<3,1>(0,j)*0.01;
-              bot_lcmgl_vertex3f(lcmgl_corresp_, norm_endpt(0), norm_endpt(1), norm_endpt(2));
+              bot_lcmgl_vertex3f(lcmgl_corresp_, z(0, j), z(1, j), z(2, j));
+              //Vector3d norm_endpt = z_prime.block<3,1>(0,j) + z_norms.block<3,1>(0,j)*0.01;
+              //bot_lcmgl_vertex3f(lcmgl_corresp_, norm_endpt(0), norm_endpt(1), norm_endpt(2));
               bot_lcmgl_vertex3f(lcmgl_corresp_, z_prime(0, j), z_prime(1, j), z_prime(2, j));
               
             }
