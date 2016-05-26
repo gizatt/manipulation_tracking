@@ -185,15 +185,19 @@ bool KinectFrameCost::constructCost(ManipulationTracker * tracker, Eigen::Matrix
     long long utime2 = 0;
     this->get_trans_with_utime("local", "robot_yplus_tag", utime2, world2tag);
     Eigen::Isometry3d kinect2world =  world2tag.inverse() * kinect2tag;
+    //
+    kinect2world.setIdentity();
+    this->get_trans_with_utime("KINECT_RGB", "local", utime, kinect2world);
     full_cloud = kinect2world * full_cloud;
 
     // do randomized downsampling, populating data stores to be used by the ICP
     Matrix3Xd points(3, full_cloud.cols()); int i=0;
     Eigen::MatrixXd depth_image; depth_image.resize(num_pixel_rows, num_pixel_cols);
     double constant = 1.0f / kcal->intrinsics_rgb.fx ;
+    bot_lcmgl_begin(lcmgl_lidar_, LCMGL_POINTS);
     if (full_cloud.cols() > 0){
       if (full_cloud.cols() != input_num_pixel_cols*input_num_pixel_rows){
-        printf("WARNING: SOMEHOW FULL CLOUD HAS WRONG NUMBER OF ENTRIES.\n");
+        printf("KinectFramecost: WARNING: SOMEHOW FULL CLOUD HAS WRONG NUMBER OF ENTRIES.\n");
       }
       for (size_t v=0; v<num_pixel_rows; v++) {
         for (size_t u=0; u<num_pixel_cols; u++) {
@@ -201,15 +205,19 @@ bool KinectFrameCost::constructCost(ManipulationTracker * tracker, Eigen::Matrix
           int full_u = min((int)floor(((double)u)*downsample_amount) + rand()%(int)downsample_amount, input_num_pixel_cols-1);
 
           // cut down to just point cloud in our manipulation space
-          //(todo: bring in this info externally somehow)
           Eigen::Vector3d pt = full_cloud.block<3, 1>(0, full_v*input_num_pixel_cols + full_u);
           if (full_depth_image(full_v, full_u) > 0. &&
               pt[0] > pointcloud_bounds.xMin && pt[0] < pointcloud_bounds.xMax && 
               pt[1] > pointcloud_bounds.yMin && pt[1] < pointcloud_bounds.yMax && 
               pt[2] > pointcloud_bounds.zMin && pt[2] < pointcloud_bounds.zMax){
-            assert(pt[0] != 0.0);
             points.block<3, 1>(0, i) = pt;
             i++;
+
+            bot_lcmgl_color3f(lcmgl_lidar_, 0.0, 1.0, 0.0);
+            bot_lcmgl_vertex3f(lcmgl_lidar_, pt[0], pt[1], pt[2]);
+          } else {
+            bot_lcmgl_color3f(lcmgl_lidar_, 1.0, 0.0, 0.0);
+            bot_lcmgl_vertex3f(lcmgl_lidar_, pt[0], pt[1], pt[2]);
           }
 
           // populate depth image using our random sample
@@ -223,7 +231,11 @@ bool KinectFrameCost::constructCost(ManipulationTracker * tracker, Eigen::Matrix
           raycast_endpoints.col(num_pixel_cols*v + u) *= max_scan_dist/(raycast_endpoints.col(num_pixel_cols*v + u).norm());
         }
       }
+    } else {
+      printf("KinectFramecost: No points to work with\n");
     }
+    bot_lcmgl_end(lcmgl_lidar_);
+    bot_lcmgl_switch_buffer(lcmgl_lidar_);
     // conservativeResize keeps old coefficients
     // (regular resize would clear them)
     points.conservativeResize(3, i);
@@ -618,7 +630,8 @@ void KinectFrameCost::handleSavePointcloudMsg(const lcm::ReceiveBuffer* rbuf,
 void KinectFrameCost::handleKinectFrameMsg(const lcm::ReceiveBuffer* rbuf,
                            const std::string& chan,
                            const kinect::frame_msg_t* msg){
-  //printf("Received kinect frame on channel %s\n", chan.c_str());
+  if (verbose)
+    printf("Received kinect frame on channel %s\n", chan.c_str());
 
   // only dealing with depth. Copied from ddKinectLCM... shouldn't 
   // this be in the Kinect driver or something?

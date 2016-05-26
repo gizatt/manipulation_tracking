@@ -14,7 +14,7 @@ costs:
   - type: "AttachedApriltagCost"
     verbose: false
     timeout_time: 0.2
-    localization_var: 0.1
+    localization_var: 0.02
     attached_manipuland: "cube"
     apriltags:
       - id: 1
@@ -51,20 +51,20 @@ costs:
   - type: "AttachedApriltagCost"
     verbose: false
     timeout_time: 0.2
-    localization_var: 0.1
+    localization_var: 0.02
     attached_manipuland: "gelsight_rig"
     apriltags:
       - id: 0
         body: "apriltag_mount"
         #pos: [-0.0125, -0.095, -0.065]
         #rot: [180.0, 90.0, -90.0]
-        pos: [0., 0., 0.]
+        pos: [0., 0.01, -0.005]
         rot: [0., 0., 0.]
         channel: APRIL_TAG_0000_TO_CAMERA_LEFT
 
   - type: "DynamicsCost"
-    dynamics_floating_base_var: 0.01 # m per frame
-    dynamics_other_var: 0.01 # rad per frame
+    dynamics_floating_base_var: 0.05 # m per frame
+    dynamics_other_var: 0.05 # rad per frame
     joint_limit_var: 0.001 # one-sided, radians
     verbose: False
 
@@ -74,10 +74,25 @@ costs:
     gelsight_freespace_var: 0.001
     num_sample_points: 1000
     timeout_time: 0.2
-    verbose: true
+    verbose: False
     surface:
       body: "gelsight_box"
       lower_left:  [-0.0125, 0.0125, 0.0]
       lower_right: [-0.0125,  -0.0125, 0.0]
       upper_left:  [ 0.0125, 0.0125, 0.0]
       upper_right:  [ 0.0125,  -0.0125, 0.0]
+
+  - type: "KinectFrameCost"
+    config: "/software/config/irb140/irb140.cfg"
+    icp_var: .inf
+    free_space_var: .inf
+    max_considered_icp_distance: 0.02
+    min_considered_joint_distance: 0.02
+    verbose: False
+    bounds:
+      xMin: -1.0
+      xMax: 1.0
+      yMin: -1.0
+      yMax: 1.0
+      zMin: -1.0
+      zMax: 1.0
