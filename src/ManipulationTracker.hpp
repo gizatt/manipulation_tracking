@@ -34,7 +34,11 @@ private:
   std::shared_ptr<const RigidBodyTree> robot;
   std::vector<std::string> robot_names;
   KinematicsCache<double> robot_kinematics_cache;
-  Eigen::Matrix<double, Eigen::Dynamic, 1> x_robot;
+  Eigen::Matrix<double, Eigen::Dynamic, 1> x;
+
+  Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> sigma;
+
+
   std::shared_ptr<lcm::LCM> lcm;
   std::vector<std::shared_ptr<ManipulationTrackerCost>> registeredCosts;
   bool verbose;

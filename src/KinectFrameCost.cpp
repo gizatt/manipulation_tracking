@@ -59,7 +59,7 @@ KinectFrameCost::KinectFrameCost(std::shared_ptr<RigidBodyTree> robot_, std::sha
     BoundingBox bounds;
     bounds.xMin = config["bounds"]["xMin"].as<double>();
     bounds.xMax = config["bounds"]["xMax"].as<double>();
-    bounds.zMin = config["bounds"]["yMin"].as<double>();
+    bounds.yMin = config["bounds"]["yMin"].as<double>();
     bounds.yMax = config["bounds"]["yMax"].as<double>();
     bounds.zMin = config["bounds"]["zMin"].as<double>();
     bounds.zMax = config["bounds"]["zMax"].as<double>();
@@ -186,8 +186,8 @@ bool KinectFrameCost::constructCost(ManipulationTracker * tracker, Eigen::Matrix
     this->get_trans_with_utime("local", "robot_yplus_tag", utime2, world2tag);
     Eigen::Isometry3d kinect2world =  world2tag.inverse() * kinect2tag;
     //
-    kinect2world.setIdentity();
-    this->get_trans_with_utime("KINECT_RGB", "local", utime, kinect2world);
+   // kinect2world.setIdentity();
+   // this->get_trans_with_utime("KINECT_RGB", "local", utime, kinect2world);
     full_cloud = kinect2world * full_cloud;
 
     // do randomized downsampling, populating data stores to be used by the ICP
@@ -595,8 +595,10 @@ void KinectFrameCost::handleSavePointcloudMsg(const lcm::ReceiveBuffer* rbuf,
   printf("####Received save command on channel %s to file %s\n", chan.c_str(), filename.c_str());
 
   Matrix3Xd full_cloud;
+  MatrixXd color_image ;
   latest_cloud_mutex.lock();
   full_cloud = latest_cloud;
+  color_image = latest_color_image;
   latest_cloud_mutex.unlock();
 
   // transform into world frame
@@ -615,13 +617,14 @@ void KinectFrameCost::handleSavePointcloudMsg(const lcm::ReceiveBuffer* rbuf,
   Eigen::Vector3d camera_point = kinect2world*Eigen::Vector3d::Zero();
   ofile << camera_point[0] << ", " << camera_point[1] << ", " << camera_point[2] << endl;
 
-  // rest are points in workspace in world frame
+  // rest are points in workspace in world frame, followed by color (r g b)
   for (int i=0; i < full_cloud.cols(); i++){
     Vector3d pt = full_cloud.block<3,1>(0, i);
+    Vector3d color = color_image.block<3, 1>(0, i);
     if (    pt[0] > pointcloud_bounds.xMin && pt[0] < pointcloud_bounds.xMax && 
             pt[1] > pointcloud_bounds.yMin && pt[1] < pointcloud_bounds.yMax && 
             pt[2] > pointcloud_bounds.zMin && pt[2] < pointcloud_bounds.zMax){
-      ofile << pt[0] << ", " << pt[1] << ", " << pt[2] << endl;
+      ofile << pt[0] << ", " << pt[1] << ", " << pt[2] << ", " << color[0] << ", " << color[1] << ", " << color[2] << endl;
     }
   }
   ofile.close();
@@ -637,6 +640,29 @@ void KinectFrameCost::handleKinectFrameMsg(const lcm::ReceiveBuffer* rbuf,
   // this be in the Kinect driver or something?
 
   latest_cloud_mutex.lock();
+
+  // grab the color image to colorize lidar
+  bool success = false;
+  cv::Mat decodedImage;
+  if (msg->image.image_data_format == kinect::image_msg_t::VIDEO_RGB_JPEG){
+   decodedImage = cv::imdecode(msg->image.image_data, 0);
+   success = (decodedImage.rows > 0);
+  } else {
+   printf("Got a Kinect color image in a format I don't understand: %d\n", msg->image.image_data_format);
+  }
+  if (success){
+   if (latest_color_image.cols() != (msg->image.height * msg->image.width)){
+     latest_color_image.resize(3, msg->image.height * msg->image.width);
+   }
+   for(long int v=0; v<msg->image.height; v++) { // t2b self->height 480
+     for(long int u=0; u<msg->image.width; u++ ) {  //l2r self->width 640
+      long int ind = v*msg->image.width + u;
+      latest_color_image(0, ind) = ((float) decodedImage.at<Vec3b>(v, u).val[0]) / 255.0;
+      latest_color_image(1, ind) = ((float) decodedImage.at<Vec3b>(v, u).val[1]) / 255.0;
+      latest_color_image(2, ind) = ((float) decodedImage.at<Vec3b>(v, u).val[2]) / 255.0;
+     }
+   }
+  }
 
   std::vector<uint16_t> depth_data;
 

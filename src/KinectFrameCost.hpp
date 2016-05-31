@@ -81,6 +81,7 @@ private:
   KinectCalibration* kcal;
   Eigen::Matrix<double, 3, Eigen::Dynamic> latest_cloud;
   Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> latest_depth_image;
+  Eigen::Matrix<double, 3, Eigen::Dynamic> latest_color_image;
   Eigen::Matrix<double, 3, Eigen::Dynamic> raycast_endpoints;
 
   double lastReceivedTime;
