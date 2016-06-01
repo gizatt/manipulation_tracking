@@ -16,32 +16,37 @@ std::shared_ptr<RigidBodyTree> setupRobotFromConfig(YAML::Node config, Eigen::Ve
 
 class ManipulationTracker {
 public:
-  ManipulationTracker(std::shared_ptr<const RigidBodyTree> robot, Eigen::Matrix<double, Eigen::Dynamic, 1> x0_robot_, std::shared_ptr<lcm::LCM> lcm_, bool verbose_ = false);
+  typedef std::pair<std::shared_ptr<ManipulationTrackerCost>, std::vector<int>> CostAndView;
+
+  ManipulationTracker(std::shared_ptr<const RigidBodyTree> robot, Eigen::Matrix<double, Eigen::Dynamic, 1> x0_robot, std::shared_ptr<lcm::LCM> lcm, bool verbose = false);
   ~ManipulationTracker() {};
 
   // register a cost function with the solver
-  void addCost(std::shared_ptr<ManipulationTrackerCost> newCost){
-    registeredCosts.push_back(newCost);
-  }
+  void addCost(std::shared_ptr<ManipulationTrackerCost> new_cost);
 
   void update();
-  Eigen::Matrix<double, Eigen::Dynamic, 1> output() { return x_robot; }
+  Eigen::Matrix<double, Eigen::Dynamic, 1> output() { return x_; }
 
   // helper to publish out to lcm
   void publish();
 
 private:
-  std::shared_ptr<const RigidBodyTree> robot;
-  std::vector<std::string> robot_names;
-  KinematicsCache<double> robot_kinematics_cache;
-  Eigen::Matrix<double, Eigen::Dynamic, 1> x;
-
-  Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> sigma;
+  std::shared_ptr<const RigidBodyTree> robot_;
+  std::vector<std::string> robot_names_;
+  KinematicsCache<double> robot_kinematics_cache_;
 
 
-  std::shared_ptr<lcm::LCM> lcm;
-  std::vector<std::shared_ptr<ManipulationTrackerCost>> registeredCosts;
-  bool verbose;
+  Eigen::Matrix<double, Eigen::Dynamic, 1> x_;
+  Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> covar_;
+
+
+  std::shared_ptr<lcm::LCM> lcm_;
+
+  // store all registered costs alongside a view into the variable
+  // list, i.e. which decision vars that cost uses
+  std::vector<CostAndView> registeredCostInfo_;
+
+  bool verbose_;
 };
 
 #endif

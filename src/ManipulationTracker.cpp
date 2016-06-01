@@ -70,86 +70,151 @@ std::shared_ptr<RigidBodyTree> setupRobotFromConfig(YAML::Node config, Eigen::Ve
 }
 
 
-ManipulationTracker::ManipulationTracker(std::shared_ptr<const RigidBodyTree> robot_, Eigen::Matrix<double, Eigen::Dynamic, 1> x0_robot_, std::shared_ptr<lcm::LCM> lcm_, bool verbose_) :
-    robot(robot_),
-    lcm(lcm_),
-    x_robot(x0_robot_),
-    verbose(verbose_),
-    robot_kinematics_cache(robot->bodies)
+ManipulationTracker::ManipulationTracker(std::shared_ptr<const RigidBodyTree> robot, Eigen::Matrix<double, Eigen::Dynamic, 1> x0_robot, std::shared_ptr<lcm::LCM> lcm, bool verbose) :
+    robot_(robot),
+    lcm_(lcm),
+    verbose_(verbose),
+    robot_kinematics_cache_(robot->bodies)
 {
-  if (robot->number_of_positions() + robot->number_of_velocities() != x_robot.rows()){
-    printf("Expected initial condition with %d rows, got %ld rows.\n", robot->number_of_positions() + robot->number_of_velocities(), x_robot.rows());
+  if (robot_->number_of_positions() + robot_->number_of_velocities() != x0_robot.rows()){
+    printf("Expected initial condition with %d rows, got %ld rows.\n", robot_->number_of_positions() + robot_->number_of_velocities(), x0_robot.rows());
     exit(0);
   }
+ 
+  // spawn initial decision variables from robot state
+  x_.conservativeResize(x0_robot.rows());
+  x_ = x0_robot;
+  covar_.conservativeResize(x0_robot.rows(), x0_robot.rows());
+  covar_ *= 0.0; // TODO: how to better initialize covariance?
 
+  // generate robot names
   for (auto it=robot->bodies.begin(); it!=robot->bodies.end(); it++){
-    auto findit = find(robot_names.begin(), robot_names.end(), (*it)->model_name());
-    if (findit == robot_names.end())
-      robot_names.push_back((*it)->model_name());
+    auto findit = find(robot_names_.begin(), robot_names_.end(), (*it)->model_name());
+    if (findit == robot_names_.end())
+      robot_names_.push_back((*it)->model_name());
   }
 }
 
+
+void ManipulationTracker::addCost(std::shared_ptr<ManipulationTrackerCost> new_cost){
+  // spawn any necessary new decision variables
+  int new_decision_vars = new_cost->getNumExtraVars();
+  if (new_decision_vars > 0){
+    x_.conservativeResize(x_.rows() + new_decision_vars, 1);
+    covar_.conservativeResize(x_.rows(), x_.rows());
+  }
+  CostAndView new_cost_and_view;
+  new_cost_and_view.first = new_cost;
+
+  // robot positions and velocities are the first nX indices
+  for (int i=0; i < robot_->number_of_positions() + robot_->number_of_velocities(); i++){
+    new_cost_and_view.second.push_back(i);
+  }
+  // the rest of the new vars are on the very end
+  for (int i= (x_.rows() - new_decision_vars); i < x_.rows(); i++){
+    new_cost_and_view.second.push_back(i);
+  }
+
+  registeredCostInfo_.push_back(new_cost_and_view);
+}
+
+
 void ManipulationTracker::update(){
 
-  // set up a quadratic program:
-  // 0.5 * x.' Q x + f.' x
-  // and since we're unconstrained then solve as linear system
-  // Qx = -f
+  // Performs an EKF-like update of our given state.
 
-  VectorXd q_old = x_robot.block(0, 0, robot->number_of_positions(), 1);
-  int nq = robot->number_of_positions();
-  robot_kinematics_cache.initialize(q_old);
-  robot->doKinematics(robot_kinematics_cache);
+  // get the robot state ready:
+  int nq = robot_->number_of_positions();
+  int nx = x_.rows();
+  VectorXd q_old = x_.block(0, 0, nq, 1);
+  robot_kinematics_cache_.initialize(q_old);
+  robot_->doKinematics(robot_kinematics_cache_);
   
   double now=getUnixTime();
 
-  // set up a quadratic program:
+  // PREDICTION:
+  // Do a standard EKF prediction step: update the state 
+  // via potentially nonlinear dynamics functions,
+  // and update covariance via their jacobian.
+  VectorXd x_pred = x_;
+  MatrixXd covar_pred = covar_ + MatrixXd::Identity(nx, nx) * 0.1;
+
+  // TODO: accept parameters for this
+
+  // MEASUREMENT:
+  // Following the DART folks, we'll set this up as an
+  // optimization instead of a linear update.
+  // In our case, we'll set up a quadratic program -- many of these
+  // costs are easy to write and balance in this way as 
+  // instantaneous maximum-likelihood estimates, particularly
+  // point cloud measurement errors.
+
+  // So, for now, the optimization problem is:
   // 0.5 * x.' Q x + f.' x
   // and since we're unconstrained then solve as linear system
   // Qx = -f
+  // With covariance estimate coming in from the Hessian Q
 
-  VectorXd f(nq);
+  VectorXd f(nx);
   f.setZero();
-  MatrixXd Q(nq, nq);
+  MatrixXd Q(nx, nx);
   Q.setZero();
   double K = 0.;
-  // generate from registered costs:
-  for (auto it=registeredCosts.begin(); it != registeredCosts.end(); it++){
-    VectorXd f_new(nq);
+
+  // generate these from registered costs:
+  for (auto it=registeredCostInfo_.begin(); it != registeredCostInfo_.end(); it++){
+    int nx_this = (*it).second.size();
+    VectorXd f_new(nx_this);
     f_new.setZero();
-    MatrixXd Q_new(nq, nq);
+    MatrixXd Q_new(nx_this, nx_this);
     Q_new.setZero();
     double K_new = 0.0;
-    bool use = (*it)->constructCost(this, Q_new, f_new, K_new);
+    bool use = (*it).first->constructCost(this, Q_new, f_new, K_new);
     if (use){
-      f += f_new;
-      Q += Q_new;
+      for (int i=0; i<nx_this; i++){
+        int loc_i = (*it).second[i];
+        f(loc_i) += f_new(i);
+        for (int j=0; j<nx_this; j++){
+          int loc_j = (*it).second[j];
+          Q(loc_i, loc_j) += Q_new(i, j);
+        }
+      }
       K += K_new;
     }
   }
-  // solve if we had any useful costs:
-  if (K > 0.0){
+
+  // and, following DART folks specifically here, include the prediction step
+  // as an additional cost by penalizing squared Mahalanobis distance
+  // (x - x_pred)' (covar_pred^(-1)) (x - x_pred)
+  // which can be rewritten in our form as 
+  //covar_pred = covar_pred.inverse();
+  //Q += covar_pred;
+  //f += 2. * (2. * x_pred.transpose() * covar_pred);
+  //K += x_pred.transpose() * covar_pred * x_pred;
+
+  // do measurement update proper if we had any useful costs
+  if (fabs(K) > 0.0){
     // cut out variables that do not enter at all -- i.e., their row and column of Q, and row of f, are 0
     MatrixXd Q_reduced;
     VectorXd f_reduced;
 
     // is it used?
-    std::vector<bool> rows_used(nq, false);
-    int nq_reduced = 0;
-    for (int i=0; i < nq; i++){
-      if ( !(fabs(f[i]) <= 1E-10 && Q.block(i, 0, 1, nq).norm() <= 1E-10 && Q.block(0, i, nq, 1).norm() <= 1E-10) ){
+    std::vector<bool> rows_used(nx, false);
+    int nx_reduced = 0;
+    for (int i=0; i < nx; i++){
+      if ( !(fabs(f[i]) <= 1E-10 && Q.block(i, 0, 1, nx).norm() <= 1E-10 && Q.block(0, i, nx, 1).norm() <= 1E-10) ){
         rows_used[i] = true;
-        nq_reduced++;
+        nx_reduced++;
       }
     }
     // do this reduction (collapse the rows/cols of vars that don't correspond)
-    Q_reduced.resize(nq_reduced, nq_reduced);
-    f_reduced.resize(nq_reduced, 1);
+    Q_reduced.resize(nx_reduced, nx_reduced);
+    f_reduced.resize(nx_reduced, 1);
     int ir = 0, jr = 0;
-    for (int i=0; i < nq; i++){
+    for (int i=0; i < nx; i++){
       if (rows_used[i]){
         jr = 0;
-        for (int j=0; j < nq; j++){
+        for (int j=0; j < nx; j++){
           if (rows_used[j]){
             Q_reduced(ir, jr) = Q(i, j);
             jr++;
@@ -161,40 +226,53 @@ void ManipulationTracker::update(){
     }
 
     // perform reduced solve
-    VectorXd q_new_reduced = Q_reduced.colPivHouseholderQr().solve(-f_reduced);
+    auto QR = Q_reduced.colPivHouseholderQr();
+    VectorXd q_new_reduced = QR.solve(-f_reduced);
+    MatrixXd Q_reduced_inverse = QR.inverse();
 
     // reexpand
     ir = 0;
-    for (int i=0; i < nq; i++){
+    for (int i=0; i < nx; i++){
       if (rows_used[i] && q_new_reduced[ir] == q_new_reduced[ir]){
-        x_robot[i] = q_new_reduced[ir];
+        // update of mean:
+        x_[i] = q_new_reduced[ir];
+
+        // update of covar for this row:
+        int jr = 0;
+        for (int j=0; j < nx; j++){
+          if (rows_used[j] && q_new_reduced[jr] == q_new_reduced[jr]){
+            covar_(i, j) = Q_reduced_inverse(ir, jr);
+            jr++;
+          }
+        }
+
         ir++;
       }
     }
   }
 
-  if (verbose)
-    printf("Total elapsed in least squares construction and solve: %f\n", getUnixTime() - now);
+  if (verbose_)
+    ;//printf("Total elapsed in EKF update: %f\n", getUnixTime() - now);
 
 } 
 
 void ManipulationTracker::publish(){
   // Publish the object state
   //cout << "robot robot name vector: " << robot->robot_name.size() << endl;
-  for (int roboti=1; roboti < robot_names.size(); roboti++){
+  for (int roboti=1; roboti < robot_names_.size(); roboti++){
     bot_core::robot_state_t manipulation_state;
     manipulation_state.utime = getUnixTime();
-    std::string robot_name = robot_names[roboti];
+    std::string robot_name = robot_names_[roboti];
 
     manipulation_state.num_joints = 0;
     bool found_floating = false;
-    for (int i=0; i<robot->bodies.size(); i++){
-      if (robot->bodies[i]->model_name() == robot_name){
-        if (robot->bodies[i]->getJoint().isFloating()){
-          manipulation_state.pose.translation.x = x_robot[robot->bodies[i]->position_num_start + 0];
-          manipulation_state.pose.translation.y = x_robot[robot->bodies[i]->position_num_start + 1];
-          manipulation_state.pose.translation.z = x_robot[robot->bodies[i]->position_num_start + 2];
-          auto quat = rpy2quat(x_robot.block<3, 1>(robot->bodies[i]->position_num_start + 3, 0));
+    for (int i=0; i<robot_->bodies.size(); i++){
+      if (robot_->bodies[i]->model_name() == robot_name){
+        if (robot_->bodies[i]->getJoint().isFloating()){
+          manipulation_state.pose.translation.x = x_[robot_->bodies[i]->position_num_start + 0];
+          manipulation_state.pose.translation.y = x_[robot_->bodies[i]->position_num_start + 1];
+          manipulation_state.pose.translation.z = x_[robot_->bodies[i]->position_num_start + 2];
+          auto quat = rpy2quat(x_.block<3, 1>(robot_->bodies[i]->position_num_start + 3, 0));
           manipulation_state.pose.rotation.w = quat[0];
           manipulation_state.pose.rotation.x = quat[1];
           manipulation_state.pose.rotation.y = quat[2];
@@ -206,17 +284,17 @@ void ManipulationTracker::publish(){
           found_floating = true;
         } else {
           // warning: if numpositions != numvelocities, problems arise...
-          manipulation_state.num_joints += robot->bodies[i]->getJoint().getNumPositions();
-          for (int j=0; j < robot->bodies[i]->getJoint().getNumPositions(); j++){
-            manipulation_state.joint_name.push_back(robot->bodies[i]->getJoint().getPositionName(j));
-            manipulation_state.joint_position.push_back(x_robot[robot->bodies[i]->position_num_start + j]);
-            manipulation_state.joint_velocity.push_back(x_robot[robot->bodies[i]->position_num_start + j + robot->number_of_positions()]);
+          manipulation_state.num_joints += robot_->bodies[i]->getJoint().getNumPositions();
+          for (int j=0; j < robot_->bodies[i]->getJoint().getNumPositions(); j++){
+            manipulation_state.joint_name.push_back(robot_->bodies[i]->getJoint().getPositionName(j));
+            manipulation_state.joint_position.push_back(x_[robot_->bodies[i]->position_num_start + j]);
+            manipulation_state.joint_velocity.push_back(x_[robot_->bodies[i]->position_num_start + j + robot_->number_of_positions()]);
           }
         }
       }
     }
     manipulation_state.joint_effort.resize(manipulation_state.num_joints, 0.0);
     std::string channelname = "EST_MANIPULAND_STATE_" + robot_name;
-    lcm->publish(channelname, &manipulation_state);
+    lcm_->publish(channelname, &manipulation_state);
   }
 }

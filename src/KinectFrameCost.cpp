@@ -332,11 +332,11 @@ bool KinectFrameCost::constructCost(ManipulationTracker * tracker, Eigen::Matrix
             if (POINT_TO_PLANE){
               //cout << z_norms.col(j).transpose() << endl;
               //cout << "Together: " << (z_norms.col(j) * z_norms.col(j).transpose()) << endl;
-              f -= ICP_WEIGHT*(2. * Ks.transpose() * (z_norms.col(j) * z_norms.col(j).transpose()) * J.block(3*j, 0, 3, nq)).transpose();
-              Q += ICP_WEIGHT*(2. *  J.block(3*j, 0, 3, nq).transpose() * (z_norms.col(j) * z_norms.col(j).transpose()) * J.block(3*j, 0, 3, nq));
+              f.block(0, 0, nq, 1) -= ICP_WEIGHT*(2. * Ks.transpose() * (z_norms.col(j) * z_norms.col(j).transpose()) * J.block(3*j, 0, 3, nq)).transpose();
+              Q.block(0, 0, nq, nq) += ICP_WEIGHT*(2. *  J.block(3*j, 0, 3, nq).transpose() * (z_norms.col(j) * z_norms.col(j).transpose()) * J.block(3*j, 0, 3, nq));
             } else {
-              f -= ICP_WEIGHT*(2. * Ks.transpose() * J.block(3*j, 0, 3, nq)).transpose();
-              Q += ICP_WEIGHT*(2. *  J.block(3*j, 0, 3, nq).transpose() * J.block(3*j, 0, 3, nq));
+              f.block(0, 0, nq, 1) -= ICP_WEIGHT*(2. * Ks.transpose() * J.block(3*j, 0, 3, nq)).transpose();
+              Q.block(0, 0, nq, nq) += ICP_WEIGHT*(2. *  J.block(3*j, 0, 3, nq).transpose() * J.block(3*j, 0, 3, nq));
             }
             K += ICP_WEIGHT*Ks.squaredNorm();
 
@@ -556,8 +556,8 @@ bool KinectFrameCost::constructCost(ManipulationTracker * tracker, Eigen::Matrix
             } else {
               continue;
             }
-            f -= FREE_SPACE_WEIGHT*(2. * Ks.transpose() * J.block(3*j, 0, 3, nq)).transpose();
-            Q += FREE_SPACE_WEIGHT*(2. *  J.block(3*j, 0, 3, nq).transpose() * J.block(3*j, 0, 3, nq));
+            f.block(0, 0, nq, 1) -= FREE_SPACE_WEIGHT*(2. * Ks.transpose() * J.block(3*j, 0, 3, nq)).transpose();
+            Q.block(0, 0, nq, nq) += FREE_SPACE_WEIGHT*(2. *  J.block(3*j, 0, 3, nq).transpose() * J.block(3*j, 0, 3, nq));
             K += FREE_SPACE_WEIGHT*Ks.squaredNorm();
           }
         }
