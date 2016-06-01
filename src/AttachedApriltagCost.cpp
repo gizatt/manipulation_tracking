@@ -118,7 +118,7 @@ bool AttachedApriltagCost::constructCost(ManipulationTracker * tracker, Eigen::M
 
   double ATTACHED_APRILTAG_WEIGHT = std::isinf(localization_var) ? 0.0 : 1. / (2. * localization_var * localization_var);
 
-  VectorXd x_old = tracker->output();
+  VectorXd x_old = tracker->getMean();
   VectorXd q_old = x_old.block(0, 0, robot->number_of_positions(), 1);
   robot_kinematics_cache.initialize(q_old);
   robot->doKinematics(robot_kinematics_cache);

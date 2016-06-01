@@ -18,14 +18,15 @@ class ManipulationTracker {
 public:
   typedef std::pair<std::shared_ptr<ManipulationTrackerCost>, std::vector<int>> CostAndView;
 
-  ManipulationTracker(std::shared_ptr<const RigidBodyTree> robot, Eigen::Matrix<double, Eigen::Dynamic, 1> x0_robot, std::shared_ptr<lcm::LCM> lcm, bool verbose = false);
+  ManipulationTracker(std::shared_ptr<const RigidBodyTree> robot, Eigen::Matrix<double, Eigen::Dynamic, 1> x0_robot, std::shared_ptr<lcm::LCM> lcm, YAML::Node config, bool verbose = false);
   ~ManipulationTracker() {};
 
   // register a cost function with the solver
   void addCost(std::shared_ptr<ManipulationTrackerCost> new_cost);
 
   void update();
-  Eigen::Matrix<double, Eigen::Dynamic, 1> output() { return x_; }
+  Eigen::Matrix<double, Eigen::Dynamic, 1> getMean() { return x_; }
+  Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> getCovariance() { return covar_; }
 
   // helper to publish out to lcm
   void publish();
@@ -39,8 +40,12 @@ private:
   Eigen::Matrix<double, Eigen::Dynamic, 1> x_;
   Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> covar_;
 
-
   std::shared_ptr<lcm::LCM> lcm_;
+
+  // dynamics updating
+  double dynamics_floating_base_var_ = 0.1;
+  double dynamics_other_var_ = 0.1;
+  bool dynamics_verbose_ = false;
 
   // store all registered costs alongside a view into the variable
   // list, i.e. which decision vars that cost uses

@@ -36,7 +36,7 @@ int main(int argc, char** argv) {
   std::shared_ptr<const RigidBodyTree> robot = setupRobotFromConfig(config, x0_robot, string(drc_path), true);
 
   // initialize tracker itself
-  ManipulationTracker estimator(robot, x0_robot, lcm, true);
+  ManipulationTracker estimator(robot, x0_robot, lcm, config, true);
 
   // and register all of the costs that we know how to handle
   if (config["costs"]){

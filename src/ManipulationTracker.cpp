@@ -59,6 +59,7 @@ std::shared_ptr<RigidBodyTree> setupRobotFromConfig(YAML::Node config, Eigen::Ve
   robot->compile();
 
   x0_robot.conservativeResize(robot->number_of_positions() + robot->number_of_velocities());
+  x0_robot.block(robot->number_of_positions(), 0, robot->number_of_velocities(), 1).setZero();
 
   if (verbose){
     cout << "All position names and init values: " << endl;
@@ -70,7 +71,7 @@ std::shared_ptr<RigidBodyTree> setupRobotFromConfig(YAML::Node config, Eigen::Ve
 }
 
 
-ManipulationTracker::ManipulationTracker(std::shared_ptr<const RigidBodyTree> robot, Eigen::Matrix<double, Eigen::Dynamic, 1> x0_robot, std::shared_ptr<lcm::LCM> lcm, bool verbose) :
+ManipulationTracker::ManipulationTracker(std::shared_ptr<const RigidBodyTree> robot, Eigen::Matrix<double, Eigen::Dynamic, 1> x0_robot, std::shared_ptr<lcm::LCM> lcm, YAML::Node config, bool verbose) :
     robot_(robot),
     lcm_(lcm),
     verbose_(verbose),
@@ -82,10 +83,12 @@ ManipulationTracker::ManipulationTracker(std::shared_ptr<const RigidBodyTree> ro
   }
  
   // spawn initial decision variables from robot state
-  x_.conservativeResize(x0_robot.rows());
-  x_ = x0_robot;
-  covar_.conservativeResize(x0_robot.rows(), x0_robot.rows());
-  covar_ *= 0.0; // TODO: how to better initialize covariance?
+  x_.resize(x0_robot.rows());
+  x_.setZero();
+  x_.block(0,0,x0_robot.rows(), 1) = x0_robot;
+  covar_.resize(x0_robot.rows(), x0_robot.rows());
+  covar_.setZero(); // TODO: how to better initialize covariance?
+  covar_ += MatrixXd::Identity(covar_.rows(), covar_.cols())*0.000001;
 
   // generate robot names
   for (auto it=robot->bodies.begin(); it!=robot->bodies.end(); it++){
@@ -93,6 +96,17 @@ ManipulationTracker::ManipulationTracker(std::shared_ptr<const RigidBodyTree> ro
     if (findit == robot_names_.end())
       robot_names_.push_back((*it)->model_name());
   }
+
+  // get dynamics configuration from yaml
+  if (config["dynamics"]){
+    if (config["dynamics"]["dynamics_floating_base_var"])
+      dynamics_floating_base_var_ = config["dynamics"]["dynamics_floating_base_var"].as<double>();
+    if (config["dynamics"]["dynamics_other_var"])
+      dynamics_other_var_ = config["dynamics"]["dynamics_other_var"].as<double>();
+    if (config["dynamics"]["verbose"])
+      dynamics_verbose_ = config["dynamics"]["verbose"].as<bool>();
+  }
+
 }
 
 
@@ -101,7 +115,10 @@ void ManipulationTracker::addCost(std::shared_ptr<ManipulationTrackerCost> new_c
   int new_decision_vars = new_cost->getNumExtraVars();
   if (new_decision_vars > 0){
     x_.conservativeResize(x_.rows() + new_decision_vars, 1);
+    x_.block(x_.rows()-new_decision_vars, 0, new_decision_vars, 1).setZero();
     covar_.conservativeResize(x_.rows(), x_.rows());
+    covar_.block(covar_.rows()-new_decision_vars, 0, new_decision_vars, covar_.cols()).setZero();
+    covar_.block(0, covar_.cols()-new_decision_vars, covar_.rows(), new_decision_vars).setZero();
   }
   CostAndView new_cost_and_view;
   new_cost_and_view.first = new_cost;
@@ -136,10 +153,34 @@ void ManipulationTracker::update(){
   // Do a standard EKF prediction step: update the state 
   // via potentially nonlinear dynamics functions,
   // and update covariance via their jacobian.
-  VectorXd x_pred = x_;
-  MatrixXd covar_pred = covar_ + MatrixXd::Identity(nx, nx) * 0.1;
+  VectorXd x_pred(x_);
+  MatrixXd covar_pred(covar_);
 
-  // TODO: accept parameters for this
+  // predict x to be within joint limits
+  for (int i=0; i<q_old.rows(); i++){
+    if (isfinite(robot_->joint_limit_min[i]) && x_pred[i] < robot_->joint_limit_min[i]){
+      x_pred[i] = robot_->joint_limit_min[i];
+    } else if (isfinite(robot_->joint_limit_max[i]) && x_pred[i] > robot_->joint_limit_max[i]){
+      x_pred[i] = robot_->joint_limit_max[i];
+    }
+  }
+
+  if (!std::isinf(dynamics_other_var_)){
+    for (int i=0; i < 6; i++){
+      covar_pred(i, i) += dynamics_floating_base_var_*dynamics_floating_base_var_;
+    }
+  }
+  if (!std::isinf(dynamics_floating_base_var_)){
+    for (int i=6; i<x_.rows(); i++){
+      covar_pred(i, i) += dynamics_other_var_*dynamics_other_var_;
+    }
+  }
+
+  cout << "X Pred: " << x_pred.transpose() << endl;
+  cout << "Covar Pred: " << covar_pred.diagonal().transpose() << endl;
+
+  // TODO: accept parameters for this or pawn it off to a 
+  // different object
 
   // MEASUREMENT:
   // Following the DART folks, we'll set this up as an
@@ -187,10 +228,10 @@ void ManipulationTracker::update(){
   // as an additional cost by penalizing squared Mahalanobis distance
   // (x - x_pred)' (covar_pred^(-1)) (x - x_pred)
   // which can be rewritten in our form as 
-  //covar_pred = covar_pred.inverse();
-  //Q += covar_pred;
-  //f += 2. * (2. * x_pred.transpose() * covar_pred);
-  //K += x_pred.transpose() * covar_pred * x_pred;
+  covar_pred = covar_pred.inverse();
+  Q += covar_pred;
+  f -= x_pred.transpose() * covar_pred;
+  K += 2 * x_pred.transpose() * covar_pred * x_pred;
 
   // do measurement update proper if we had any useful costs
   if (fabs(K) > 0.0){
@@ -252,7 +293,7 @@ void ManipulationTracker::update(){
   }
 
   if (verbose_)
-    ;//printf("Total elapsed in EKF update: %f\n", getUnixTime() - now);
+    printf("Total elapsed in EKF update: %f\n", getUnixTime() - now);
 
 } 
 

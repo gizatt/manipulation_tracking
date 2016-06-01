@@ -1,7 +1,7 @@
 robots:
   irb140:
-    #urdf: "/software/perception/manipulation_tracking/urdf/irb140_chull_robotiq_actuated_fingers.urdf"
-    urdf: "/software/perception/manipulation_tracking/urdf/irb140_chull_robotiq_fourbar_fingers.urdf"
+    urdf: "/software/perception/manipulation_tracking/urdf/irb140_chull_robotiq_actuated_fingers.urdf"
+    #urdf: "/software/perception/manipulation_tracking/urdf/irb140_chull_robotiq_fourbar_fingers.urdf"
     q0:
       base_x: -0.17
       base_z: 0.91
@@ -59,13 +59,17 @@ robots:
       base_x: 0.67
       base_z: 0.71
 
+dynamics:
+  dynamics_floating_base_var: 0.0001 # m per frame
+  dynamics_other_var: 0.1 # rad per frame
+  verbose: False
 
 costs:
   - type: "KinectFrameCost"
     config: "/software/config/irb140/irb140.cfg"
     icp_var: 0.05 # m
     free_space_var: 0.1
-    max_considered_icp_distance: 0.075
+    max_considered_icp_distance: 0.05
     min_considered_joint_distance: 0.03
     verbose: False
     bounds:
@@ -77,27 +81,26 @@ costs:
       zMax: 1.5
 
   - type: "RobotStateCost"
-    joint_known_fb_var: 0.1 # m
+    joint_known_fb_var: 0.0001 # m
     joint_known_encoder_var: 0.001 # radian
+    transcribe_floating_base_vars: True
     verbose: False
     state_channelname: "EST_ROBOT_STATE"
-
-  - type: "RobotiqStateCost"
-    joint_known_encoder_var: 0.001 # 
 
   - type: "JointStateCost"
     state_channelname: "ROBOTIQ_LEFT_STATE"
     joint_reported_var: 0.001
     listen_joints:
       - "left_finger_1_joint_1"
+      - "left_finger_1_joint_2"
+      - "left_finger_1_joint_3"
       - "left_finger_2_joint_1"
       - "left_finger_middle_joint_1"
 
-  - type: "position_constraint"
-    position_constraint_var: 0.1 # one-sided, radians
+#  - type: "position_constraint"
+#    position_constraint_var: 0.1 # one-sided, radians
 
-  - type: "DynamicsCost"
-    dynamics_floating_base_var: 0.0001 # m per frame
-    dynamics_other_var: 0.1 # rad per frame
-    joint_limit_var: 0.01 # one-sided, radians
-    verbose: False
+#  - type: "DynamicsCost"
+#    dynamics_floating_base_var: 0.0001 # m per frame
+#    dynamics_other_var: 0.1 # rad per frame
+#    verbose: False
