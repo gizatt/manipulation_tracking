@@ -25,7 +25,7 @@ public:
   int get_trans_with_utime(std::string from_frame, std::string to_frame,
                                long long utime, Eigen::Isometry3d & mat);
   
-  bool constructCost(ManipulationTracker * tracker, Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>& Q, Eigen::Matrix<double, Eigen::Dynamic, 1>& f, double& K);
+  bool constructCost(ManipulationTracker * tracker, const Eigen::Matrix<double, Eigen::Dynamic, 1> x_old, Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>& Q, Eigen::Matrix<double, Eigen::Dynamic, 1>& f, double& K);
 
   void handleTagDetectionMsg(const lcm::ReceiveBuffer* rbuf,
                            const std::string& chan,
@@ -35,6 +35,7 @@ private:
   std::string robot_name = "";
   struct ApriltagAttachment {
     int body_id;
+    int list_id;
     Eigen::Transform<double, 3, Eigen::Isometry> body_transform;
     Eigen::Transform<double, 3, Eigen::Isometry> last_transform;
     double last_received;
@@ -45,6 +46,7 @@ private:
 
   std::string state_channelname = "";
   double localization_var = 0.01;
+  double transform_var = 1.0;
   double timeout_time = 0.5;
   bool verbose = false;
 

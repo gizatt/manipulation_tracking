@@ -102,7 +102,7 @@ GelsightCost::GelsightCost(std::shared_ptr<RigidBodyTree> robot_, std::shared_pt
 /***********************************************
             KNOWN POSITION HINTS
 *********************************************/
-bool GelsightCost::constructCost(ManipulationTracker * tracker, Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>& Q, Eigen::Matrix<double, Eigen::Dynamic, 1>& f, double& K)
+bool GelsightCost::constructCost(ManipulationTracker * tracker, const Eigen::Matrix<double, Eigen::Dynamic, 1> x_old, Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>& Q, Eigen::Matrix<double, Eigen::Dynamic, 1>& f, double& K)
 {
   double now = getUnixTime();
   if (now - lastReceivedTime > timeout_time){
@@ -111,7 +111,6 @@ bool GelsightCost::constructCost(ManipulationTracker * tracker, Eigen::Matrix<do
     return false;
   }
   else {
-    VectorXd x_old = tracker->getMean();
     VectorXd q_old = x_old.block(0, 0, robot->number_of_positions(), 1);
     robot_kinematics_cache.initialize(q_old);
     robot->doKinematics(robot_kinematics_cache);
@@ -249,8 +248,8 @@ bool GelsightCost::constructCost(ManipulationTracker * tracker, Eigen::Matrix<do
               
           for (int j=0; j < k; j++){
             MatrixXd Ks = z.col(j) - z_prime.col(j) + J.block(3*j, 0, 3, nq)*q_old;
-            f -= DEPTH_WEIGHT*(2. * Ks.transpose() * J.block(3*j, 0, 3, nq)).transpose()/(double)k;
-            Q += DEPTH_WEIGHT*(2. *  J.block(3*j, 0, 3, nq).transpose() * J.block(3*j, 0, 3, nq))/(double)k;
+            f.block(0, 0, nq, 1) -= DEPTH_WEIGHT*(2. * Ks.transpose() * J.block(3*j, 0, 3, nq)).transpose()/(double)k;
+            Q.block(0, 0, nq, nq) += DEPTH_WEIGHT*(2. *  J.block(3*j, 0, 3, nq).transpose() * J.block(3*j, 0, 3, nq))/(double)k;
             K += DEPTH_WEIGHT*Ks.squaredNorm()/(double)k;
 
             if (j % 1 == 0){
@@ -344,8 +343,8 @@ bool GelsightCost::constructCost(ManipulationTracker * tracker, Eigen::Matrix<do
 
           for (int j=0; j < k; j++){
             MatrixXd Ks = z.col(j) - z_prime.col(j) + J.block(3*j, 0, 3, nq)*q_old;
-            f -= FREESPACE_WEIGHT*(2. * Ks.transpose() * J.block(3*j, 0, 3, nq)).transpose()/(double)k;
-            Q += FREESPACE_WEIGHT*(2. *  J.block(3*j, 0, 3, nq).transpose() * J.block(3*j, 0, 3, nq))/(double)k;
+            f.block(0, 0, nq, 1) -= FREESPACE_WEIGHT*(2. * Ks.transpose() * J.block(3*j, 0, 3, nq)).transpose()/(double)k;
+            Q.block(0, 0, nq, nq) += FREESPACE_WEIGHT*(2. *  J.block(3*j, 0, 3, nq).transpose() * J.block(3*j, 0, 3, nq))/(double)k;
             K += FREESPACE_WEIGHT*Ks.squaredNorm()/(double)k;
 
             if (j % 1 == 0){

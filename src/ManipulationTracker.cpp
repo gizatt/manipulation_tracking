@@ -115,10 +115,11 @@ void ManipulationTracker::addCost(std::shared_ptr<ManipulationTrackerCost> new_c
   int new_decision_vars = new_cost->getNumExtraVars();
   if (new_decision_vars > 0){
     x_.conservativeResize(x_.rows() + new_decision_vars, 1);
-    x_.block(x_.rows()-new_decision_vars, 0, new_decision_vars, 1).setZero();
+    x_.block(x_.rows()-new_decision_vars, 0, new_decision_vars, 1) = new_cost->getExtraVarsX0();
     covar_.conservativeResize(x_.rows(), x_.rows());
     covar_.block(covar_.rows()-new_decision_vars, 0, new_decision_vars, covar_.cols()).setZero();
     covar_.block(0, covar_.cols()-new_decision_vars, covar_.rows(), new_decision_vars).setZero();
+    covar_.block(covar_.rows()-new_decision_vars, covar_.cols()-new_decision_vars, new_decision_vars, new_decision_vars) = MatrixXd::Identity(new_decision_vars, new_decision_vars)*0.000001;
   }
   CostAndView new_cost_and_view;
   new_cost_and_view.first = new_cost;
@@ -210,7 +211,12 @@ void ManipulationTracker::update(){
     MatrixXd Q_new(nx_this, nx_this);
     Q_new.setZero();
     double K_new = 0.0;
-    bool use = (*it).first->constructCost(this, Q_new, f_new, K_new);
+
+    VectorXd x_old(nx_this);
+    for (int i=0; i < nx_this; i++){
+      x_old[i] = x_[(*it).second[i]];
+    }
+    bool use = (*it).first->constructCost(this, x_old, Q_new, f_new, K_new);
     if (use){
       for (int i=0; i<nx_this; i++){
         int loc_i = (*it).second[i];

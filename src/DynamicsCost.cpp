@@ -26,11 +26,10 @@ DynamicsCost::DynamicsCost(std::shared_ptr<const RigidBodyTree> robot_, std::sha
 /***********************************************
             KNOWN POSITION HINTS
 *********************************************/
-bool DynamicsCost::constructPredictionMatrices(ManipulationTracker * tracker, Eigen::Matrix<double, Eigen::Dynamic, 1>& x, Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>& P)
+bool DynamicsCost::constructPredictionMatrices(ManipulationTracker * tracker, const Eigen::Matrix<double, Eigen::Dynamic, 1> x_old, Eigen::Matrix<double, Eigen::Dynamic, 1>& x, Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>& P)
 {
   double now = getUnixTime();
 
-  VectorXd x_old = tracker->getMean();
   VectorXd q_old = x_old.block(0, 0, robot->number_of_positions(), 1);
 
   // predict x to be within joint limits

@@ -30,6 +30,8 @@ AttachedApriltagCost::AttachedApriltagCost(std::shared_ptr<const RigidBodyTree> 
 
   if (config["localization_var"])
     localization_var = config["localization_var"].as<double>();
+  if (config["transform_var"])
+    transform_var = config["transform_var"].as<double>();
   if (config["timeout_time"])
     timeout_time = config["timeout_time"].as<double>();
   if (config["verbose"])
@@ -38,8 +40,12 @@ AttachedApriltagCost::AttachedApriltagCost(std::shared_ptr<const RigidBodyTree> 
 
 
   if (config["apriltags"]){
+    int numtags = 0;
     for (auto iter=config["apriltags"].begin(); iter!=config["apriltags"].end(); iter++){
       ApriltagAttachment attachment;
+
+      attachment.list_id = numtags;
+      numtags++;
 
       // first try to find the robot name
       std:string linkname = (*iter)["body"].as<string>();
@@ -53,12 +59,19 @@ AttachedApriltagCost::AttachedApriltagCost(std::shared_ptr<const RigidBodyTree> 
       // and parse transformation
       
       Vector3d trans(Vector3d((*iter)["pos"][0].as<double>(), (*iter)["pos"][1].as<double>(), (*iter)["pos"][2].as<double>()));
-      Quaterniond rot = AngleAxisd((*iter)["rot"][0].as<double>()*M_PI/180., Vector3d::UnitX())
-                  *  AngleAxisd((*iter)["rot"][1].as<double>()*M_PI/180., Vector3d::UnitY())
-                  *  AngleAxisd((*iter)["rot"][2].as<double>()*M_PI/180., Vector3d::UnitZ());
+      Vector3d rpy((*iter)["rot"][0].as<double>()*M_PI/180., (*iter)["rot"][1].as<double>()*M_PI/180., (*iter)["rot"][2].as<double>()*M_PI/180.);
+      Quaterniond rot = AngleAxisd(rpy[0], Vector3d::UnitX())
+                  *  AngleAxisd(rpy[1], Vector3d::UnitY())
+                  *  AngleAxisd(rpy[2], Vector3d::UnitZ());
       attachment.body_transform.setIdentity();
       attachment.body_transform.matrix().block<3, 3>(0,0) = rot.matrix();
       attachment.body_transform.matrix().block<3, 1>(0,3) = trans;
+
+      // create a 6 state variable transform initiatized with this transform
+      num_extra_vars_ += 6;
+      extra_vars_x0_.conservativeResize(num_extra_vars_, 1);
+      extra_vars_x0_.block(num_extra_vars_ - 6, 0, 3, 1) = trans;
+      extra_vars_x0_.block(num_extra_vars_ - 3, 0, 3, 1) = rpy;
 
       attachment.last_received = getUnixTime() - timeout_time*2.;
       std::string channel = (*iter)["channel"].as<string>();
@@ -71,6 +84,7 @@ AttachedApriltagCost::AttachedApriltagCost(std::shared_ptr<const RigidBodyTree> 
       channelToApriltagIndex[channel] = id;
     }
   }
+
 }
 
 
@@ -112,13 +126,13 @@ int AttachedApriltagCost::get_trans_with_utime(std::string from_frame, std::stri
 }
 
 
-bool AttachedApriltagCost::constructCost(ManipulationTracker * tracker, Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>& Q, Eigen::Matrix<double, Eigen::Dynamic, 1>& f, double& K)
+bool AttachedApriltagCost::constructCost(ManipulationTracker * tracker, const Eigen::Matrix<double, Eigen::Dynamic, 1> x_old, Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>& Q, Eigen::Matrix<double, Eigen::Dynamic, 1>& f, double& K)
 {
   double now = getUnixTime();
 
   double ATTACHED_APRILTAG_WEIGHT = std::isinf(localization_var) ? 0.0 : 1. / (2. * localization_var * localization_var);
+  double BODY_TRANSFORM_WEIGHT = std::isinf(transform_var) ? 0.0 : 1. / (2. * transform_var * transform_var);
 
-  VectorXd x_old = tracker->getMean();
   VectorXd q_old = x_old.block(0, 0, robot->number_of_positions(), 1);
   robot_kinematics_cache.initialize(q_old);
   robot->doKinematics(robot_kinematics_cache);
@@ -140,6 +154,18 @@ bool AttachedApriltagCost::constructCost(ManipulationTracker * tracker, Eigen::M
     // actual transform
     Transform<double, 3, Isometry> current_transform =  robot->relativeTransform(robot_kinematics_cache, 0,  attachment->body_id);
 
+    // spawn transform from state variables
+    int start_ind = robot->number_of_positions() + robot->number_of_velocities() + 6*attachment->list_id;
+    Vector3d trans(x_old.block(start_ind, 0, 3, 1));
+    Vector3d rpy(x_old.block(start_ind + 3, 0, 3, 1));
+    Quaterniond rot = AngleAxisd(rpy[0], Vector3d::UnitX())
+                  *  AngleAxisd(rpy[1], Vector3d::UnitY())
+                  *  AngleAxisd(rpy[2], Vector3d::UnitZ());
+    Transform<double, 3, Isometry> body_transform;
+    body_transform.setIdentity();
+    body_transform.matrix().block<3, 3>(0,0) = rot.matrix();
+    body_transform.matrix().block<3, 1>(0,3) = trans;
+    
     // actual transform xyz jacobian
     auto J_xyz = robot->transformPointsJacobian(robot_kinematics_cache, Vector3d(0.0, 0.0, 0.0), attachment->body_id, 0, false);
     auto J_quat = robot->relativeQuaternionJacobian(robot_kinematics_cache, attachment->body_id, 0, false);
@@ -148,9 +174,9 @@ bool AttachedApriltagCost::constructCost(ManipulationTracker * tracker, Eigen::M
 
     // weird transforms to be thinking about everything in body from of this link
     Vector3d z_current = current_transform * Vector3d(0.0, 0.0, 0.0);
-    Vector3d z_des = kinect2world * attachment->last_transform * attachment->body_transform.inverse() * Vector3d(0.0, 0.0, 0.0);
+    Vector3d z_des = kinect2world * attachment->last_transform * body_transform.inverse() * Vector3d(0.0, 0.0, 0.0);
     Vector3d rpy_current = rotmat2rpy(current_transform.rotation());
-    Vector3d rpy_des =  rotmat2rpy((kinect2world * attachment->last_transform * attachment->body_transform.inverse()).rotation());
+    Vector3d rpy_des =  rotmat2rpy((kinect2world * attachment->last_transform * body_transform.inverse()).rotation());
    // Vector4d quat_current = rotmat2quat(current_transform.rotation());
    // Vector4d quat_des = rotmat2quat(attachment->last_transform.rotation());
 
@@ -166,10 +192,10 @@ bool AttachedApriltagCost::constructCost(ManipulationTracker * tracker, Eigen::M
           Vector3d(0.1, 0.0, 0.0),
           Vector3d(0.0, 0.1, 0.0),
           Vector3d(0.0, 0.0, 0.1);
-    Matrix3Xd points_cur =  current_transform * attachment->body_transform * points;
+    Matrix3Xd points_cur =  current_transform * body_transform * points;
     Matrix3Xd points_des =  kinect2world * attachment->last_transform * points;
 
-    Vector3d body_trans_offset = attachment->body_transform * Vector3d(0.0, 0.0, 0.0);
+    Vector3d body_trans_offset = body_transform * Vector3d(0.0, 0.0, 0.0);
     bot_lcmgl_begin(lcmgl_tag_, LCMGL_QUADS);
     bot_lcmgl_color3f(lcmgl_tag_, fmin(1.0, fabs(body_trans_offset(0)/0.05)),
                                   fmin(1.0, fabs(body_trans_offset(1)/0.05)),
@@ -202,14 +228,28 @@ bool AttachedApriltagCost::constructCost(ManipulationTracker * tracker, Eigen::M
       MatrixXd J(6, robot->number_of_positions());
       J << J_xyz, J_rpy;
 
+      // POSITION FROM DETECTED TRANSFORM:
       // 0.5 * x.' Q x + f.' x
       // position error:
       // min (z_current - z_des)^2
       // min ( (z_current + J*(q_new - q_old)) - z_des )^2
       MatrixXd Ks = z_c - z_d - J*q_old;
-      f += ATTACHED_APRILTAG_WEIGHT * (2. * Ks.transpose() * J).transpose();
-      Q += ATTACHED_APRILTAG_WEIGHT * (2. * J.transpose() * J);
+      f.block(0, 0, nq, 1) += ATTACHED_APRILTAG_WEIGHT * (2. * Ks.transpose() * J).transpose();
+      Q.block(0, 0, nq, nq) += ATTACHED_APRILTAG_WEIGHT * (2. * J.transpose() * J);
       K += ATTACHED_APRILTAG_WEIGHT * Ks.squaredNorm();
+
+      // BODY LINK TRANSFORM 
+      // penalize from predicted body transform given the global transform and the object pose
+      Transform<double, 3, Isometry> error_transform = current_transform.inverse() * attachment->last_transform;
+      VectorXd error_trans_exp(6);
+      error_trans_exp.setZero();
+
+      error_trans_exp.block<3, 1>(0, 0) = error_transform.matrix().block<3, 1>(0,3);
+      error_trans_exp.block<3, 1>(3, 0) = rpy; //(rpy_des - rpy_current); //error_transform.rotation().eulerAngles(0, 1, 2);
+
+      f.block(start_ind, 0, 6, 1) -= BODY_TRANSFORM_WEIGHT * error_trans_exp;
+      Q.block(start_ind, start_ind, 6, 6) += BODY_TRANSFORM_WEIGHT * MatrixXd::Identity(6, 6);
+      K += BODY_TRANSFORM_WEIGHT * error_trans_exp.transpose() * error_trans_exp;
 
       bot_lcmgl_begin(lcmgl_tag_, LCMGL_QUADS);
       bot_lcmgl_color3f(lcmgl_tag_, 0.5, 0.5, 0.5);
@@ -233,7 +273,7 @@ bool AttachedApriltagCost::constructCost(ManipulationTracker * tracker, Eigen::M
 
       if (verbose){
         cout << endl << endl << endl << "********* TAG " << it->first << " **************" << endl;
-        cout << "Body trans: " << endl << attachment->body_transform.matrix() << endl;
+        cout << "Body trans: " << endl << body_transform.matrix() << endl;
         cout << "J: " << J << endl;
         cout << "z_c: " << z_c.transpose() << endl;
         cout << "z_d: " << z_d.transpose() << endl;

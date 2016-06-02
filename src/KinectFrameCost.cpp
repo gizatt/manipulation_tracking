@@ -154,7 +154,7 @@ int KinectFrameCost::get_trans_with_utime(std::string from_frame, std::string to
 /***********************************************
             KNOWN POSITION HINTS
 *********************************************/
-bool KinectFrameCost::constructCost(ManipulationTracker * tracker, Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>& Q, Eigen::Matrix<double, Eigen::Dynamic, 1>& f, double& K)
+bool KinectFrameCost::constructCost(ManipulationTracker * tracker, const Eigen::Matrix<double, Eigen::Dynamic, 1> x_old, Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>& Q, Eigen::Matrix<double, Eigen::Dynamic, 1>& f, double& K)
 {
   double now = getUnixTime();
   if (now - lastReceivedTime > timeout_time){
@@ -163,7 +163,6 @@ bool KinectFrameCost::constructCost(ManipulationTracker * tracker, Eigen::Matrix
     return false;
   }
   else {
-    VectorXd x_old = tracker->getMean();
     VectorXd q_old = x_old.block(0, 0, robot->number_of_positions(), 1);
     robot_kinematics_cache.initialize(q_old);
     robot->doKinematics(robot_kinematics_cache);
@@ -186,8 +185,8 @@ bool KinectFrameCost::constructCost(ManipulationTracker * tracker, Eigen::Matrix
     this->get_trans_with_utime("local", "robot_yplus_tag", utime2, world2tag);
     Eigen::Isometry3d kinect2world =  world2tag.inverse() * kinect2tag;
     //
-   // kinect2world.setIdentity();
-   // this->get_trans_with_utime("KINECT_RGB", "local", utime, kinect2world);
+    kinect2world.setIdentity();
+    this->get_trans_with_utime("KINECT_RGB", "local", utime, kinect2world);
     full_cloud = kinect2world * full_cloud;
 
     // do randomized downsampling, populating data stores to be used by the ICP

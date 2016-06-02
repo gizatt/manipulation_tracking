@@ -25,7 +25,7 @@ class KinectFrameCost : public ManipulationTrackerCost {
 public:
   KinectFrameCost(std::shared_ptr<RigidBodyTree> robot_, std::shared_ptr<lcm::LCM> lcm_, YAML::Node config);
   ~KinectFrameCost() {};
-  bool constructCost(ManipulationTracker * tracker, Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>& Q, Eigen::Matrix<double, Eigen::Dynamic, 1>& f, double& K);
+  bool constructCost(ManipulationTracker * tracker, const Eigen::Matrix<double, Eigen::Dynamic, 1> x_old, Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>& Q, Eigen::Matrix<double, Eigen::Dynamic, 1>& f, double& K);
 
   void initBotConfig(const char* filename);
   int get_trans_with_utime(std::string from_frame, std::string to_frame,
