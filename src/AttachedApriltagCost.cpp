@@ -21,8 +21,6 @@ AttachedApriltagCost::AttachedApriltagCost(std::shared_ptr<const RigidBodyTree> 
     robot_name = config["attached_manipuland"].as<string>();
   }
 
-  lcmgl_tag_ = bot_lcmgl_init(lcm->getUnderlyingLCM(), (std::string("at_apr_") + robot_name).c_str());
-
   const char * filename = NULL;
   if (config["filename"])
     filename = config["filename"].as<string>().c_str();
@@ -36,7 +34,11 @@ AttachedApriltagCost::AttachedApriltagCost(std::shared_ptr<const RigidBodyTree> 
     timeout_time = config["timeout_time"].as<double>();
   if (config["verbose"])
     verbose = config["verbose"].as<bool>();
+  if (config["verbose_lcmgl"])
+    verbose_lcmgl = config["verbose_lcmgl"].as<bool>();
 
+  if (verbose_lcmgl)
+    lcmgl_tag_ = bot_lcmgl_init(lcm->getUnderlyingLCM(), (std::string("at_apr_") + robot_name).c_str());
 
 
   if (config["apriltags"]){
@@ -60,9 +62,9 @@ AttachedApriltagCost::AttachedApriltagCost(std::shared_ptr<const RigidBodyTree> 
       
       Vector3d trans(Vector3d((*iter)["pos"][0].as<double>(), (*iter)["pos"][1].as<double>(), (*iter)["pos"][2].as<double>()));
       Vector3d rpy((*iter)["rot"][0].as<double>()*M_PI/180., (*iter)["rot"][1].as<double>()*M_PI/180., (*iter)["rot"][2].as<double>()*M_PI/180.);
-      Quaterniond rot = AngleAxisd(rpy[0], Vector3d::UnitX())
+      Quaterniond rot = AngleAxisd(rpy[2], Vector3d::UnitZ())
                   *  AngleAxisd(rpy[1], Vector3d::UnitY())
-                  *  AngleAxisd(rpy[2], Vector3d::UnitZ());
+                  *  AngleAxisd(rpy[0], Vector3d::UnitX());
       attachment.body_transform.setIdentity();
       attachment.body_transform.matrix().block<3, 3>(0,0) = rot.matrix();
       attachment.body_transform.matrix().block<3, 1>(0,3) = trans;
@@ -146,7 +148,7 @@ bool AttachedApriltagCost::constructCost(ManipulationTracker * tracker, const Ei
   this->get_trans_with_utime("local", "robot_yplus_tag", utime2, world2tag);
   Eigen::Isometry3d kinect2world =  world2tag.inverse() * kinect2tag;
   kinect2world.setIdentity();
-  this->get_trans_with_utime("KINECT_RGB", "local", utime, kinect2world);
+  //this->get_trans_with_utime("KINECT_RGB", "local", utime, kinect2world);
 
   detectionsMutex.lock();
   for (auto it = attachedApriltags.begin(); it != attachedApriltags.end(); it++){
@@ -158,9 +160,9 @@ bool AttachedApriltagCost::constructCost(ManipulationTracker * tracker, const Ei
     int start_ind = robot->number_of_positions() + robot->number_of_velocities() + 6*attachment->list_id;
     Vector3d trans(x_old.block(start_ind, 0, 3, 1));
     Vector3d rpy(x_old.block(start_ind + 3, 0, 3, 1));
-    Quaterniond rot = AngleAxisd(rpy[0], Vector3d::UnitX())
+    Quaterniond rot = AngleAxisd(rpy[2], Vector3d::UnitZ())
                   *  AngleAxisd(rpy[1], Vector3d::UnitY())
-                  *  AngleAxisd(rpy[2], Vector3d::UnitZ());
+                  *  AngleAxisd(rpy[0], Vector3d::UnitX());
     Transform<double, 3, Isometry> body_transform;
     body_transform.setIdentity();
     body_transform.matrix().block<3, 3>(0,0) = rot.matrix();
@@ -196,28 +198,32 @@ bool AttachedApriltagCost::constructCost(ManipulationTracker * tracker, const Ei
     Matrix3Xd points_des =  kinect2world * attachment->last_transform * points;
 
     Vector3d body_trans_offset = body_transform * Vector3d(0.0, 0.0, 0.0);
-    bot_lcmgl_begin(lcmgl_tag_, LCMGL_QUADS);
-    bot_lcmgl_color3f(lcmgl_tag_, fmin(1.0, fabs(body_trans_offset(0)/0.05)),
-                                  fmin(1.0, fabs(body_trans_offset(1)/0.05)),
-                                  fmin(1.0, fabs(body_trans_offset(2)/0.05)));
-    bot_lcmgl_line_width(lcmgl_tag_, 4.0f);
-    for (int i=0; i < 4; i++)
-      bot_lcmgl_vertex3f(lcmgl_tag_, points_cur(0, i), points_cur(1, i), points_cur(2, i));
 
-    bot_lcmgl_end(lcmgl_tag_); 
+    if (verbose_lcmgl)
+    {
+      bot_lcmgl_begin(lcmgl_tag_, LCMGL_QUADS);
+      bot_lcmgl_color3f(lcmgl_tag_, fmin(1.0, fabs(body_trans_offset(0)/0.05)),
+                                    fmin(1.0, fabs(body_trans_offset(1)/0.05)),
+                                    fmin(1.0, fabs(body_trans_offset(2)/0.05)));
+      bot_lcmgl_line_width(lcmgl_tag_, 4.0f);
+      for (int i=0; i < 4; i++)
+        bot_lcmgl_vertex3f(lcmgl_tag_, points_cur(0, i), points_cur(1, i), points_cur(2, i));
 
-    bot_lcmgl_begin(lcmgl_tag_, LCMGL_LINES);
-    bot_lcmgl_line_width(lcmgl_tag_, 4.0f);
-    bot_lcmgl_color3f(lcmgl_tag_, 1.0, 0.5, 0.0);
-    bot_lcmgl_vertex3f(lcmgl_tag_, points_cur(0, 4), points_cur(1, 4), points_cur(2, 4));
-    bot_lcmgl_vertex3f(lcmgl_tag_, points_cur(0, 5), points_cur(1, 5), points_cur(2, 5));
-    bot_lcmgl_color3f(lcmgl_tag_, 0.0, 1.0, 0.0);
-    bot_lcmgl_vertex3f(lcmgl_tag_, points_cur(0, 4), points_cur(1, 4), points_cur(2, 4));
-    bot_lcmgl_vertex3f(lcmgl_tag_, points_cur(0, 6), points_cur(1, 6), points_cur(2, 6));
-    bot_lcmgl_color3f(lcmgl_tag_, 0.0, 0.5, 1.0);
-    bot_lcmgl_vertex3f(lcmgl_tag_, points_cur(0, 4), points_cur(1, 4), points_cur(2, 4));
-    bot_lcmgl_vertex3f(lcmgl_tag_, points_cur(0, 7), points_cur(1, 7), points_cur(2, 7));
-    bot_lcmgl_end(lcmgl_tag_);
+      bot_lcmgl_end(lcmgl_tag_); 
+
+      bot_lcmgl_begin(lcmgl_tag_, LCMGL_LINES);
+      bot_lcmgl_line_width(lcmgl_tag_, 4.0f);
+      bot_lcmgl_color3f(lcmgl_tag_, 1.0, 0.5, 0.0);
+      bot_lcmgl_vertex3f(lcmgl_tag_, points_cur(0, 4), points_cur(1, 4), points_cur(2, 4));
+      bot_lcmgl_vertex3f(lcmgl_tag_, points_cur(0, 5), points_cur(1, 5), points_cur(2, 5));
+      bot_lcmgl_color3f(lcmgl_tag_, 0.0, 1.0, 0.0);
+      bot_lcmgl_vertex3f(lcmgl_tag_, points_cur(0, 4), points_cur(1, 4), points_cur(2, 4));
+      bot_lcmgl_vertex3f(lcmgl_tag_, points_cur(0, 6), points_cur(1, 6), points_cur(2, 6));
+      bot_lcmgl_color3f(lcmgl_tag_, 0.0, 0.5, 1.0);
+      bot_lcmgl_vertex3f(lcmgl_tag_, points_cur(0, 4), points_cur(1, 4), points_cur(2, 4));
+      bot_lcmgl_vertex3f(lcmgl_tag_, points_cur(0, 7), points_cur(1, 7), points_cur(2, 7));
+      bot_lcmgl_end(lcmgl_tag_);
+    }
 
 
     if (now - attachment->last_received < timeout_time){
@@ -251,25 +257,28 @@ bool AttachedApriltagCost::constructCost(ManipulationTracker * tracker, const Ei
       Q.block(start_ind, start_ind, 6, 6) += BODY_TRANSFORM_WEIGHT * MatrixXd::Identity(6, 6);
       K += BODY_TRANSFORM_WEIGHT * error_trans_exp.transpose() * error_trans_exp;
 
-      bot_lcmgl_begin(lcmgl_tag_, LCMGL_QUADS);
-      bot_lcmgl_color3f(lcmgl_tag_, 0.5, 0.5, 0.5);
-      bot_lcmgl_line_width(lcmgl_tag_, 4.0f);
-      for (int i=0; i < 4; i++)
-        bot_lcmgl_vertex3f(lcmgl_tag_, points_des(0, i), points_des(1, i), points_des(2, i));
-      bot_lcmgl_end(lcmgl_tag_); 
 
-      bot_lcmgl_begin(lcmgl_tag_, LCMGL_LINES);
-      bot_lcmgl_line_width(lcmgl_tag_, 4.0f);
-      bot_lcmgl_color3f(lcmgl_tag_, 1.0, 0.0, 0.5);
-      bot_lcmgl_vertex3f(lcmgl_tag_, points_des(0, 4), points_des(1, 4), points_des(2, 4));
-      bot_lcmgl_vertex3f(lcmgl_tag_, points_des(0, 5), points_des(1, 5), points_des(2, 5));
-      bot_lcmgl_color3f(lcmgl_tag_, 0.0, 1.0, 0.5);
-      bot_lcmgl_vertex3f(lcmgl_tag_, points_des(0, 4), points_des(1, 4), points_des(2, 4));
-      bot_lcmgl_vertex3f(lcmgl_tag_, points_des(0, 6), points_des(1, 6), points_des(2, 6));
-      bot_lcmgl_color3f(lcmgl_tag_, 0.0, 0.0, 1.0);
-      bot_lcmgl_vertex3f(lcmgl_tag_, points_des(0, 4), points_des(1, 4), points_des(2, 4));
-      bot_lcmgl_vertex3f(lcmgl_tag_, points_des(0, 7), points_des(1, 7), points_des(2, 7));
-      bot_lcmgl_end(lcmgl_tag_);
+      if (verbose_lcmgl){
+        bot_lcmgl_begin(lcmgl_tag_, LCMGL_QUADS);
+        bot_lcmgl_color3f(lcmgl_tag_, 0.5, 0.5, 0.5);
+        bot_lcmgl_line_width(lcmgl_tag_, 4.0f);
+        for (int i=0; i < 4; i++)
+          bot_lcmgl_vertex3f(lcmgl_tag_, points_des(0, i), points_des(1, i), points_des(2, i));
+        bot_lcmgl_end(lcmgl_tag_); 
+
+        bot_lcmgl_begin(lcmgl_tag_, LCMGL_LINES);
+        bot_lcmgl_line_width(lcmgl_tag_, 4.0f);
+        bot_lcmgl_color3f(lcmgl_tag_, 1.0, 0.0, 0.5);
+        bot_lcmgl_vertex3f(lcmgl_tag_, points_des(0, 4), points_des(1, 4), points_des(2, 4));
+        bot_lcmgl_vertex3f(lcmgl_tag_, points_des(0, 5), points_des(1, 5), points_des(2, 5));
+        bot_lcmgl_color3f(lcmgl_tag_, 0.0, 1.0, 0.5);
+        bot_lcmgl_vertex3f(lcmgl_tag_, points_des(0, 4), points_des(1, 4), points_des(2, 4));
+        bot_lcmgl_vertex3f(lcmgl_tag_, points_des(0, 6), points_des(1, 6), points_des(2, 6));
+        bot_lcmgl_color3f(lcmgl_tag_, 0.0, 0.0, 1.0);
+        bot_lcmgl_vertex3f(lcmgl_tag_, points_des(0, 4), points_des(1, 4), points_des(2, 4));
+        bot_lcmgl_vertex3f(lcmgl_tag_, points_des(0, 7), points_des(1, 7), points_des(2, 7));
+        bot_lcmgl_end(lcmgl_tag_);
+      }
 
       if (verbose){
         cout << endl << endl << endl << "********* TAG " << it->first << " **************" << endl;
@@ -315,7 +324,9 @@ bool AttachedApriltagCost::constructCost(ManipulationTracker * tracker, const Ei
     }
   }
   detectionsMutex.unlock();
-  bot_lcmgl_switch_buffer(lcmgl_tag_);  
+
+  if (verbose_lcmgl)
+    bot_lcmgl_switch_buffer(lcmgl_tag_);  
 
   if (verbose)
     printf("Spent %f in attached apriltag constraints.\n", getUnixTime() - now);

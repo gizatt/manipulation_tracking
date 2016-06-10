@@ -1,0 +1,118 @@
+robots:
+  cube:
+    urdf: "/software/perception/manipulation_tracking/urdf/cube.urdf"
+    q0:
+      base_x: 0.0
+      base_z: 0.0
+
+  irb140:
+    urdf: "/software/perception/manipulation_tracking/urdf/irb140_chull_robotiq.urdf"
+    q0:
+      base_x: -0.17
+      base_z: 0.91
+      finger_1_joint_1: 0.339477
+      finger_1_joint_2: 0.778470
+      finger_1_joint_3: 0.383365
+      finger_2_joint_1: 0.400276
+      finger_2_joint_2: 0.623641
+      finger_2_joint_3: 0.371457
+      finger_middle_joint_1: 0.170630
+      finger_middle_joint_2: 0.800355
+      finger_middle_joint_3: 0.484916
+
+publish:
+  irb140_state:
+    robot_name: "IRB140_-_M2004C_Complete_base.SLDASM"
+    type: "state"
+    channel: "EST_MANIPULAND_STATE_IRB140_-_M2004C_Complete_base.SLDASM"
+  irb140_publish:
+    robot_name: "IRB140_-_M2004C_Complete_base.SLDASM"
+    type: "transform"
+    channel: "GT_CAMERA_OFFSET"
+
+costs:
+  - type: "AttachedApriltagCost"
+    verbose: false
+    verbose_lcmgl: true
+    timeout_time: 0.2
+    localization_var: 0.01
+    transform_var: .inf
+    attached_manipuland: "cube"
+    apriltags:
+      - id: 1
+        body: "cube"
+        pos: [0.05, 0.0, 0.0]
+        rot: [180.0, -90.0, -90.0]
+        channel: APRIL_TAG_0001_TO_CAMERA_LEFT
+      - id: 3
+        body: "cube"
+        pos: [-0.05, 0.0, 0.0]
+        rot: [0.0, 90.0, -90.0]
+        channel: APRIL_TAG_0003_TO_CAMERA_LEFT
+      - id: 2
+        body: "cube"
+        pos: [0.0, 0.05, 0.0]
+        rot: [90.0, 0.0, 180.0]
+        channel: APRIL_TAG_0002_TO_CAMERA_LEFT
+      - id: 4
+        body: "cube"
+        pos: [0.0, -0.05, 0.0]
+        rot: [-90.0, 0.0, 0.0]
+        channel: APRIL_TAG_0004_TO_CAMERA_LEFT
+      - id: 5
+        body: "cube"
+        pos: [0.0, 0.0, 0.05]
+        rot: [180.0, 0.0, -90.0]
+        channel: APRIL_TAG_0005_TO_CAMERA_LEFT
+      - id: 6
+        body: "cube"
+        pos: [0.0, 0.0, -0.05]
+        rot: [0.0, 0.0, 90.0]
+        channel: APRIL_TAG_0006_TO_CAMERA_LEFT
+
+  - type: "AttachedApriltagCost"
+    verbose: false
+    verbose_lcmgl: true
+    timeout_time: 0.2
+    localization_var: 0.01
+    transform_var: .inf
+    attached_manipuland: "IRB140_-_M2004C_Complete_base.SLDASM"
+    apriltags:
+      - id: 100
+        body: "base_link"
+        pos: [0.174, 0.012, -0.081]
+        rot: [-91.312, -0.568, 90.0293]
+        channel: APRIL_TAG_0100_TO_CAMERA_LEFT
+      - id: 101
+        body: "base_link"
+        pos: [0.173, 0.195, -0.073]
+        rot: [-91.313, -1.033, 90.304]
+        channel: APRIL_TAG_0101_TO_CAMERA_LEFT
+      - id: 102
+        body: "base_link"
+        pos: [0.171, 0.380, -0.066]
+        rot: [-91.313, -1.033, 90.304]
+        channel: APRIL_TAG_0102_TO_CAMERA_LEFT
+      - id: 52
+        body: "link_2"
+        pos: [-0.003, -0.356, -0.187]
+        rot: [0.722, -1.624, -67.355]
+        channel: APRIL_TAG_0052_TO_CAMERA_LEFT
+      - id: 51
+        body: "link_4"
+        pos: [0.161, 0.006, -0.067]
+        rot: [4.498, 0.236, -22.072]
+        channel: APRIL_TAG_0051_TO_CAMERA_LEFT
+
+  - type: "RobotStateCost"
+    joint_known_fb_var: .inf # m
+    joint_known_encoder_var: 0.001 # radian
+    transcribe_floating_base_vars: False
+    verbose: False
+    state_channelname: "EST_ROBOT_STATE"
+
+  - type: "DynamicsCost"
+    dynamics_floating_base_var: 0.00001 # m per frame
+    dynamics_other_var: .inf # rad per frame
+    joint_limit_var: 0.001 # one-sided, radians
+    verbose: False

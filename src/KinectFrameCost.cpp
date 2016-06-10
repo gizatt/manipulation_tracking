@@ -185,8 +185,8 @@ bool KinectFrameCost::constructCost(ManipulationTracker * tracker, const Eigen::
     this->get_trans_with_utime("local", "robot_yplus_tag", utime2, world2tag);
     Eigen::Isometry3d kinect2world =  world2tag.inverse() * kinect2tag;
     //
-    kinect2world.setIdentity();
-    this->get_trans_with_utime("KINECT_RGB", "local", utime, kinect2world);
+    //kinect2world.setIdentity();
+    //this->get_trans_with_utime("KINECT_RGB", "local", utime, kinect2world);
     full_cloud = kinect2world * full_cloud;
 
     // do randomized downsampling, populating data stores to be used by the ICP

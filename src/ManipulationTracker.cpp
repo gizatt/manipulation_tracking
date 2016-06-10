@@ -12,6 +12,7 @@
 #include <cfloat>
 #include "drake/systems/plants/joints/RevoluteJoint.h"
 #include "lcmtypes/bot_core/robot_state_t.hpp"
+#include "lcmtypes/vicon/body_t.hpp"
 #include "common.hpp"
 
 using namespace std;
@@ -107,6 +108,17 @@ ManipulationTracker::ManipulationTracker(std::shared_ptr<const RigidBodyTree> ro
       dynamics_verbose_ = config["dynamics"]["verbose"].as<bool>();
   }
 
+  // get publish info from yaml
+  if (config["publish"]){
+    for (auto manip = config["publish"].begin(); manip != config["publish"].end(); manip++)
+    {
+      publish_info new_publish_info;
+      new_publish_info.robot_name = manip->second["robot_name"].as<string>();
+      new_publish_info.publish_type = manip->second["type"].as<string>();
+      new_publish_info.publish_channel = manip->second["channel"].as<string>();
+      publish_infos_.push_back(new_publish_info);
+    }
+  }
 }
 
 
@@ -304,44 +316,89 @@ void ManipulationTracker::update(){
 } 
 
 void ManipulationTracker::publish(){
+  // Publish what we've been requested to publish
+  for (auto it=publish_infos_.begin(); it != publish_infos_.end(); it++){
+    // find this robot in the robot names
+    for (int roboti=1; roboti < robot_names_.size(); roboti++){
+      if (robot_names_[roboti] == it->robot_name){
+
+        // publish state?
+        if (it->publish_type == "state"){
+          bot_core::robot_state_t manipulation_state;
+          manipulation_state.utime = getUnixTime();
+          std::string robot_name = robot_names_[roboti];
+
+          manipulation_state.num_joints = 0;
+          bool found_floating = false;
+          for (int i=0; i<robot_->bodies.size(); i++){
+            if (robot_->bodies[i]->model_name() == robot_name){
+              if (robot_->bodies[i]->getJoint().isFloating()){
+                manipulation_state.pose.translation.x = x_[robot_->bodies[i]->position_num_start + 0];
+                manipulation_state.pose.translation.y = x_[robot_->bodies[i]->position_num_start + 1];
+                manipulation_state.pose.translation.z = x_[robot_->bodies[i]->position_num_start + 2];
+                auto quat = rpy2quat(x_.block<3, 1>(robot_->bodies[i]->position_num_start + 3, 0));
+                manipulation_state.pose.rotation.w = quat[0];
+                manipulation_state.pose.rotation.x = quat[1];
+                manipulation_state.pose.rotation.y = quat[2];
+                manipulation_state.pose.rotation.z = quat[3];
+                if (found_floating){
+                  printf("Had more than one floating joint???\n");
+                  exit(-1);
+                }
+                found_floating = true;
+              } else {
+                // warning: if numpositions != numvelocities, problems arise...
+                manipulation_state.num_joints += robot_->bodies[i]->getJoint().getNumPositions();
+                for (int j=0; j < robot_->bodies[i]->getJoint().getNumPositions(); j++){
+                  manipulation_state.joint_name.push_back(robot_->bodies[i]->getJoint().getPositionName(j));
+                  manipulation_state.joint_position.push_back(x_[robot_->bodies[i]->position_num_start + j]);
+                  manipulation_state.joint_velocity.push_back(x_[robot_->bodies[i]->position_num_start + j + robot_->number_of_positions()]);
+                }
+              }
+            }
+          }
+          manipulation_state.joint_effort.resize(manipulation_state.num_joints, 0.0);
+          std::string channelname = it->publish_channel;
+          lcm_->publish(channelname, &manipulation_state);
+        }
+
+        // publish just the floating base transform?
+        else if (it->publish_type == "transform") {
+          vicon::body_t floating_base_transform;
+          floating_base_transform.utime = getUnixTime();
+
+          bool found_floating = false;
+          for (int i=0; i<robot_->bodies.size(); i++){
+            if (robot_->bodies[i]->model_name() == robot_names_[roboti]){
+              if (robot_->bodies[i]->getJoint().isFloating()){
+                floating_base_transform.trans[0] = x_[robot_->bodies[i]->position_num_start + 0];
+                floating_base_transform.trans[1] = x_[robot_->bodies[i]->position_num_start + 1];
+                floating_base_transform.trans[2] = x_[robot_->bodies[i]->position_num_start + 2];
+                auto quat = rpy2quat(x_.block<3, 1>(robot_->bodies[i]->position_num_start + 3, 0));
+                floating_base_transform.quat[0] = quat[0];
+                floating_base_transform.quat[1] = quat[1];
+                floating_base_transform.quat[2] = quat[2];
+                floating_base_transform.quat[3] = quat[3];
+                if (found_floating){
+                  printf("Had more than one floating joint???\n");
+                  exit(-1);
+                }
+                found_floating = true;
+              }
+            }
+          }
+          std::string channelname = it->publish_channel;
+          lcm_->publish(channelname, &floating_base_transform);
+        }
+
+      }
+    }
+  }
+
   // Publish the object state
   //cout << "robot robot name vector: " << robot->robot_name.size() << endl;
   for (int roboti=1; roboti < robot_names_.size(); roboti++){
-    bot_core::robot_state_t manipulation_state;
-    manipulation_state.utime = getUnixTime();
-    std::string robot_name = robot_names_[roboti];
+    
 
-    manipulation_state.num_joints = 0;
-    bool found_floating = false;
-    for (int i=0; i<robot_->bodies.size(); i++){
-      if (robot_->bodies[i]->model_name() == robot_name){
-        if (robot_->bodies[i]->getJoint().isFloating()){
-          manipulation_state.pose.translation.x = x_[robot_->bodies[i]->position_num_start + 0];
-          manipulation_state.pose.translation.y = x_[robot_->bodies[i]->position_num_start + 1];
-          manipulation_state.pose.translation.z = x_[robot_->bodies[i]->position_num_start + 2];
-          auto quat = rpy2quat(x_.block<3, 1>(robot_->bodies[i]->position_num_start + 3, 0));
-          manipulation_state.pose.rotation.w = quat[0];
-          manipulation_state.pose.rotation.x = quat[1];
-          manipulation_state.pose.rotation.y = quat[2];
-          manipulation_state.pose.rotation.z = quat[3];
-          if (found_floating){
-            printf("Had more than one floating joint???\n");
-            exit(-1);
-          }
-          found_floating = true;
-        } else {
-          // warning: if numpositions != numvelocities, problems arise...
-          manipulation_state.num_joints += robot_->bodies[i]->getJoint().getNumPositions();
-          for (int j=0; j < robot_->bodies[i]->getJoint().getNumPositions(); j++){
-            manipulation_state.joint_name.push_back(robot_->bodies[i]->getJoint().getPositionName(j));
-            manipulation_state.joint_position.push_back(x_[robot_->bodies[i]->position_num_start + j]);
-            manipulation_state.joint_velocity.push_back(x_[robot_->bodies[i]->position_num_start + j + robot_->number_of_positions()]);
-          }
-        }
-      }
-    }
-    manipulation_state.joint_effort.resize(manipulation_state.num_joints, 0.0);
-    std::string channelname = "EST_MANIPULAND_STATE_" + robot_name;
-    lcm_->publish(channelname, &manipulation_state);
   }
 }

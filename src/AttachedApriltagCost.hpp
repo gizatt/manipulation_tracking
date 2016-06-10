@@ -49,6 +49,7 @@ private:
   double transform_var = 1.0;
   double timeout_time = 0.5;
   bool verbose = false;
+  bool verbose_lcmgl = false;
 
   bot_lcmgl_t* lcmgl_tag_ = NULL;
   BotParam* botparam_ = NULL;

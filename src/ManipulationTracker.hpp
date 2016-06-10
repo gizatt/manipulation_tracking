@@ -36,6 +36,13 @@ private:
   std::vector<std::string> robot_names_;
   KinematicsCache<double> robot_kinematics_cache_;
 
+  struct publish_info {
+    std::string robot_name;
+    std::string publish_type;
+    std::string publish_channel;
+  };
+  std::vector<publish_info> publish_infos_;
+
 
   Eigen::Matrix<double, Eigen::Dynamic, 1> x_;
   Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> covar_;
