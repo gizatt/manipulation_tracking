@@ -36,6 +36,8 @@ AttachedApriltagCost::AttachedApriltagCost(std::shared_ptr<const RigidBodyTree> 
     verbose = config["verbose"].as<bool>();
   if (config["verbose_lcmgl"])
     verbose_lcmgl = config["verbose_lcmgl"].as<bool>();
+  if (config["world_frame"])
+    world_frame_ = config["world_frame"].as<bool>();
 
   if (verbose_lcmgl)
     lcmgl_tag_ = bot_lcmgl_init(lcm->getUnderlyingLCM(), (std::string("at_apr_") + robot_name).c_str());
@@ -86,6 +88,10 @@ AttachedApriltagCost::AttachedApriltagCost(std::shared_ptr<const RigidBodyTree> 
       channelToApriltagIndex[channel] = id;
     }
   }
+
+
+  auto camera_offset_sub = lcm->subscribe("GT_CAMERA_OFFSET", &AttachedApriltagCost::handleCameraOffsetMsg, this);
+  camera_offset_sub->setQueueCapacity(1);
 
 }
 
@@ -140,15 +146,18 @@ bool AttachedApriltagCost::constructCost(ManipulationTracker * tracker, const Ei
   robot->doKinematics(robot_kinematics_cache);
 
   // get transform from camera to world frame
-  Eigen::Isometry3d kinect2tag;
-  long long utime = 0;
-  this->get_trans_with_utime("KINECT_RGB", "KINECT_TO_APRILTAG", utime, kinect2tag);
-  Eigen::Isometry3d world2tag;
-  long long utime2 = 0;
-  this->get_trans_with_utime("local", "robot_yplus_tag", utime2, world2tag);
-  Eigen::Isometry3d kinect2world =  world2tag.inverse() * kinect2tag;
-  kinect2world.setIdentity();
-  //this->get_trans_with_utime("KINECT_RGB", "local", utime, kinect2world);
+  Eigen::Isometry3d kinect2world;
+  if (world_frame_){
+    long long utime = 0;
+    Eigen::Isometry3d robot2world;
+    this->get_trans_with_utime("robot_base", "local", utime, robot2world);
+    long long utime2 = 0;
+    camera_offset_mutex.lock();
+    kinect2world =  robot2world * kinect2robot.inverse();
+    camera_offset_mutex.unlock();
+  } else {
+    kinect2world.setIdentity();
+  }
 
   detectionsMutex.lock();
   for (auto it = attachedApriltags.begin(); it != attachedApriltags.end(); it++){
@@ -355,4 +364,17 @@ void AttachedApriltagCost::handleTagDetectionMsg(const lcm::ReceiveBuffer* rbuf,
   attachment->last_transform.matrix().block<3, 1>(0,3) = Vector3d(msg->trans[0], msg->trans[1], msg->trans[2]);
 
   detectionsMutex.unlock();
+}
+
+
+void AttachedApriltagCost::handleCameraOffsetMsg(const lcm::ReceiveBuffer* rbuf,
+                           const std::string& chan,
+                           const vicon::body_t* msg){
+  camera_offset_mutex.lock();
+  Vector3d trans(msg->trans[0], msg->trans[1], msg->trans[2]);
+  Quaterniond rot(msg->quat[0], msg->quat[1], msg->quat[2], msg->quat[3]);
+  kinect2robot.setIdentity();
+  kinect2robot.matrix().block<3, 3>(0,0) = rot.matrix();
+  kinect2robot.matrix().block<3, 1>(0,3) = trans;
+  camera_offset_mutex.unlock();
 }

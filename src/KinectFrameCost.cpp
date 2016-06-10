@@ -54,6 +54,8 @@ KinectFrameCost::KinectFrameCost(std::shared_ptr<RigidBodyTree> robot_, std::sha
     max_scan_dist = config["max_scan_dist"].as<double>();
   if (config["verbose"])
     verbose = config["verbose"].as<bool>();
+  if (config["verbose_lcmgl"])
+    verbose_lcmgl = config["verbose_lcmgl"].as<bool>();
 
   if (config["bounds"]){
     BoundingBox bounds;
@@ -104,6 +106,10 @@ KinectFrameCost::KinectFrameCost(std::shared_ptr<RigidBodyTree> robot_, std::sha
 
   cv::namedWindow( "KinectFrameCostDebug", cv::WINDOW_AUTOSIZE );
   cv::startWindowThread();
+
+  auto camera_offset_sub = lcm->subscribe("GT_CAMERA_OFFSET", &KinectFrameCost::handleCameraOffsetMsg, this);
+  camera_offset_sub->setQueueCapacity(1);
+
 
   auto kinect_frame_sub = lcm->subscribe("KINECT_FRAME", &KinectFrameCost::handleKinectFrameMsg, this);
   kinect_frame_sub->setQueueCapacity(1);
@@ -177,23 +183,22 @@ bool KinectFrameCost::constructCost(ManipulationTracker * tracker, const Eigen::
     latest_cloud_mutex.unlock();
     
     // transform into world frame
-    Eigen::Isometry3d kinect2tag;
     long long utime = 0;
-    this->get_trans_with_utime("KINECT_RGB", "KINECT_TO_APRILTAG", utime, kinect2tag);
-    Eigen::Isometry3d world2tag;
+    Eigen::Isometry3d robot2world;
+    this->get_trans_with_utime("robot_base", "local", utime, robot2world);
     long long utime2 = 0;
-    this->get_trans_with_utime("local", "robot_yplus_tag", utime2, world2tag);
-    Eigen::Isometry3d kinect2world =  world2tag.inverse() * kinect2tag;
-    //
+    camera_offset_mutex.lock();
+    Eigen::Isometry3d kinect2world =  robot2world * kinect2robot.inverse();
+    camera_offset_mutex.unlock();
     //kinect2world.setIdentity();
-    //this->get_trans_with_utime("KINECT_RGB", "local", utime, kinect2world);
     full_cloud = kinect2world * full_cloud;
 
     // do randomized downsampling, populating data stores to be used by the ICP
     Matrix3Xd points(3, full_cloud.cols()); int i=0;
     Eigen::MatrixXd depth_image; depth_image.resize(num_pixel_rows, num_pixel_cols);
     double constant = 1.0f / kcal->intrinsics_rgb.fx ;
-    bot_lcmgl_begin(lcmgl_lidar_, LCMGL_POINTS);
+    if (verbose_lcmgl)
+      bot_lcmgl_begin(lcmgl_lidar_, LCMGL_POINTS);
     if (full_cloud.cols() > 0){
       if (full_cloud.cols() != input_num_pixel_cols*input_num_pixel_rows){
         printf("KinectFramecost: WARNING: SOMEHOW FULL CLOUD HAS WRONG NUMBER OF ENTRIES.\n");
@@ -212,11 +217,15 @@ bool KinectFrameCost::constructCost(ManipulationTracker * tracker, const Eigen::
             points.block<3, 1>(0, i) = pt;
             i++;
 
-            bot_lcmgl_color3f(lcmgl_lidar_, 0.0, 1.0, 0.0);
-            bot_lcmgl_vertex3f(lcmgl_lidar_, pt[0], pt[1], pt[2]);
+            if (verbose_lcmgl && (v*num_pixel_cols + u) % 5 == 0){
+              bot_lcmgl_color3f(lcmgl_lidar_, 0.5, 1.0, 0.5);
+              bot_lcmgl_vertex3f(lcmgl_lidar_, pt[0], pt[1], pt[2]);
+            }
           } else {
-            bot_lcmgl_color3f(lcmgl_lidar_, 1.0, 0.0, 0.0);
-            bot_lcmgl_vertex3f(lcmgl_lidar_, pt[0], pt[1], pt[2]);
+            if (verbose_lcmgl && (v*num_pixel_cols + u) % 5 == 0){
+              bot_lcmgl_color3f(lcmgl_lidar_, 1.0, 0.5, 0.5);
+              bot_lcmgl_vertex3f(lcmgl_lidar_, pt[0], pt[1], pt[2]);
+            }
           }
 
           // populate depth image using our random sample
@@ -233,8 +242,10 @@ bool KinectFrameCost::constructCost(ManipulationTracker * tracker, const Eigen::
     } else {
       printf("KinectFramecost: No points to work with\n");
     }
-    bot_lcmgl_end(lcmgl_lidar_);
-    bot_lcmgl_switch_buffer(lcmgl_lidar_);
+    if (verbose_lcmgl){
+      bot_lcmgl_end(lcmgl_lidar_);
+      bot_lcmgl_switch_buffer(lcmgl_lidar_);
+    }
     // conservativeResize keeps old coefficients
     // (regular resize would clear them)
     points.conservativeResize(3, i);
@@ -346,18 +357,21 @@ bool KinectFrameCost::constructCost(ManipulationTracker * tracker, const Eigen::
               }
               double dist_normalized = fmin(max_considered_icp_distance, (z.col(j) - z_prime.col(j)).norm()) / max_considered_icp_distance;
      
-              bot_lcmgl_begin(lcmgl_icp_, LCMGL_LINES);
-              bot_lcmgl_color3f(lcmgl_icp_, dist_normalized*dist_normalized, 0, (1.0-dist_normalized)*(1.0-dist_normalized));
-              bot_lcmgl_line_width(lcmgl_icp_, 2.0f);
-              bot_lcmgl_vertex3f(lcmgl_icp_, z(0, j), z(1, j), z(2, j));
-              bot_lcmgl_vertex3f(lcmgl_icp_, z_prime(0, j), z_prime(1, j), z_prime(2, j));
-              bot_lcmgl_end(lcmgl_icp_);  
-              
+              if (verbose_lcmgl){
+                bot_lcmgl_begin(lcmgl_icp_, LCMGL_LINES);
+                bot_lcmgl_color3f(lcmgl_icp_, dist_normalized*dist_normalized, 0, (1.0-dist_normalized)*(1.0-dist_normalized));
+                bot_lcmgl_line_width(lcmgl_icp_, 2.0f);
+                bot_lcmgl_vertex3f(lcmgl_icp_, z(0, j), z(1, j), z(2, j));
+                bot_lcmgl_vertex3f(lcmgl_icp_, z_prime(0, j), z_prime(1, j), z_prime(2, j));
+                bot_lcmgl_end(lcmgl_icp_);  
+              }
             }
           }
         }
       }
-      bot_lcmgl_switch_buffer(lcmgl_icp_);  
+      if (verbose_lcmgl){
+        bot_lcmgl_switch_buffer(lcmgl_icp_);  
+      }
 
       if (verbose)
         printf("Spend %f in Articulated ICP constraints.\n", getUnixTime() - now);
@@ -501,7 +515,7 @@ bool KinectFrameCost::constructCost(ManipulationTracker * tracker, const Eigen::
                     depth_correction[k] = DC_LATERAL;
                     k++;
 
-                    if (thisind % 1 == 0){
+                    if (verbose_lcmgl && thisind % 1 == 0){
                       bot_lcmgl_begin(lcmgl_measurement_model_, LCMGL_LINES);
                       bot_lcmgl_line_width(lcmgl_measurement_model_, 5.0f);
                       bot_lcmgl_color3f(lcmgl_measurement_model_, 0, 0, 1);  
@@ -521,7 +535,7 @@ bool KinectFrameCost::constructCost(ManipulationTracker * tracker, const Eigen::
                   depth_correction[k] = DC_DEPTH;
                   k++;
 
-                  if (thisind % 1 == 0){
+                  if (verbose_lcmgl && thisind % 1 == 0){
                     bot_lcmgl_begin(lcmgl_measurement_model_, LCMGL_LINES);
                     bot_lcmgl_line_width(lcmgl_measurement_model_, 5.0f);
                     bot_lcmgl_color3f(lcmgl_measurement_model_, 0, 1, 0);  
@@ -562,23 +576,24 @@ bool KinectFrameCost::constructCost(ManipulationTracker * tracker, const Eigen::
         }
       }
 
-      bot_lcmgl_point_size(lcmgl_measurement_model_, 4.0f);
-      bot_lcmgl_color3f(lcmgl_measurement_model_, 0, 0, 1);  
-      bot_lcmgl_begin(lcmgl_measurement_model_, LCMGL_POINTS);
-      for (int i = 0; i < distances.rows(); i++){
-        if (i % 1 == 0){
-          Vector3d endpt = origin + distances(i) * ((raycast_endpoints_world.block<3, 1>(0, i) - origin) / raycast_endpoints(2, i));
-          if (endpt(0) > pointcloud_bounds.xMin && endpt(0) < pointcloud_bounds.xMax && 
-              endpt(1) > pointcloud_bounds.yMin && endpt(1) < pointcloud_bounds.yMax && 
-              endpt(2) > pointcloud_bounds.zMin && endpt(2) < pointcloud_bounds.zMax &&
-              (1 || observation_sdf(i) > 0.0 && observation_sdf(i) < INF)) {
-            bot_lcmgl_vertex3f(lcmgl_measurement_model_, endpt(0), endpt(1), endpt(2));
+      if (verbose_lcmgl){
+        bot_lcmgl_point_size(lcmgl_measurement_model_, 4.0f);
+        bot_lcmgl_color3f(lcmgl_measurement_model_, 0, 0, 1);  
+        bot_lcmgl_begin(lcmgl_measurement_model_, LCMGL_POINTS);
+        for (int i = 0; i < distances.rows(); i++){
+          if (i % 1 == 0){
+            Vector3d endpt = origin + distances(i) * ((raycast_endpoints_world.block<3, 1>(0, i) - origin) / raycast_endpoints(2, i));
+            if (endpt(0) > pointcloud_bounds.xMin && endpt(0) < pointcloud_bounds.xMax && 
+                endpt(1) > pointcloud_bounds.yMin && endpt(1) < pointcloud_bounds.yMax && 
+                endpt(2) > pointcloud_bounds.zMin && endpt(2) < pointcloud_bounds.zMax &&
+                (1 || observation_sdf(i) > 0.0 && observation_sdf(i) < INF)) {
+              bot_lcmgl_vertex3f(lcmgl_measurement_model_, endpt(0), endpt(1), endpt(2));
+            }
           }
         }
+        bot_lcmgl_end(lcmgl_measurement_model_);
+        bot_lcmgl_switch_buffer(lcmgl_measurement_model_);  
       }
-      bot_lcmgl_end(lcmgl_measurement_model_);
-      bot_lcmgl_switch_buffer(lcmgl_measurement_model_);  
-
       if (verbose)
         printf("Spend %f in free space constraints.\n", getUnixTime() - now);
     }
@@ -586,6 +601,20 @@ bool KinectFrameCost::constructCost(ManipulationTracker * tracker, const Eigen::
     return true;
   }
 }
+
+
+void KinectFrameCost::handleCameraOffsetMsg(const lcm::ReceiveBuffer* rbuf,
+                           const std::string& chan,
+                           const vicon::body_t* msg){
+  camera_offset_mutex.lock();
+  Vector3d trans(msg->trans[0], msg->trans[1], msg->trans[2]);
+  Quaterniond rot(msg->quat[0], msg->quat[1], msg->quat[2], msg->quat[3]);
+  kinect2robot.setIdentity();
+  kinect2robot.matrix().block<3, 3>(0,0) = rot.matrix();
+  kinect2robot.matrix().block<3, 1>(0,3) = trans;
+  camera_offset_mutex.unlock();
+}
+
 
 void KinectFrameCost::handleSavePointcloudMsg(const lcm::ReceiveBuffer* rbuf,
                            const std::string& chan,

@@ -13,6 +13,7 @@
 #include "lcmtypes/bot_core/rigid_transform_t.hpp"
 #include "lcmtypes/bot_core/raw_t.hpp"
 #include "lcmtypes/kinect/frame_msg_t.hpp"
+#include "lcmtypes/vicon/body_t.hpp"
 #include "lcmtypes/bot_core/image_t.hpp"
 #include <kinect/kinect-utils.h>
 #include <mutex>
@@ -36,6 +37,9 @@ public:
   void handleKinectFrameMsg(const lcm::ReceiveBuffer* rbuf,
                            const std::string& chan,
                            const kinect::frame_msg_t* msg);
+  void handleCameraOffsetMsg(const lcm::ReceiveBuffer* rbuf,
+                           const std::string& chan,
+                           const vicon::body_t* msg);
 
    // bounds to cut down point cloud, in world coords
   struct BoundingBox
@@ -62,6 +66,7 @@ private:
   double timeout_time = 0.5;
   double max_scan_dist = 10.0;
   bool verbose = false;
+  bool verbose_lcmgl = false;
 
   std::shared_ptr<lcm::LCM> lcm;
   std::shared_ptr<RigidBodyTree> robot;
@@ -78,6 +83,9 @@ private:
 
 
   std::mutex latest_cloud_mutex;
+  std::mutex camera_offset_mutex;
+  Eigen::Isometry3d kinect2robot;
+
   KinectCalibration* kcal;
   Eigen::Matrix<double, 3, Eigen::Dynamic> latest_cloud;
   Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> latest_depth_image;

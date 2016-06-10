@@ -12,6 +12,7 @@
 #include <bot_lcmgl_client/lcmgl.h>
 #include <bot_frames/bot_frames.h>
 #include <bot_param/param_client.h>
+#include "lcmtypes/vicon/body_t.hpp"
 
 
 #include <lcmtypes/bot_core/rigid_transform_t.hpp>
@@ -30,6 +31,9 @@ public:
   void handleTagDetectionMsg(const lcm::ReceiveBuffer* rbuf,
                            const std::string& chan,
                            const bot_core::rigid_transform_t* msg);
+  void handleCameraOffsetMsg(const lcm::ReceiveBuffer* rbuf,
+                           const std::string& chan,
+                           const vicon::body_t* msg);
 
 private:
   std::string robot_name = "";
@@ -50,11 +54,15 @@ private:
   double timeout_time = 0.5;
   bool verbose = false;
   bool verbose_lcmgl = false;
+  bool world_frame_ = false;
 
   bot_lcmgl_t* lcmgl_tag_ = NULL;
   BotParam* botparam_ = NULL;
   BotFrames* botframes_ = NULL;
 
+  std::mutex camera_offset_mutex;
+  Eigen::Isometry3d kinect2robot;
+  
   std::shared_ptr<lcm::LCM> lcm;
   std::shared_ptr<const RigidBodyTree> robot;
   KinematicsCache<double> robot_kinematics_cache;

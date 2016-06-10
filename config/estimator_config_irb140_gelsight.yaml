@@ -1,0 +1,112 @@
+robots:
+  irb140:
+    urdf: "/software/perception/manipulation_tracking/urdf/irb140_chull_ati_gelsight.urdf"
+    q0:
+      base_x: -0.17
+      base_z: 0.91
+
+  cube:
+    urdf: "/software/perception/manipulation_tracking/urdf/cube.urdf"
+    q0:
+      base_x: 0.55
+      base_y: -0.03
+      base_z: 0.97
+
+  desk:
+    urdf: "/software/perception/manipulation_tracking/urdf/desk.urdf"
+    q0:
+      base_x: 0.6
+      base_z: 0.9
+
+
+publish:
+  irb140_state:
+    robot_name: "IRB140_ATI_GELSIGHT"
+    type: "state"
+    channel: "EST_MANIPULAND_STATE_IRB140_ATI_GELSIGHT"
+  cube_state:
+    robot_name: "cube"
+    type: "state"
+    channel: "EST_MANIPULAND_STATE_cube"
+  desk_state:
+    robot_name: "desk"
+    type: "state"
+    channel: "EST_MANIPULAND_STATE_desk"
+
+dynamics:
+  dynamics_floating_base_var: 0.00001 # m per frame
+  dynamics_other_var: 0.1 # rad per frame
+  verbose: False
+
+costs:
+  - type: "KinectFrameCost"
+    config: "/software/config/irb140/irb140.cfg"
+    icp_var: 0.05 # m
+    free_space_var: 0.1
+    max_considered_icp_distance: 0.05
+    min_considered_joint_distance: 0.03
+    verbose: False
+    verbose_lcmgl: True
+    bounds:
+      xMin: 0.4
+      xMax: 0.9
+      yMin: -0.3
+      yMax: 0.3
+      zMin: 0.9
+      zMax: 1.1
+
+  - type: "GelsightCost"
+    max_considered_corresp_distance: 0.1
+    gelsight_depth_var: 0.001
+    gelsight_freespace_var: 0.001
+    num_sample_points: 1000
+    timeout_time: 0.2
+    verbose: True
+    surface:
+      body: "gelsight_box"
+      lower_left:  [-0.0125, 0.0125, 0.0]
+      lower_right: [-0.0125,  -0.0125, 0.0]
+      upper_left:  [ 0.0125, 0.0125, 0.0]
+      upper_right:  [ 0.0125,  -0.0125, 0.0]
+
+  - type: "AttachedApriltagCost"
+    verbose: false
+    verbose_lcmgl: true
+    timeout_time: 0.2
+    localization_var: 0.01
+    transform_var: .inf
+    world_frame: true
+    attached_manipuland: "IRB140_ATI_GELSIGHT"
+    apriltags:
+      - id: 100
+        body: "base_link"
+        pos: [0.174, 0.012, -0.081]
+        rot: [-91.312, -0.568, 90.0293]
+        channel: APRIL_TAG_0100_TO_CAMERA_LEFT
+      - id: 101
+        body: "base_link"
+        pos: [0.173, 0.195, -0.073]
+        rot: [-91.313, -1.033, 90.304]
+        channel: APRIL_TAG_0101_TO_CAMERA_LEFT
+      - id: 102
+        body: "base_link"
+        pos: [0.171, 0.380, -0.066]
+        rot: [-91.313, -1.033, 90.304]
+        channel: APRIL_TAG_0102_TO_CAMERA_LEFT
+      - id: 52
+        body: "link_2"
+        pos: [-0.003, -0.356, -0.187]
+        rot: [0.722, -1.624, -67.355]
+        channel: APRIL_TAG_0052_TO_CAMERA_LEFT
+      - id: 51
+        body: "link_4"
+        pos: [0.161, 0.006, -0.067]
+        rot: [4.498, 0.236, -22.072]
+        channel: APRIL_TAG_0051_TO_CAMERA_LEFT
+
+  - type: "RobotStateCost"
+    joint_known_fb_var: .inf # m
+    joint_known_encoder_var: 0.001 # radian
+    transcribe_floating_base_vars: False
+    verbose: False
+    state_channelname: "EST_ROBOT_STATE"

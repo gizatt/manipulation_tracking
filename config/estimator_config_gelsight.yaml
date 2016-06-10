@@ -75,7 +75,7 @@ costs:
     max_considered_corresp_distance: 0.1
     gelsight_depth_var: .Inf #0.001
     gelsight_freespace_var: .Inf #0.001
-    num_sample_points: 1000
+    num_sample_points: 100
     timeout_time: 0.2
     verbose: False
     surface:

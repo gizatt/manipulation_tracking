@@ -50,3 +50,8 @@ pods_install_headers(AttachedApriltagCost.hpp DESTINATION perception_manipulatio
 add_executable(runManipulationTracker runManipulationTracker.cpp)
 target_link_libraries(runManipulationTracker ManipulationTracker RobotStateCost GelsightCost JointStateCost KinectFrameCost AttachedApriltagCost DynamicsCost yaml-cpp)
 pods_install_executables(runManipulationTracker)
+
+add_executable(runErrorCalculator runErrorCalculator.cpp)
+pods_use_pkg_config_packages(runErrorCalculator lcmtypes_drc_lcmtypes lcm bot2-core bot2-lcmgl-client bot2-frames bot2-param-client kinect-utils opencv drake-convex-hull eigen3)
+target_link_libraries(runErrorCalculator drakeRBM drakeJoints yaml-cpp)
+pods_install_executables(runErrorCalculator)

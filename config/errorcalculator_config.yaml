@@ -1,0 +1,9 @@
+robot_1:
+  urdf: "/software/perception/manipulation_tracking/urdf/irb140_chull_ati_gelsight.urdf"
+  channel: "EST_MANIPULAND_STATE_IRB140_ATI_GELSIGHT"
+  link: "gelsight_box"
+
+robot_2:
+  urdf: "/software/perception/manipulation_tracking/urdf/cube.urdf"
+  channel: "EST_MANIPULAND_STATE_cube"
+  link: "cube"

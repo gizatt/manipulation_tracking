@@ -1,55 +1,66 @@
 robots:
-  cube:
-    urdf: "/software/perception/manipulation_tracking/urdf/cube.urdf"
-    q0:
-      base_x: 0.0
-      base_z: 0.0
-
   irb140:
-    urdf: "/software/perception/manipulation_tracking/urdf/irb140_chull_robotiq.urdf"
+    urdf: "/software/perception/manipulation_tracking/urdf/irb140_chull_ati_gelsight.urdf"
     q0:
       base_x: -0.17
       base_z: 0.91
-      finger_1_joint_1: 0.339477
-      finger_1_joint_2: 0.778470
-      finger_1_joint_3: 0.383365
-      finger_2_joint_1: 0.400276
-      finger_2_joint_2: 0.623641
-      finger_2_joint_3: 0.371457
-      finger_middle_joint_1: 0.170630
-      finger_middle_joint_2: 0.800355
-      finger_middle_joint_3: 0.484916
+
+  cube:
+    urdf: "/software/perception/manipulation_tracking/urdf/cube.urdf"
+    q0:
+      base_x: 0.6
+      base_z: 1.0
+
+  desk:
+    urdf: "/software/perception/manipulation_tracking/urdf/desk.urdf"
+    q0:
+      base_x: 0.6
+      base_z: 0.9
+
 
 publish:
-  irb140_publish:
-    robot_name: "IRB140_-_M2004C_Complete_base.SLDASM"
-    type: "transform"
-    channel: "GT_CAMERA_OFFSET"
+  irb140_state:
+    robot_name: "IRB140_ATI_GELSIGHT"
+    type: "state"
+    channel: "EST_MANIPULAND_STATE_IRB140_ATI_GELSIGHT"
+  cube_state:
+    robot_name: "cube"
+    type: "state"
+    channel: "EST_MANIPULAND_STATE_cube"
+  desk_state:
+    robot_name: "desk"
+    type: "state"
+    channel: "EST_MANIPULAND_STATE_desk"
+
+dynamics:
+  dynamics_floating_base_var: 0.00001 # m per frame
+  dynamics_other_var: 0.1 # rad per frame
+  verbose: False
 
 costs:
   - type: "AttachedApriltagCost"
     verbose: false
-    verbose_lcmgl: false
+    verbose_lcmgl: true
     timeout_time: 0.2
     localization_var: 0.01
     transform_var: .inf
-    world_frame: false
+    world_frame: true
     attached_manipuland: "cube"
     apriltags:
       - id: 1
         body: "cube"
         pos: [0.05, 0.0, 0.0]
-        rot: [180.0, -90.0, -90.0]
+        rot: [90.0, -180.0, -90.0]
         channel: APRIL_TAG_0001_TO_CAMERA_LEFT
       - id: 3
         body: "cube"
         pos: [-0.05, 0.0, 0.0]
-        rot: [0.0, 90.0, -90.0]
+        rot: [-90.0, 0.0, -90.0]
         channel: APRIL_TAG_0003_TO_CAMERA_LEFT
       - id: 2
         body: "cube"
         pos: [0.0, 0.05, 0.0]
-        rot: [90.0, 0.0, 180.0]
+        rot: [-90.0, 0.0, 180.0]
         channel: APRIL_TAG_0002_TO_CAMERA_LEFT
       - id: 4
         body: "cube"
@@ -69,11 +80,12 @@ costs:
 
   - type: "AttachedApriltagCost"
     verbose: false
-    verbose_lcmgl: false
+    verbose_lcmgl: true
     timeout_time: 0.2
     localization_var: 0.01
     transform_var: .inf
-    attached_manipuland: "IRB140_-_M2004C_Complete_base.SLDASM"
+    world_frame: true
+    attached_manipuland: "IRB140_ATI_GELSIGHT"
     apriltags:
       - id: 100
         body: "base_link"
@@ -107,9 +119,3 @@ costs:
     transcribe_floating_base_vars: False
     verbose: False
     state_channelname: "EST_ROBOT_STATE"
-
-  - type: "DynamicsCost"
-    dynamics_floating_base_var: 0.00001 # m per frame
-    dynamics_other_var: .inf # rad per frame
-    joint_limit_var: 0.001 # one-sided, radians
-    verbose: False
