@@ -6,6 +6,7 @@
 #include "DynamicsCost.hpp"
 #include "GelsightCost.hpp"
 #include "AttachedApriltagCost.hpp"
+#include "OptotrakMarkerCost.hpp"
 #include "yaml-cpp/yaml.h"
 #include "common.hpp"
 
@@ -62,7 +63,10 @@ int main(int argc, char** argv) {
       } else if (cost_type == "AttachedApriltagCost") { 
         std::shared_ptr<AttachedApriltagCost> cost(new AttachedApriltagCost(robot, lcm, *iter));
         estimator.addCost(dynamic_pointer_cast<ManipulationTrackerCost, AttachedApriltagCost>(cost));
-      } else {
+      } else if (cost_type == "OptotrakMarkerCost") { 
+        std::shared_ptr<OptotrakMarkerCost> cost(new OptotrakMarkerCost(robot, lcm, *iter));
+        estimator.addCost(dynamic_pointer_cast<ManipulationTrackerCost, OptotrakMarkerCost>(cost));
+      }else {
         cout << "Got cost type " << cost_type << " but I don't know what to do with it!" << endl;
       }
     }

@@ -189,8 +189,8 @@ void ManipulationTracker::update(){
     }
   }
 
-  cout << "X Pred: " << x_pred.transpose() << endl;
-  cout << "Covar Pred: " << covar_pred.diagonal().transpose() << endl;
+  //cout << "X Pred: " << x_pred.transpose() << endl;
+  //cout << "Covar Pred: " << covar_pred.diagonal().transpose() << endl;
 
   // TODO: accept parameters for this or pawn it off to a 
   // different object

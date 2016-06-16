@@ -47,8 +47,14 @@ target_link_libraries(AttachedApriltagCost ManipulationTracker yaml-cpp)
 pods_install_libraries(AttachedApriltagCost)
 pods_install_headers(AttachedApriltagCost.hpp DESTINATION perception_manipulation_tracker)
 
+add_library(OptotrakMarkerCost SHARED OptotrakMarkerCost.cpp)
+pods_use_pkg_config_packages(OptotrakMarkerCost lcmtypes_drc_lcmtypes lcm bot2-core bot2-lcmgl-client bot2-frames bot2-param-client kinect-utils opencv)
+target_link_libraries(OptotrakMarkerCost ManipulationTracker yaml-cpp)
+pods_install_libraries(OptotrakMarkerCost)
+pods_install_headers(OptotrakMarkerCost.hpp DESTINATION perception_manipulation_tracker)
+
 add_executable(runManipulationTracker runManipulationTracker.cpp)
-target_link_libraries(runManipulationTracker ManipulationTracker RobotStateCost GelsightCost JointStateCost KinectFrameCost AttachedApriltagCost DynamicsCost yaml-cpp)
+target_link_libraries(runManipulationTracker ManipulationTracker RobotStateCost GelsightCost JointStateCost KinectFrameCost AttachedApriltagCost DynamicsCost OptotrakMarkerCost yaml-cpp)
 pods_install_executables(runManipulationTracker)
 
 add_executable(runErrorCalculator runErrorCalculator.cpp)

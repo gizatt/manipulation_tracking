@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<robot
+  name="optotrak_cube">
+  <link name="optotrak_cube">
+    <visual>
+      <geometry>
+        <box size="0.1324 0.1261 0.1261"/>
+      </geometry>
+    </visual>
+    <collision>
+      <geometry>
+        <box size="0.1324 0.1261 0.1261"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="0.1"/>
+      <inertia ixx="0.01" ixy="0.0" ixz="0.0" iyy="0.01" iyz="0.0" izz="0.01"/>
+      <origin xyz="0 0 0"/>
+    </inertial>
+  </link>
+</robot>
