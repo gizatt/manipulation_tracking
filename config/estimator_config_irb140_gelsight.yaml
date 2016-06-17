@@ -18,7 +18,7 @@ robots:
     q0:
       base_x: 0.61
       base_y: 0.2
-      base_z: 0.71
+      base_z: 0.65
 
 robots_less_collision:
   irb140:
@@ -66,8 +66,8 @@ dynamics:
 costs:
   - type: "KinectFrameCost"
     config: "/software/config/irb140/irb140.cfg"
-    icp_var: 0.5 # m
-    free_space_var: 0.5
+    icp_var: 0.05 # m
+    free_space_var: 0.05
     max_considered_icp_distance: 0.05
     min_considered_joint_distance: 0.03
     verbose: False
@@ -78,14 +78,14 @@ costs:
       xMin: 0.4
       xMax: 0.9
       yMin: 0
-      yMax: 0.3
+      yMax: 0.4
       zMin: 0.7
       zMax: 1.1
 
   - type: "GelsightCost"
     max_considered_corresp_distance: 0.1
-    gelsight_depth_var: 0.01
-    gelsight_freespace_var: 0.01
+    gelsight_depth_var: 0.02
+    gelsight_freespace_var: 0.001
     num_sample_points: 1000
     timeout_time: 0.2
     verbose: True

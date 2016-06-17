@@ -144,6 +144,7 @@ int main(int argc, char** argv) {
 
   std::cout << "Listening...\n" << endl;
   while(1){
+      usleep(1000*10);
       lcm->handleTimeout(0.01);
 
       if (handlerRobot1_tracking.get_q_valid() &&
