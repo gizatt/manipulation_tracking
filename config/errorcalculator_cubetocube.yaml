@@ -1,0 +1,11 @@
+robot_1:
+  urdf: "/software/perception/manipulation_tracking/urdf/optotrak_cube.urdf"
+  channel: "EST_MANIPULAND_STATE_optotrak_cube_GT"
+  gt_channel: "EST_MANIPULAND_STATE_optotrak_cube_GT"
+  link: "optotrak_cube"
+
+robot_2:
+  urdf: "/software/perception/manipulation_tracking/urdf/optotrak_cube.urdf"
+  channel: "EST_MANIPULAND_STATE_optotrak_cube"
+  gt_channel: "EST_MANIPULAND_STATE_optotrak_cube"
+  link: "optotrak_cube"

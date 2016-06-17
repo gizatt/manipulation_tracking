@@ -78,31 +78,36 @@ costs:
     world_frame: false
     attached_manipuland: "IRB140_ATI_GELSIGHT"
     apriltags:
-      - id: 100
+      #- id: 100
+      #  body: "base_link"
+      #  pos: [0.175, 0.000, -0.086]
+      #  rot: [-90.574, -0.363, 89.095]
+      #  channel: APRIL_TAG_0100_TO_CAMERA_LEFT
+      #- id: 101
+      #  body: "base_link"
+      #  pos: [0.171, 0.184, -0.082]
+      #  rot: [-89.101, -0.363, 89.095]
+      #  channel: APRIL_TAG_0101_TO_CAMERA_LEFT
+      #- id: 102
+      #  body: "base_link"
+      #  pos: [0.171, 0.380, -0.066]
+      #  rot: [-89.101, -0.363, 89.095]
+      #  channel: APRIL_TAG_0102_TO_CAMERA_LEFT
+      - id: 50
         body: "base_link"
-        pos: [0.174, 0.012, -0.081]
-        rot: [-91.312, -0.568, 90.0293]
-        channel: APRIL_TAG_0100_TO_CAMERA_LEFT
-      - id: 101
-        body: "base_link"
-        pos: [0.173, 0.195, -0.073]
-        rot: [-91.313, -1.033, 90.304]
-        channel: APRIL_TAG_0101_TO_CAMERA_LEFT
-      - id: 102
-        body: "base_link"
-        pos: [0.171, 0.380, -0.066]
-        rot: [-91.313, -1.033, 90.304]
-        channel: APRIL_TAG_0102_TO_CAMERA_LEFT
-      - id: 52
-        body: "link_2"
-        pos: [-0.003, -0.356, -0.187]
-        rot: [0.722, -1.624, -67.355]
-        channel: APRIL_TAG_0052_TO_CAMERA_LEFT
-      - id: 51
-        body: "link_4"
-        pos: [0.152, -0.011, -0.069]
-        rot: [0, 1.811, -26.810]
-        channel: APRIL_TAG_0051_TO_CAMERA_LEFT
+        pos: [0.834, -0.075, -0.187]
+        rot: [180.0, 0.0, 90.0]
+        channel: APRIL_TAG_0050_TO_CAMERA_LEFT
+      #- id: 52
+      #  body: "link_2"
+      #  pos: [-0.003, -0.356, -0.187]
+      #  rot: [0.722, -1.624, -67.355]
+      #  channel: APRIL_TAG_0052_TO_CAMERA_LEFT
+      #- id: 51
+      #  body: "link_4"
+      #  pos: [0.154, -0.0, -0.064]
+      #  rot: [0.162, 1.477, -23.848]
+      #  channel: APRIL_TAG_0051_TO_CAMERA_LEFT
 
   - type: "RobotStateCost"
     joint_known_fb_var: .inf # m

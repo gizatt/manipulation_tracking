@@ -59,6 +59,14 @@ KinectFrameCost::KinectFrameCost(std::shared_ptr<RigidBodyTree> robot_, std::sha
   if (config["world_frame"])
     world_frame = config["world_frame"].as<bool>();
 
+  if (config["kinect2world"]){
+    have_hardcoded_kinect2robot = true;
+    hardcoded_kinect2robot.setIdentity();
+    vector<double> hardcoded_tf = config["kinect2world"].as<vector<double>>();
+    hardcoded_kinect2robot.matrix().block<3, 1>(0,3) = Vector3d(hardcoded_tf[0], hardcoded_tf[1], hardcoded_tf[2]);
+    hardcoded_kinect2robot.matrix().block<3, 3>(0,0) = Quaterniond(hardcoded_tf[3], hardcoded_tf[4], hardcoded_tf[5], hardcoded_tf[6]).toRotationMatrix();
+  }
+
   if (config["bounds"]){
     BoundingBox bounds;
     bounds.xMin = config["bounds"]["xMin"].as<double>();
@@ -109,9 +117,10 @@ KinectFrameCost::KinectFrameCost(std::shared_ptr<RigidBodyTree> robot_, std::sha
   cv::namedWindow( "KinectFrameCostDebug", cv::WINDOW_AUTOSIZE );
   cv::startWindowThread();
 
-  auto camera_offset_sub = lcm->subscribe("GT_CAMERA_OFFSET", &KinectFrameCost::handleCameraOffsetMsg, this);
-  camera_offset_sub->setQueueCapacity(1);
-
+  if (!have_hardcoded_kinect2robot){
+    auto camera_offset_sub = lcm->subscribe("GT_CAMERA_OFFSET", &KinectFrameCost::handleCameraOffsetMsg, this);
+    camera_offset_sub->setQueueCapacity(1);
+  }
 
   auto kinect_frame_sub = lcm->subscribe("KINECT_FRAME", &KinectFrameCost::handleKinectFrameMsg, this);
   kinect_frame_sub->setQueueCapacity(1);
@@ -167,7 +176,7 @@ bool KinectFrameCost::constructCost(ManipulationTracker * tracker, const Eigen::
 {
   double now = getUnixTime();
 
-  if (now - lastReceivedTime > timeout_time || (world_frame && now - last_got_kinect_frame > timeout_time)){
+  if (now - lastReceivedTime > timeout_time || (!have_hardcoded_kinect2robot && (world_frame && now - last_got_kinect_frame > timeout_time))){
     if (verbose)
       printf("KinectFrameCost: constructed but timed out\n");
     return false;
@@ -194,9 +203,13 @@ bool KinectFrameCost::constructCost(ManipulationTracker * tracker, const Eigen::
       Eigen::Isometry3d robot2world;
       this->get_trans_with_utime("robot_base", "local", utime, robot2world);
       long long utime2 = 0;
-      camera_offset_mutex.lock();
-      kinect2world =  robot2world * kinect2robot.inverse();
-      camera_offset_mutex.unlock();
+      if (have_hardcoded_kinect2robot){
+        kinect2world = robot2world * hardcoded_kinect2robot.inverse();
+      } else {
+        camera_offset_mutex.lock();
+        kinect2world =  robot2world * kinect2robot.inverse();
+        camera_offset_mutex.unlock();
+      }
     }
 
     //kinect2world.setIdentity();

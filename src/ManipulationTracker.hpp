@@ -15,7 +15,7 @@
 // forward def
 class ManipulationTrackerCost;
 
-std::shared_ptr<RigidBodyTree> setupRobotFromConfig(YAML::Node config, Eigen::VectorXd& x0_robot, std::string base_path, bool verbose = false);
+std::shared_ptr<RigidBodyTree> setupRobotFromConfig(YAML::Node config, Eigen::VectorXd& x0_robot, std::string base_path, bool verbose = false, bool less_collision = false);
 
 class ManipulationTracker {
 public:

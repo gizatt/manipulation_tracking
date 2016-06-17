@@ -18,11 +18,18 @@
 using namespace std;
 using namespace Eigen;
 
-std::shared_ptr<RigidBodyTree> setupRobotFromConfig(YAML::Node config, Eigen::VectorXd& x0_robot, std::string base_path, bool verbose){
+std::shared_ptr<RigidBodyTree> setupRobotFromConfig(YAML::Node config, Eigen::VectorXd& x0_robot, std::string base_path, bool verbose, bool less_collision){
   // generate robot from yaml file by adding each robot in sequence
   // first robot -- need to initialize the RBT
   int old_num_positions = 0;
-  auto manip = config["robots"].begin();
+  
+  string robots_string;
+  if (less_collision)
+    robots_string = "robots_less_collision";
+  else
+    robots_string = "robots";
+
+  auto manip = config[robots_string].begin();
   std::shared_ptr<RigidBodyTree> robot(new RigidBodyTree(base_path + manip->second["urdf"].as<string>()));
   x0_robot.resize(robot->number_of_positions());
   if (manip->second["q0"] && manip->second["q0"].Type() == YAML::NodeType::Map){
@@ -37,7 +44,7 @@ std::shared_ptr<RigidBodyTree> setupRobotFromConfig(YAML::Node config, Eigen::Ve
   old_num_positions = robot->number_of_positions();
   manip++;
   // each new robot can be added via addRobotFromURDF
-  while (manip != config["robots"].end()){
+  while (manip != config[robots_string].end()){
     robot->addRobotFromURDF(base_path + manip->second["urdf"].as<string>(), DrakeJoint::ROLLPITCHYAW);
     x0_robot.conservativeResize(robot->number_of_positions());
     if (manip->second["q0"] && manip->second["q0"].Type() == YAML::NodeType::Map){

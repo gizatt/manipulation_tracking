@@ -86,6 +86,8 @@ private:
   std::mutex latest_cloud_mutex;
   std::mutex camera_offset_mutex;
   Eigen::Isometry3d kinect2robot;
+  bool have_hardcoded_kinect2robot = false;
+  Eigen::Isometry3d hardcoded_kinect2robot;
 
   KinectCalibration* kcal;
   Eigen::Matrix<double, 3, Eigen::Dynamic> latest_cloud;

@@ -366,12 +366,15 @@
       </geometry>
       <origin xyz="0 0 0.005"/>
     </visual>
+
+  <!--
     <collision group="gelsight">
       <geometry>
         <box size="0.033 0.033 0.033"/>
       </geometry>
       <origin xyz="0 0 -0.0166"/>
     </collision>
+  -->
   </link>
   <joint name="ati_endplate_joint" type="fixed">
     <origin rpy="3.1415 -1.579 0.0" xyz="0.05 0 0"/>
@@ -387,12 +390,14 @@
       </geometry>
       <origin xyz="0 0 -0.0166"/>
     </visual>
+  <!--
     <collision group="gelsight">
       <geometry>
         <box size="0.033 0.033 0.033"/>
       </geometry>
       <origin xyz="0 0 -0.0166"/>
     </collision>
+  -->
     <inertial>
       <mass value="0.1"/>
       <inertia ixx="0.01" ixy="0.0" ixz="0.0" iyy="0.01" iyz="0.0" izz="0.01"/>
