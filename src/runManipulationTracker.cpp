@@ -88,6 +88,8 @@ int main(int argc, char** argv) {
       last_update_time = getUnixTime();
       estimator.update();
       estimator.publish();
+    } else {
+      usleep(1000);
     }
   }
 

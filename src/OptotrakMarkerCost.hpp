@@ -37,12 +37,13 @@ private:
   std::string robot_name = "";
   struct MarkerAttachment {
     int body_id;
-    int list_id;
+    std::vector<int> marker_ids;
     Eigen::Transform<double, 3, Eigen::Isometry> body_transform;
     Eigen::Transform<double, 3, Eigen::Isometry> last_transform;
     double last_received;
   };
-  std::map<int, MarkerAttachment> attachedMarkers;
+
+  std::vector<MarkerAttachment> attachedMarkers;
 
   std::string state_channelname = "";
   double localization_var = 0.01;
@@ -50,7 +51,7 @@ private:
   double timeout_time = 0.5;
   bool verbose = false;
   bool verbose_lcmgl = false;
-  bool world_frame_ = false;
+  bool free_floating_base_ = false;
 
   bot_lcmgl_t* lcmgl_tag_ = NULL;
   BotParam* botparam_ = NULL;

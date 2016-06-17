@@ -36,40 +36,37 @@ OptotrakMarkerCost::OptotrakMarkerCost(std::shared_ptr<const RigidBodyTree> robo
     verbose = config["verbose"].as<bool>();
   if (config["verbose_lcmgl"])
     verbose_lcmgl = config["verbose_lcmgl"].as<bool>();
-  if (config["world_frame"])
-    world_frame_ = config["world_frame"].as<bool>();
+  if (config["free_floating_base"])
+    free_floating_base_ = config["free_floating_base"].as<bool>();
 
   if (verbose_lcmgl)
     lcmgl_tag_ = bot_lcmgl_init(lcm->getUnderlyingLCM(), (std::string("at_optotrak_") + robot_name).c_str());
 
 
   if (config["markers"]){
-    int numtags = 0;
     for (auto iter=config["markers"].begin(); iter!=config["markers"].end(); iter++){
       MarkerAttachment attachment;
 
-      attachment.list_id = numtags;
-      numtags++;
-
       // first try to find the robot name
-      std:string linkname = (*iter)["body"].as<string>();
+      string linkname = (*iter)["body"].as<string>();
       auto search = robot->findLink(linkname, robot_name);
       if (search == nullptr){
         printf("Couldn't find link name %s on robot %s", linkname.c_str(), robot_name.c_str());
         exit(1);
       }
       attachment.body_id = search->body_index;
-      
+      attachment.marker_ids = (*iter)["ids"].as<vector<int>>();
+      // shift from 1-index to 0-index
+      for (int i=0; i < attachment.marker_ids.size(); i++) attachment.marker_ids[i] -= 1;
+
       // and parse transformation
-      
       Vector3d trans(Vector3d((*iter)["pos"][0].as<double>(), (*iter)["pos"][1].as<double>(), (*iter)["pos"][2].as<double>()));
       attachment.body_transform.setIdentity();
       attachment.body_transform.matrix().block<3, 1>(0,3) = trans;
 
       attachment.last_received = getUnixTime() - timeout_time*2.;
 
-      int id = (*iter)["id"].as<double>();
-      attachedMarkers[id] = attachment;
+      attachedMarkers.push_back(attachment);
     }
   }
 
@@ -130,64 +127,35 @@ bool OptotrakMarkerCost::constructCost(ManipulationTracker * tracker, const Eige
   robot->doKinematics(robot_kinematics_cache);
 
   detectionsMutex.lock();
-  for (auto it = attachedMarkers.begin(); it != attachedMarkers.end(); it++){
-    MarkerAttachment * attachment = &(it->second);
-    // actual transform
-    Transform<double, 3, Isometry> current_transform =  robot->relativeTransform(robot_kinematics_cache, 0,  attachment->body_id);
-
-    // spawn transform from state variables
+  for (auto attachment = attachedMarkers.begin(); attachment != attachedMarkers.end(); attachment++){
     Transform<double, 3, Isometry> body_transform = attachment->body_transform;
+
+    // actual transform
+    Transform<double, 3, Isometry> current_transform = robot->relativeTransform(robot_kinematics_cache, 0, attachment->body_id);
+
     
     // actual transform xyz jacobian
-    auto J_xyz = robot->transformPointsJacobian(robot_kinematics_cache, Vector3d(0.0, 0.0, 0.0), attachment->body_id, 0, false);
-    //J_rpy.block<3, 3>(0, 3) = attachment->body_transform.rotation() * J_rpy.block<3, 3>(0, 3);
+    auto J_xyz = robot->transformPointsJacobian(robot_kinematics_cache, body_transform * Vector3d(0.0, 0.0, 0.0), attachment->body_id, 0, false);
+   //J_rpy.block<3, 3>(0, 3) = attachment->body_transform.rotation() * J_rpy.block<3, 3>(0, 3);
 
-    // weird transforms to be thinking about everything in body from of this link
-    Vector3d z_current = current_transform * Vector3d(0.0, 0.0, 0.0);
-    Vector3d z_des = attachment->last_transform * body_transform.inverse() * Vector3d(0.0, 0.0, 0.0);
+    Vector3d z_current = current_transform * body_transform * Vector3d(0.0, 0.0, 0.0);
+    Vector3d z_des = attachment->last_transform * Vector3d(0.0, 0.0, 0.0);
    // Vector4d quat_current = rotmat2quat(current_transform.rotation());
    // Vector4d quat_des = rotmat2quat(attachment->last_transform.rotation());
 
 
-    // corners of object
-    Matrix3Xd points(3, 8); 
-    double width = 0.0763;
-    points << Vector3d(-width/2., -width/2., 0.0),
-          Vector3d(width/2., -width/2., 0.0),
-          Vector3d(width/2., width/2., 0.0),
-          Vector3d(-width/2., width/2., 0.0),
-          Vector3d(0.0, 0.0, 0.0),
-          Vector3d(0.1, 0.0, 0.0),
-          Vector3d(0.0, 0.1, 0.0),
-          Vector3d(0.0, 0.0, 0.1);
-    Matrix3Xd points_cur =  current_transform * body_transform * points;
-    Matrix3Xd points_des =  attachment->last_transform * points;
-
     Vector3d body_trans_offset = body_transform * Vector3d(0.0, 0.0, 0.0);
 
+    
     if (verbose_lcmgl)
     {
-      bot_lcmgl_begin(lcmgl_tag_, LCMGL_QUADS);
+      bot_lcmgl_begin(lcmgl_tag_, LCMGL_POINTS);
       bot_lcmgl_color3f(lcmgl_tag_, fmin(1.0, fabs(body_trans_offset(0)/0.05)),
                                     fmin(1.0, fabs(body_trans_offset(1)/0.05)),
                                     fmin(1.0, fabs(body_trans_offset(2)/0.05)));
-      bot_lcmgl_line_width(lcmgl_tag_, 4.0f);
-      for (int i=0; i < 4; i++)
-        bot_lcmgl_vertex3f(lcmgl_tag_, points_cur(0, i), points_cur(1, i), points_cur(2, i));
-
-      bot_lcmgl_end(lcmgl_tag_); 
-
-      bot_lcmgl_begin(lcmgl_tag_, LCMGL_LINES);
-      bot_lcmgl_line_width(lcmgl_tag_, 4.0f);
+      bot_lcmgl_vertex3f(lcmgl_tag_, z_current[0], z_current[1], z_current[2]);
       bot_lcmgl_color3f(lcmgl_tag_, 1.0, 0.5, 0.0);
-      bot_lcmgl_vertex3f(lcmgl_tag_, points_cur(0, 4), points_cur(1, 4), points_cur(2, 4));
-      bot_lcmgl_vertex3f(lcmgl_tag_, points_cur(0, 5), points_cur(1, 5), points_cur(2, 5));
-      bot_lcmgl_color3f(lcmgl_tag_, 0.0, 1.0, 0.0);
-      bot_lcmgl_vertex3f(lcmgl_tag_, points_cur(0, 4), points_cur(1, 4), points_cur(2, 4));
-      bot_lcmgl_vertex3f(lcmgl_tag_, points_cur(0, 6), points_cur(1, 6), points_cur(2, 6));
-      bot_lcmgl_color3f(lcmgl_tag_, 0.0, 0.5, 1.0);
-      bot_lcmgl_vertex3f(lcmgl_tag_, points_cur(0, 4), points_cur(1, 4), points_cur(2, 4));
-      bot_lcmgl_vertex3f(lcmgl_tag_, points_cur(0, 7), points_cur(1, 7), points_cur(2, 7));
+      bot_lcmgl_vertex3f(lcmgl_tag_, z_des[0], z_des[1], z_des[2]);
       bot_lcmgl_end(lcmgl_tag_);
     }
 
@@ -198,7 +166,7 @@ bool OptotrakMarkerCost::constructCost(ManipulationTracker * tracker, const Eige
       VectorXd z_d(3);
       z_d << z_des;
       MatrixXd J(3, robot->number_of_positions());
-      J << J_xyz;
+      J << J_xyz; //, J_rpy;
 
       // POSITION FROM DETECTED TRANSFORM:
       // 0.5 * x.' Q x + f.' x
@@ -206,34 +174,21 @@ bool OptotrakMarkerCost::constructCost(ManipulationTracker * tracker, const Eige
       // min (z_current - z_des)^2
       // min ( (z_current + J*(q_new - q_old)) - z_des )^2
       MatrixXd Ks = z_c - z_d - J*q_old;
-      f.block(0, 0, nq, 1) += MARKER_WEIGHT * (2. * Ks.transpose() * J).transpose();
-      Q.block(0, 0, nq, nq) += MARKER_WEIGHT * (2. * J.transpose() * J);
+
+      if (free_floating_base_){
+        f.block(6, 0, nq-6, 1) += MARKER_WEIGHT * (2. * Ks.transpose() * J).transpose().block(6, 0, nq-6, 1);
+        Q.block(6, 6, nq-6, nq-6) += MARKER_WEIGHT * (2. * J.transpose() * J).block(6, 6, nq-6, nq-6);
+      } else {
+        f.block(0, 0, nq, 1) += MARKER_WEIGHT * (2. * Ks.transpose() * J).transpose();
+        Q.block(0, 0, nq, nq) += MARKER_WEIGHT * (2. * J.transpose() * J);
+      }
       K += MARKER_WEIGHT * Ks.squaredNorm();
 
-      if (verbose_lcmgl){
-        bot_lcmgl_begin(lcmgl_tag_, LCMGL_QUADS);
-        bot_lcmgl_color3f(lcmgl_tag_, 0.5, 0.5, 0.5);
-        bot_lcmgl_line_width(lcmgl_tag_, 4.0f);
-        for (int i=0; i < 4; i++)
-          bot_lcmgl_vertex3f(lcmgl_tag_, points_des(0, i), points_des(1, i), points_des(2, i));
-        bot_lcmgl_end(lcmgl_tag_); 
-
-        bot_lcmgl_begin(lcmgl_tag_, LCMGL_LINES);
-        bot_lcmgl_line_width(lcmgl_tag_, 4.0f);
-        bot_lcmgl_color3f(lcmgl_tag_, 1.0, 0.0, 0.5);
-        bot_lcmgl_vertex3f(lcmgl_tag_, points_des(0, 4), points_des(1, 4), points_des(2, 4));
-        bot_lcmgl_vertex3f(lcmgl_tag_, points_des(0, 5), points_des(1, 5), points_des(2, 5));
-        bot_lcmgl_color3f(lcmgl_tag_, 0.0, 1.0, 0.5);
-        bot_lcmgl_vertex3f(lcmgl_tag_, points_des(0, 4), points_des(1, 4), points_des(2, 4));
-        bot_lcmgl_vertex3f(lcmgl_tag_, points_des(0, 6), points_des(1, 6), points_des(2, 6));
-        bot_lcmgl_color3f(lcmgl_tag_, 0.0, 0.0, 1.0);
-        bot_lcmgl_vertex3f(lcmgl_tag_, points_des(0, 4), points_des(1, 4), points_des(2, 4));
-        bot_lcmgl_vertex3f(lcmgl_tag_, points_des(0, 7), points_des(1, 7), points_des(2, 7));
-        bot_lcmgl_end(lcmgl_tag_);
-      }
-
       if (verbose){
-        cout << endl << endl << endl << "********* MARKER " << it->first << " **************" << endl;
+        cout << endl << endl << endl << "****** MARKERS [";
+        for (auto it=attachment->marker_ids.begin(); it != attachment->marker_ids.end(); it++) cout << *it << ", ";
+        cout << "] ***********" << endl;
+        cout << "Body transform: " << body_transform.matrix() << endl;
         cout << "J: " << J << endl;
         cout << "z_c: " << z_c.transpose() << endl;
         cout << "z_d: " << z_d.transpose() << endl;
@@ -259,17 +214,34 @@ void OptotrakMarkerCost::handleOptotrakMarkerMessage(const lcm::ReceiveBuffer* r
 
   detectionsMutex.lock();
 
-  for (int i=0; i < msg->number_rigid_bodies; i++){
-    auto it = attachedMarkers.find(i+1);
-    if (it != attachedMarkers.end()){
-      if (msg->z[i] <= -500.0 && msg->z[i] >= -20000.){ // marker is in front of camera but in range
-        printf("populated marker %d\n", i);
-        (it->second).last_received = getUnixTime();
-        (it->second).last_transform.setIdentity();
-        (it->second).last_transform.matrix().block<3, 1>(0,3) = Vector3d(msg->x[i]/1000., msg->y[i]/1000., msg->z[i]/1000.);
+  for (auto it = attachedMarkers.begin(); it != attachedMarkers.end(); it++){
+    bool all_present = true;
+    double avg_x = 0.0;
+    double avg_y = 0.0;
+    double avg_z = 0.0;
+    for (auto marker_id = it->marker_ids.begin(); marker_id != it->marker_ids.end(); marker_id++){
+      if (*marker_id < 0 || *marker_id >= msg->number_rigid_bodies || msg->z[*marker_id] <= -20000 ||
+          msg->z[*marker_id] >= -500){
+        all_present = false;
+        break;
+      } else {
+        avg_x += msg->x[*marker_id];
+        avg_y += msg->y[*marker_id];
+        avg_z += msg->z[*marker_id];
       }
     }
+
+    if (all_present){
+      avg_x /= (double)it->marker_ids.size();
+      avg_y /= (double)it->marker_ids.size();
+      avg_z /= (double)it->marker_ids.size();
+      it->last_received = getUnixTime();
+      it->last_transform.setIdentity();
+      it->last_transform.matrix().block<3, 1>(0,3) = Vector3d(avg_x/1000., avg_y/1000., avg_z/1000.);
+    }
   }
+
+
 
   detectionsMutex.unlock();
 }

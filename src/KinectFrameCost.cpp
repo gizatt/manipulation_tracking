@@ -56,6 +56,8 @@ KinectFrameCost::KinectFrameCost(std::shared_ptr<RigidBodyTree> robot_, std::sha
     verbose = config["verbose"].as<bool>();
   if (config["verbose_lcmgl"])
     verbose_lcmgl = config["verbose_lcmgl"].as<bool>();
+  if (config["world_frame"])
+    world_frame = config["world_frame"].as<bool>();
 
   if (config["bounds"]){
     BoundingBox bounds;
@@ -118,6 +120,7 @@ KinectFrameCost::KinectFrameCost(std::shared_ptr<RigidBodyTree> robot_, std::sha
   save_pc_sub->setQueueCapacity(1);
 
   lastReceivedTime = getUnixTime() - timeout_time*2.;
+  last_got_kinect_frame = getUnixTime() - timeout_time*2.;
 }
 
 void KinectFrameCost::initBotConfig(const char* filename)
@@ -163,7 +166,8 @@ int KinectFrameCost::get_trans_with_utime(std::string from_frame, std::string to
 bool KinectFrameCost::constructCost(ManipulationTracker * tracker, const Eigen::Matrix<double, Eigen::Dynamic, 1> x_old, Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>& Q, Eigen::Matrix<double, Eigen::Dynamic, 1>& f, double& K)
 {
   double now = getUnixTime();
-  if (now - lastReceivedTime > timeout_time){
+
+  if (now - lastReceivedTime > timeout_time || (world_frame && now - last_got_kinect_frame > timeout_time)){
     if (verbose)
       printf("KinectFrameCost: constructed but timed out\n");
     return false;
@@ -182,14 +186,19 @@ bool KinectFrameCost::constructCost(ManipulationTracker * tracker, const Eigen::
     full_depth_image= latest_depth_image;
     latest_cloud_mutex.unlock();
     
-    // transform into world frame
-    long long utime = 0;
-    Eigen::Isometry3d robot2world;
-    this->get_trans_with_utime("robot_base", "local", utime, robot2world);
-    long long utime2 = 0;
-    camera_offset_mutex.lock();
-    Eigen::Isometry3d kinect2world =  robot2world * kinect2robot.inverse();
-    camera_offset_mutex.unlock();
+    // transform into world frame?
+    Eigen::Isometry3d kinect2world;
+    kinect2world.setIdentity();
+    if (world_frame){
+      long long utime = 0;
+      Eigen::Isometry3d robot2world;
+      this->get_trans_with_utime("robot_base", "local", utime, robot2world);
+      long long utime2 = 0;
+      camera_offset_mutex.lock();
+      kinect2world =  robot2world * kinect2robot.inverse();
+      camera_offset_mutex.unlock();
+    }
+
     //kinect2world.setIdentity();
     full_cloud = kinect2world * full_cloud;
 
@@ -613,6 +622,8 @@ void KinectFrameCost::handleCameraOffsetMsg(const lcm::ReceiveBuffer* rbuf,
   kinect2robot.matrix().block<3, 3>(0,0) = rot.matrix();
   kinect2robot.matrix().block<3, 1>(0,3) = trans;
   camera_offset_mutex.unlock();
+
+  last_got_kinect_frame = getUnixTime();
 }
 
 

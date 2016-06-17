@@ -97,6 +97,7 @@ GelsightCost::GelsightCost(std::shared_ptr<RigidBodyTree> robot_, std::shared_pt
   gelsight_frame_sub->setQueueCapacity(1);
 
   lastReceivedTime = getUnixTime() - timeout_time*2.;
+  startTime = getUnixTime();
 }
 
 /***********************************************
@@ -105,7 +106,7 @@ GelsightCost::GelsightCost(std::shared_ptr<RigidBodyTree> robot_, std::shared_pt
 bool GelsightCost::constructCost(ManipulationTracker * tracker, const Eigen::Matrix<double, Eigen::Dynamic, 1> x_old, Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>& Q, Eigen::Matrix<double, Eigen::Dynamic, 1>& f, double& K)
 {
   double now = getUnixTime();
-  if (now - lastReceivedTime > timeout_time){
+  if (now - lastReceivedTime > timeout_time || now - startTime < 1.0){ // slight delay helps when restarting tracker during contact...
     if (verbose)
       printf("GelsightCost: constructed but timed out\n");
     return false;

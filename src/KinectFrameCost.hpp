@@ -67,6 +67,7 @@ private:
   double max_scan_dist = 10.0;
   bool verbose = false;
   bool verbose_lcmgl = false;
+  bool world_frame = true;
 
   std::shared_ptr<lcm::LCM> lcm;
   std::shared_ptr<RigidBodyTree> robot;
@@ -93,6 +94,7 @@ private:
   Eigen::Matrix<double, 3, Eigen::Dynamic> raycast_endpoints;
 
   double lastReceivedTime;
+  double last_got_kinect_frame;
 };
 
 #endif

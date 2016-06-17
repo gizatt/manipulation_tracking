@@ -64,6 +64,7 @@ private:
   Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> latest_gelsight_image;
 
   double lastReceivedTime;
+  double startTime;
 };
 
 #endif

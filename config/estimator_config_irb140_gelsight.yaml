@@ -5,18 +5,19 @@ robots:
       base_x: -0.17
       base_z: 0.91
 
-  cube:
-    urdf: "/software/perception/manipulation_tracking/urdf/cube.urdf"
+  optotrak_cube:
+    urdf: "/software/perception/manipulation_tracking/urdf/optotrak_cube.urdf"
     q0:
-      base_x: 0.55
-      base_y: -0.03
-      base_z: 0.97
+      base_x: 0.6
+      base_y: 0.23
+      base_z: 0.789
 
   desk:
     urdf: "/software/perception/manipulation_tracking/urdf/desk.urdf"
     q0:
-      base_x: 0.6
-      base_z: 0.9
+      base_x: 0.61
+      base_y: 0.2
+      base_z: 0.71
 
 
 publish:
@@ -24,10 +25,10 @@ publish:
     robot_name: "IRB140_ATI_GELSIGHT"
     type: "state"
     channel: "EST_MANIPULAND_STATE_IRB140_ATI_GELSIGHT"
-  cube_state:
-    robot_name: "cube"
+  optotrak_cube_state:
+    robot_name: "optotrak_cube"
     type: "state"
-    channel: "EST_MANIPULAND_STATE_cube"
+    channel: "EST_MANIPULAND_STATE_optotrak_cube"
   desk_state:
     robot_name: "desk"
     type: "state"
@@ -47,12 +48,13 @@ costs:
     min_considered_joint_distance: 0.03
     verbose: False
     verbose_lcmgl: True
+    world_frame: True
     bounds:
       xMin: 0.4
       xMax: 0.9
-      yMin: -0.3
+      yMin: 0
       yMax: 0.3
-      zMin: 0.9
+      zMin: 0.7
       zMax: 1.1
 
   - type: "GelsightCost"
@@ -100,13 +102,13 @@ costs:
         channel: APRIL_TAG_0052_TO_CAMERA_LEFT
       - id: 51
         body: "link_4"
-        pos: [0.161, 0.006, -0.067]
-        rot: [4.498, 0.236, -22.072]
+        pos: [0.152, -0.011, -0.069]
+        rot: [0, 1.811, -26.810]
         channel: APRIL_TAG_0051_TO_CAMERA_LEFT
 
   - type: "RobotStateCost"
-    joint_known_fb_var: .inf # m
+    joint_known_fb_var: .00000001 # m
     joint_known_encoder_var: 0.001 # radian
-    transcribe_floating_base_vars: False
+    transcribe_floating_base_vars: True
     verbose: False
     state_channelname: "EST_ROBOT_STATE"

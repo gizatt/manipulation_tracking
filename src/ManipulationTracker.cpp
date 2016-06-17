@@ -119,8 +119,60 @@ ManipulationTracker::ManipulationTracker(std::shared_ptr<const RigidBodyTree> ro
       publish_infos_.push_back(new_publish_info);
     }
   }
+
+  // do we need to rectify the estimated state by transforming to a new frame?
+  // puts base of source_robot into dest_frame, and moves all floating bases
+  // by that same transform
+  if (config["post_transform"]){
+    do_post_transform_ = true;
+    post_transform_robot_ = config["post_transform"]["source_robot"].as<string>();
+    post_transform_dest_frame_ = config["post_transform"]["dest_frame"].as<string>(); 
+  }
+
+  const char * filename = NULL;
+  if (config["filename"])
+    filename = config["filename"].as<string>().c_str();
+  this->initBotConfig(filename);
+
 }
 
+
+void ManipulationTracker::initBotConfig(const char* filename)
+{
+  if (filename && filename[0])
+    {
+      botparam_ = bot_param_new_from_file(filename);
+    }
+  else
+    {
+    while (!botparam_)
+      {
+        botparam_ = bot_param_new_from_server(lcm_->getUnderlyingLCM(), 0);
+      }
+    }
+  botframes_ = bot_frames_get_global(lcm_->getUnderlyingLCM(), botparam_);
+}
+
+int ManipulationTracker::get_trans_with_utime(std::string from_frame, std::string to_frame,
+                               long long utime, Eigen::Isometry3d & mat)
+{
+  if (!botframes_)
+  {
+    std::cout << "botframe is not initialized" << std::endl;
+    mat = mat.matrix().Identity();
+    return 0;
+  }
+
+  int status;
+  double matx[16];
+  status = bot_frames_get_trans_mat_4x4_with_utime( botframes_, from_frame.c_str(),  to_frame.c_str(), utime, matx);
+  for (int i = 0; i < 4; ++i) {
+    for (int j = 0; j < 4; ++j) {
+      mat(i,j) = matx[i*4+j];
+    }
+  }
+  return status;
+}
 
 void ManipulationTracker::addCost(std::shared_ptr<ManipulationTrackerCost> new_cost){
   // spawn any necessary new decision variables
@@ -316,6 +368,38 @@ void ManipulationTracker::update(){
 } 
 
 void ManipulationTracker::publish(){
+  Isometry3d post_transform;
+  post_transform.setIdentity();
+  if (do_post_transform_){
+    // find the floating base of the desired robot
+    int floating_base_body = -1;
+    for (int i=0; i<robot_->bodies.size(); i++){
+      if (robot_->bodies[i]->model_name() == post_transform_robot_ && robot_->bodies[i]->getJoint().isFloating()){
+        floating_base_body = i;
+        break;
+      }
+    }
+    if (floating_base_body < 0){
+      printf("couldn't find desired floating base for post transform!\n");
+      exit(1);
+    }
+
+    auto quat = rpy2quat(x_.block<3, 1>(robot_->bodies[floating_base_body]->position_num_start + 3, 0));
+    post_transform.matrix().block<3, 3>(0,0) = Quaterniond(quat[0], quat[1], quat[2], quat[3]).matrix();
+    post_transform.matrix().block<3, 1>(0,3) = x_.block(robot_->bodies[floating_base_body]->position_num_start, 0, 3, 1);
+
+    // find error between that and the designated frame
+    long long utime = 0;
+    Eigen::Isometry3d to_dest_frame;
+    this->get_trans_with_utime(post_transform_dest_frame_, "local", utime, to_dest_frame);
+
+    cout << "to robot base: " << post_transform.matrix() << endl;
+    cout << "dest_frame: " << to_dest_frame.matrix() << endl;
+    post_transform =  to_dest_frame * post_transform.inverse();
+    cout << "post: " << post_transform.matrix() << endl;
+
+  }
+
   // Publish what we've been requested to publish
   for (auto it=publish_infos_.begin(); it != publish_infos_.end(); it++){
     // find this robot in the robot names
@@ -333,14 +417,17 @@ void ManipulationTracker::publish(){
           for (int i=0; i<robot_->bodies.size(); i++){
             if (robot_->bodies[i]->model_name() == robot_name){
               if (robot_->bodies[i]->getJoint().isFloating()){
-                manipulation_state.pose.translation.x = x_[robot_->bodies[i]->position_num_start + 0];
-                manipulation_state.pose.translation.y = x_[robot_->bodies[i]->position_num_start + 1];
-                manipulation_state.pose.translation.z = x_[robot_->bodies[i]->position_num_start + 2];
-                auto quat = rpy2quat(x_.block<3, 1>(robot_->bodies[i]->position_num_start + 3, 0));
-                manipulation_state.pose.rotation.w = quat[0];
-                manipulation_state.pose.rotation.x = quat[1];
-                manipulation_state.pose.rotation.y = quat[2];
-                manipulation_state.pose.rotation.z = quat[3];
+                Vector3d xyz = post_transform*x_.block<3, 1>(robot_->bodies[i]->position_num_start + 0, 0);
+                manipulation_state.pose.translation.x = xyz[0];
+                manipulation_state.pose.translation.y = xyz[1];
+                manipulation_state.pose.translation.z = xyz[2];
+                Quaterniond quat1(post_transform.rotation());
+                auto quat2 = rpy2quat(x_.block<3, 1>(robot_->bodies[i]->position_num_start + 3, 0));
+                quat1 *= Quaterniond(quat2[0], quat2[1], quat2[2], quat2[3]);
+                manipulation_state.pose.rotation.w = quat1.w();
+                manipulation_state.pose.rotation.x = quat1.x();
+                manipulation_state.pose.rotation.y = quat1.y();
+                manipulation_state.pose.rotation.z = quat1.z();
                 if (found_floating){
                   printf("Had more than one floating joint???\n");
                   exit(-1);

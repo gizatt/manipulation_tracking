@@ -8,6 +8,9 @@
 #include "ManipulationTrackerCost.hpp"
 #include "yaml-cpp/yaml.h"
 #include <lcm/lcm-cpp.hpp>
+#include <bot_lcmgl_client/lcmgl.h>
+#include <bot_frames/bot_frames.h>
+#include <bot_param/param_client.h>
 
 // forward def
 class ManipulationTrackerCost;
@@ -21,6 +24,10 @@ public:
   ManipulationTracker(std::shared_ptr<const RigidBodyTree> robot, Eigen::Matrix<double, Eigen::Dynamic, 1> x0_robot, std::shared_ptr<lcm::LCM> lcm, YAML::Node config, bool verbose = false);
   ~ManipulationTracker() {};
 
+  void initBotConfig(const char* filename);
+  int get_trans_with_utime(std::string from_frame, std::string to_frame,
+                               long long utime, Eigen::Isometry3d & mat);
+  
   // register a cost function with the solver
   void addCost(std::shared_ptr<ManipulationTrackerCost> new_cost);
 
@@ -43,6 +50,11 @@ private:
   };
   std::vector<publish_info> publish_infos_;
 
+  bool do_post_transform_ = false;
+  std::string post_transform_robot_;
+  std::string post_transform_dest_frame_;
+  BotParam* botparam_ = NULL;
+  BotFrames* botframes_ = NULL;
 
   Eigen::Matrix<double, Eigen::Dynamic, 1> x_;
   Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> covar_;

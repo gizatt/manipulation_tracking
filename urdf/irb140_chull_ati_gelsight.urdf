@@ -358,6 +358,30 @@
     <child link="ATI_sensor"/>
   </joint>
 
+     
+  <link name="ati_endplate">
+    <visual>
+      <geometry>
+        <cylinder length=".01" radius="0.04"/>
+      </geometry>
+      <origin xyz="0 0 0.005"/>
+    </visual>
+    <!--
+    <collision group="gelsight">
+      <geometry>
+        <box size="0.033 0.033 0.033"/>
+      </geometry>
+      <origin xyz="0 0 -0.0166"/>
+    </collision>
+  -->
+  </link>
+  <joint name="ati_endplate_joint" type="fixed">
+    <origin rpy="3.1415 -1.579 0.0" xyz="0.05 0 0"/>
+    <parent link="link_6"/>
+    <child link="ati_endplate"/>
+  </joint>
+
+
   <link name="gelsight_box">
     <visual>
       <geometry>
@@ -380,7 +404,7 @@
     </inertial>
   </link>
   <joint name="gelsight_box_joint" type="fixed">
-    <origin rpy="3.1415 -1.579 0.0" xyz="0.098 0 0"/>
+    <origin rpy="3.1415 -1.579 0.0" xyz="0.105 0 0"/>
     <parent link="link_6"/>
     <child link="gelsight_box"/>
   </joint>
