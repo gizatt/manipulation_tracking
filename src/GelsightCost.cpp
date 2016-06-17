@@ -94,7 +94,7 @@ GelsightCost::GelsightCost(std::shared_ptr<RigidBodyTree> robot_, std::shared_pt
   cv::namedWindow( "GelsightDepth", cv::WINDOW_AUTOSIZE );
   cv::startWindowThread();
 
-  auto gelsight_frame_sub = lcm->subscribe("GELSIGHT_CONTACT", &GelsightCost::handleGelsightFrameMsg, this);
+  auto gelsight_frame_sub = lcm->subscribe("GELSIGHT_DEPTH", &GelsightCost::handleGelsightFrameMsg, this);
   gelsight_frame_sub->setQueueCapacity(1);
 
   lastReceivedTime = getUnixTime() - timeout_time*2.;
@@ -146,7 +146,7 @@ bool GelsightCost::constructCost(ManipulationTracker * tracker, const Eigen::Mat
                            + (sensor_plane.upper_left-sensor_plane.lower_left)*(((double)full_v) / (double)input_num_pixel_rows);
 
         double val = gelsight_image(full_v, full_u);
-        if (val >= 0.1){
+        if (val >= 0.3){
           contact_points.block<3,1>(0,num_contact_points) = this_point;
           num_contact_points++;
         } else {
@@ -389,21 +389,35 @@ void GelsightCost::handleGelsightFrameMsg(const lcm::ReceiveBuffer* rbuf,
   if (msg->pixelformat == bot_core::image_t::PIXEL_FORMAT_MJPEG){
    decodedImage = cv::imdecode(msg->data, 0);
    success = (decodedImage.rows > 0);
+
+   if (success){
+    if (latest_gelsight_image.rows() != msg->height || latest_gelsight_image.cols() != msg->width){
+      latest_gelsight_image.resize(msg->height, msg->width);
+      input_num_pixel_rows = msg->height;
+      input_num_pixel_cols = msg->width;
+    }
+    for(long int v=0; v<input_num_pixel_rows; v++) { // t2b self->height 480
+      for(long int u=0; u<input_num_pixel_cols; u++ ) {  //l2r self->width 640
+        latest_gelsight_image(v, u) = ((float) decodedImage.at<uint8_t>(v, u)) / 255.0;
+      }
+    }
+   }
+
+  } else if (msg->pixelformat == bot_core::image_t::PIXEL_FORMAT_GRAY){
+    if (latest_gelsight_image.rows() != msg->height || latest_gelsight_image.cols() != msg->width){
+      latest_gelsight_image.resize(msg->height, msg->width);
+      input_num_pixel_rows = msg->height;
+      input_num_pixel_cols = msg->width;
+    }
+    for(long int v=0; v<input_num_pixel_rows; v++) { // t2b self->height 480
+      for(long int u=0; u<input_num_pixel_cols; u++ ) {  //l2r self->width 640
+        latest_gelsight_image(v, u) = ((float) msg->data[v*input_num_pixel_cols+u]) / 255.0;
+      }
+    }
   } else {
    printf("Got a Gelsight image in a format I don't understand: %d\n", msg->pixelformat);
   }
-  if (success){
-   if (latest_gelsight_image.rows() != msg->height || latest_gelsight_image.cols() != msg->width){
-     latest_gelsight_image.resize(msg->height, msg->width);
-     input_num_pixel_rows = msg->height;
-     input_num_pixel_cols = msg->width;
-   }
-   for(long int v=0; v<input_num_pixel_rows; v++) { // t2b self->height 480
-     for(long int u=0; u<input_num_pixel_cols; u++ ) {  //l2r self->width 640
-       latest_gelsight_image(v, u) = ((float) decodedImage.at<uint8_t>(v, u)) / 255.0;
-     }
-   }
-  }
+
 
   gelsight_frame_mutex.unlock();
 
