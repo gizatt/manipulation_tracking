@@ -47,6 +47,8 @@ GelsightCost::GelsightCost(std::shared_ptr<RigidBodyTree> robot_, std::shared_pt
     gelsight_depth_var = config["gelsight_depth_var"].as<double>();
   if (config["timeout_time"])
     timeout_time = config["timeout_time"].as<double>();
+  if (config["contact_threshold"])
+    contact_threshold = config["contact_threshold"].as<double>();
   if (config["max_considered_corresp_distance"])
     max_considered_corresp_distance = config["max_considered_corresp_distance"].as<double>();
   if (config["verbose"])
@@ -146,7 +148,7 @@ bool GelsightCost::constructCost(ManipulationTracker * tracker, const Eigen::Mat
                            + (sensor_plane.upper_left-sensor_plane.lower_left)*(((double)full_v) / (double)input_num_pixel_rows);
 
         double val = gelsight_image(full_v, full_u);
-        if (val >= 0.3){
+        if (val >= contact_threshold){
           contact_points.block<3,1>(0,num_contact_points) = this_point;
           num_contact_points++;
         } else {

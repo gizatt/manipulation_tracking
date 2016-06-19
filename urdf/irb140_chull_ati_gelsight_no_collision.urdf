@@ -383,21 +383,15 @@
   </joint>
 
 
+  
+
   <link name="gelsight_box">
     <visual>
       <geometry>
-        <box size="0.033 0.033 0.033"/>
+        <box size="0.033 0.033 0.031"/>
       </geometry>
-      <origin xyz="0 0 -0.0166"/>
+      <origin xyz="0 0 -0.0165"/>
     </visual>
-  <!--
-    <collision group="gelsight">
-      <geometry>
-        <box size="0.033 0.033 0.033"/>
-      </geometry>
-      <origin xyz="0 0 -0.0166"/>
-    </collision>
-  -->
     <inertial>
       <mass value="0.1"/>
       <inertia ixx="0.01" ixy="0.0" ixz="0.0" iyy="0.01" iyz="0.0" izz="0.01"/>
@@ -405,7 +399,7 @@
     </inertial>
   </link>
   <joint name="gelsight_box_joint" type="fixed">
-    <origin rpy="3.1415 -1.579 0.0" xyz="0.105 0 0"/>
+    <origin rpy="3.1415 -1.579 0.0" xyz="0.09814 0 0"/>
     <parent link="link_6"/>
     <child link="gelsight_box"/>
   </joint>

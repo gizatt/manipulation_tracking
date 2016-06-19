@@ -60,13 +60,13 @@ publish:
 
 dynamics:
   dynamics_floating_base_var: 0.00001 # m per frame
-  dynamics_other_var: 0.1 # rad per frame
+  dynamics_other_var: 0.05 # rad per frame
   verbose: False
 
 costs:
   - type: "KinectFrameCost"
     config: "/software/config/irb140/irb140.cfg"
-    icp_var: 0.05 # m
+    icp_var: 0.02 # m
     free_space_var: 0.05
     max_considered_icp_distance: 0.05
     min_considered_joint_distance: 0.03
@@ -78,16 +78,17 @@ costs:
       xMin: 0.4
       xMax: 0.9
       yMin: 0
-      yMax: 0.4
+      yMax: 0.5
       zMin: 0.7
       zMax: 1.1
 
   - type: "GelsightCost"
-    max_considered_corresp_distance: 0.1
-    gelsight_depth_var: 0.02
+    max_considered_corresp_distance: 0.02
+    gelsight_depth_var: 0.002
     gelsight_freespace_var: 0.001
     num_sample_points: 1000
     timeout_time: 0.2
+    contact_threshold: 0.5
     verbose: True
     surface:
       body: "gelsight_box"

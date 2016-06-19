@@ -42,8 +42,9 @@ private:
   SensorPlane sensor_plane;
   int sensor_body_id = -1;
   double downsample_amount = 4.0;
-  int input_num_pixel_cols = 160;
-  int input_num_pixel_rows = 120;
+  double contact_threshold = 0.6;
+  int input_num_pixel_cols = 128;
+  int input_num_pixel_rows = 96;
   int num_pixel_cols, num_pixel_rows;
 
   double gelsight_depth_var = INFINITY;
