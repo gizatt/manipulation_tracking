@@ -465,14 +465,17 @@ void ManipulationTracker::publish(){
           for (int i=0; i<robot_->bodies.size(); i++){
             if (robot_->bodies[i]->model_name() == robot_names_[roboti]){
               if (robot_->bodies[i]->getJoint().isFloating()){
-                floating_base_transform.trans[0] = x_[robot_->bodies[i]->position_num_start + 0];
-                floating_base_transform.trans[1] = x_[robot_->bodies[i]->position_num_start + 1];
-                floating_base_transform.trans[2] = x_[robot_->bodies[i]->position_num_start + 2];
-                auto quat = rpy2quat(x_.block<3, 1>(robot_->bodies[i]->position_num_start + 3, 0));
-                floating_base_transform.quat[0] = quat[0];
-                floating_base_transform.quat[1] = quat[1];
-                floating_base_transform.quat[2] = quat[2];
-                floating_base_transform.quat[3] = quat[3];
+                Vector3d xyz = post_transform*x_.block<3, 1>(robot_->bodies[i]->position_num_start + 0, 0);
+                floating_base_transform.trans[0] = xyz[0];
+                floating_base_transform.trans[1] = xyz[1];
+                floating_base_transform.trans[2] = xyz[2];
+                Quaterniond quat1(post_transform.rotation());
+                auto quat2 = rpy2quat(x_.block<3, 1>(robot_->bodies[i]->position_num_start + 3, 0));
+                quat1 *= Quaterniond(quat2[0], quat2[1], quat2[2], quat2[3]);
+                floating_base_transform.quat[0] = quat1.w();
+                floating_base_transform.quat[1] = quat1.x();
+                floating_base_transform.quat[2] = quat1.y();
+                floating_base_transform.quat[3] = quat1.z();
                 if (found_floating){
                   printf("Had more than one floating joint???\n");
                   exit(-1);

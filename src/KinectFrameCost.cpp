@@ -60,11 +60,11 @@ KinectFrameCost::KinectFrameCost(std::shared_ptr<RigidBodyTree> robot_, std::sha
     world_frame = config["world_frame"].as<bool>();
 
   if (config["kinect2world"]){
-    have_hardcoded_kinect2robot = true;
-    hardcoded_kinect2robot.setIdentity();
+    have_hardcoded_kinect2world_ = true;
+    hardcoded_kinect2world_.setIdentity();
     vector<double> hardcoded_tf = config["kinect2world"].as<vector<double>>();
-    hardcoded_kinect2robot.matrix().block<3, 1>(0,3) = Vector3d(hardcoded_tf[0], hardcoded_tf[1], hardcoded_tf[2]);
-    hardcoded_kinect2robot.matrix().block<3, 3>(0,0) = Quaterniond(hardcoded_tf[3], hardcoded_tf[4], hardcoded_tf[5], hardcoded_tf[6]).toRotationMatrix();
+    hardcoded_kinect2world_.matrix().block<3, 1>(0,3) = Vector3d(hardcoded_tf[0], hardcoded_tf[1], hardcoded_tf[2]);
+    hardcoded_kinect2world_.matrix().block<3, 3>(0,0) = Quaterniond(hardcoded_tf[3], hardcoded_tf[4], hardcoded_tf[5], hardcoded_tf[6]).toRotationMatrix();
   }
 
   if (config["bounds"]){
@@ -117,7 +117,7 @@ KinectFrameCost::KinectFrameCost(std::shared_ptr<RigidBodyTree> robot_, std::sha
   cv::namedWindow( "KinectFrameCostDebug", cv::WINDOW_AUTOSIZE );
   cv::startWindowThread();
 
-  if (!have_hardcoded_kinect2robot){
+  if (!have_hardcoded_kinect2world_){
     auto camera_offset_sub = lcm->subscribe("GT_CAMERA_OFFSET", &KinectFrameCost::handleCameraOffsetMsg, this);
     camera_offset_sub->setQueueCapacity(1);
   }
@@ -176,7 +176,7 @@ bool KinectFrameCost::constructCost(ManipulationTracker * tracker, const Eigen::
 {
   double now = getUnixTime();
 
-  if (now - lastReceivedTime > timeout_time || (!have_hardcoded_kinect2robot && (world_frame && now - last_got_kinect_frame > timeout_time))){
+  if (now - lastReceivedTime > timeout_time || (!have_hardcoded_kinect2world_ && (world_frame && now - last_got_kinect_frame > timeout_time))){
     if (verbose)
       printf("KinectFrameCost: constructed but timed out\n");
     return false;
@@ -199,15 +199,11 @@ bool KinectFrameCost::constructCost(ManipulationTracker * tracker, const Eigen::
     Eigen::Isometry3d kinect2world;
     kinect2world.setIdentity();
     if (world_frame){
-      long long utime = 0;
-      Eigen::Isometry3d robot2world;
-      this->get_trans_with_utime("robot_base", "local", utime, robot2world);
-      long long utime2 = 0;
-      if (have_hardcoded_kinect2robot){
-        kinect2world = robot2world * hardcoded_kinect2robot.inverse();
+      if (have_hardcoded_kinect2world_){
+        kinect2world = hardcoded_kinect2world_;
       } else {
         camera_offset_mutex.lock();
-        kinect2world =  robot2world * kinect2robot.inverse();
+        kinect2world = kinect2world_;
         camera_offset_mutex.unlock();
       }
     }
@@ -239,12 +235,12 @@ bool KinectFrameCost::constructCost(ManipulationTracker * tracker, const Eigen::
             points.block<3, 1>(0, i) = pt;
             i++;
 
-            if (verbose_lcmgl && (v*num_pixel_cols + u) % 5 == 0){
+            if (verbose_lcmgl && (v*num_pixel_cols + u) % 1 == 0){
               bot_lcmgl_color3f(lcmgl_lidar_, 0.5, 1.0, 0.5);
               bot_lcmgl_vertex3f(lcmgl_lidar_, pt[0], pt[1], pt[2]);
             }
           } else {
-            if (verbose_lcmgl && (v*num_pixel_cols + u) % 5 == 0){
+            if (verbose_lcmgl && (v*num_pixel_cols + u) % 50 == 0){
               bot_lcmgl_color3f(lcmgl_lidar_, 1.0, 0.5, 0.5);
               bot_lcmgl_vertex3f(lcmgl_lidar_, pt[0], pt[1], pt[2]);
             }
@@ -631,9 +627,9 @@ void KinectFrameCost::handleCameraOffsetMsg(const lcm::ReceiveBuffer* rbuf,
   camera_offset_mutex.lock();
   Vector3d trans(msg->trans[0], msg->trans[1], msg->trans[2]);
   Quaterniond rot(msg->quat[0], msg->quat[1], msg->quat[2], msg->quat[3]);
-  kinect2robot.setIdentity();
-  kinect2robot.matrix().block<3, 3>(0,0) = rot.matrix();
-  kinect2robot.matrix().block<3, 1>(0,3) = trans;
+  kinect2world_.setIdentity();
+  kinect2world_.matrix().block<3, 3>(0,0) = rot.matrix();
+  kinect2world_.matrix().block<3, 1>(0,3) = trans;
   camera_offset_mutex.unlock();
 
   last_got_kinect_frame = getUnixTime();
@@ -654,6 +650,9 @@ void KinectFrameCost::handleSavePointcloudMsg(const lcm::ReceiveBuffer* rbuf,
   latest_cloud_mutex.unlock();
 
   // transform into world frame
+  printf("WARNING: THIS IS NOT UPDATED CORRECTLY ANY MORE. FIX FRAMES BEFORE EXPECTING THIS TO WORK.\n");
+  exit(0);
+  
   Eigen::Isometry3d kinect2tag;
   long long utime = 0;
   this->get_trans_with_utime("KINECT_RGB", "KINECT_TO_APRILTAG", utime, kinect2tag);

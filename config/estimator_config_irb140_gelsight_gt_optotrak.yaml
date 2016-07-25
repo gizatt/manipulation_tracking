@@ -9,7 +9,20 @@ robots:
     q0:
       base_x: -0.17
       base_z: 0.91
+  optotrak:
+    urdf: "/software/perception/manipulation_tracking/urdf/optotrak.urdf"
+    q0:
+      base_x: 0
+      base_y: 0
+      base_z: 0
+  xtion:
+    urdf: "/software/perception/manipulation_tracking/urdf/xtion.urdf"
+    q0:
+      base_x: 1.0
+      base_y: -0.5
+      base_z: 2.0
 
+timestep: 0.01
 
 publish:
   irb140_state:
@@ -20,6 +33,19 @@ publish:
     robot_name: "optotrak_cube"
     type: "state"
     channel: "EST_MANIPULAND_STATE_optotrak_cube_GT"
+  #xtion_state:
+  #  robot_name: "xtion"
+  #  type: "state"
+  #  channel: "EST_MANIPULAND_STATE_xtion"
+  #xtion_offset:    
+  #  robot_name: "xtion"
+  #  type: "transform"
+  #  channel: "GT_CAMERA_OFFSET"
+  optotrak_state:
+    robot_name: "optotrak"
+    type: "state"
+    channel: "EST_MANIPULAND_STATE_optotrak"
+
 
 post_transform:
   source_robot: "IRB140_ATI_GELSIGHT"
@@ -31,6 +57,24 @@ dynamics:
   verbose: False
 
 costs:
+  - type: "OptotrakMarkerCost"
+    verbose: false
+    verbose_lcmgl: true
+    timeout_time: 0.2
+    localization_var: 0.01
+    transform_var: 0.1
+    world_frame: true
+    attached_manipuland: "xtion"
+    markers:
+      - ids: [32, 33, 34]
+        body: "xtion"
+        pos: [0.09, 0.0, 0.02]
+        normal: [0.0, -0.030, 1.0] # xtion camera isn't perfectly aligned with the camera housing???
+      - ids: [35, 36, 37]
+        body: "xtion"
+        pos: [-0.052, 0.0, 0.02]
+        normal: [0.0, -0.030, 1.0] #TODO(gizatt): automate the calibration of these.
+
   - type: "OptotrakMarkerCost"
     verbose: false
     verbose_lcmgl: true

@@ -54,7 +54,7 @@ public:
   void setBounds(BoundingBox bounds) { pointcloud_bounds = bounds; }
 
 private:
-  double downsample_amount = 15.0;
+  double downsample_amount = 10.0;
   int input_num_pixel_cols = 640;
   int input_num_pixel_rows = 480;
   int num_pixel_cols, num_pixel_rows;
@@ -85,9 +85,9 @@ private:
 
   std::mutex latest_cloud_mutex;
   std::mutex camera_offset_mutex;
-  Eigen::Isometry3d kinect2robot;
-  bool have_hardcoded_kinect2robot = false;
-  Eigen::Isometry3d hardcoded_kinect2robot;
+  Eigen::Isometry3d kinect2world_;
+  bool have_hardcoded_kinect2world_ = false;
+  Eigen::Isometry3d hardcoded_kinect2world_;
 
   KinectCalibration* kcal;
   Eigen::Matrix<double, 3, Eigen::Dynamic> latest_cloud;

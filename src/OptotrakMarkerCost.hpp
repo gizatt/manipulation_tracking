@@ -38,8 +38,16 @@ private:
   struct MarkerAttachment {
     int body_id;
     std::vector<int> marker_ids;
+    
+    Eigen::Vector3d normal; // if more than one marker id is supplied, a normal direction for the cluster can be supplied
+    bool have_normal;
+
     Eigen::Transform<double, 3, Eigen::Isometry> body_transform;
-    Eigen::Transform<double, 3, Eigen::Isometry> last_transform;
+    Eigen::Vector3d last_offset;
+    
+    Eigen::Vector3d last_normal;
+    bool have_last_normal;
+
     double last_received;
   };
 

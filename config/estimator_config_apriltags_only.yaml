@@ -19,12 +19,26 @@ robots:
       finger_middle_joint_1: 0.170630
       finger_middle_joint_2: 0.800355
       finger_middle_joint_3: 0.484916
+  xtion:
+    urdf: "/software/perception/manipulation_tracking/urdf/xtion.urdf"
+    q0:
+      base_x: 0.0
+      base_y: 0.0
+      base_z: 0.0
 
 publish:
-  irb140_publish:
-    robot_name: "IRB140_ATI_GELSIGHT"
+  xtion_state:
+    robot_name: "xtion"
+    type: "state"
+    channel: "EST_MANIPULAND_STATE_xtion"
+  xtion_offset:    
+    robot_name: "xtion"
     type: "transform"
     channel: "GT_CAMERA_OFFSET"
+
+post_transform:
+  source_robot: "IRB140_ATI_GELSIGHT"
+  dest_frame: "robot_base"
 
 timestep: 0.1
 

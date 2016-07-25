@@ -60,7 +60,7 @@ publish:
 
 dynamics:
   dynamics_floating_base_var: 0.00001 # m per frame
-  dynamics_other_var: 0.05 # rad per frame
+  dynamics_other_var: 0.01 # rad per frame
   verbose: False
 
 costs:

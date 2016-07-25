@@ -1,0 +1,38 @@
+<?xml version="1.0"?>
+<robot
+  name="xtion">
+  <link name="xtion">
+    <visual>
+      <geometry>
+        <box size="0.18 0.02 0.04"/>
+      </geometry>
+        <origin xyz="0.05 0 -0.02"/>
+    </visual>
+    <collision>
+      <geometry>
+        <box size="0.18 0.02 0.04"/>
+      </geometry>
+        <origin xyz="0.05 0 -0.02"/>
+    </collision>
+    <inertial>
+      <mass value="0.1"/>
+      <inertia ixx="0.01" ixy="0.0" ixz="0.0" iyy="0.01" iyz="0.0" izz="0.01"/>
+      <origin xyz="0 0 0"/>
+    </inertial>
+  </link>
+  
+  <!-- purely to indicate forward direction -->
+  <link name="lens_visual">
+    <visual>
+      <geometry>
+        <cylinder length="0.01" radius="0.01"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="xtion_to_lens" type="fixed">
+    <parent link="xtion"/>
+    <child link="lens_visual"/>
+    <origin rpy="0 0 0" xyz="0.0 0 0.0"/>
+  </joint>
+
+</robot>
