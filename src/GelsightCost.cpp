@@ -51,6 +51,8 @@ GelsightCost::GelsightCost(std::shared_ptr<RigidBodyTree> robot_, std::shared_pt
     contact_threshold = config["contact_threshold"].as<double>();
   if (config["max_considered_corresp_distance"])
     max_considered_corresp_distance = config["max_considered_corresp_distance"].as<double>();
+  if (config["min_considered_penetration_distance"])
+    min_considered_penetration_distance = config["min_considered_penetration_distance"].as<double>();
   if (config["verbose"])
     verbose = config["verbose"].as<bool>();
 
@@ -67,6 +69,10 @@ GelsightCost::GelsightCost(std::shared_ptr<RigidBodyTree> robot_, std::shared_pt
     sensor_plane.upper_right = Vector3d(config["surface"]["upper_right"][0].as<double>(), 
                                        config["surface"]["upper_right"][1].as<double>(), 
                                        config["surface"]["upper_right"][2].as<double>());
+    sensor_plane.normal = Vector3d(config["surface"]["normal"][0].as<double>(), 
+                                   config["surface"]["normal"][1].as<double>(), 
+                                   config["surface"]["normal"][2].as<double>());
+    sensor_plane.thickness = config["surface"]["thickness"].as<double>();
     sensor_body_id = robot->findLinkId(config["surface"]["body"].as<string>());
   } else {
     printf("Must define image plane to use a Gelsight cost\n");
@@ -149,10 +155,10 @@ bool GelsightCost::constructCost(ManipulationTracker * tracker, const Eigen::Mat
 
         double val = gelsight_image(full_v, full_u);
         if (val >= contact_threshold){
-          contact_points.block<3,1>(0,num_contact_points) = this_point;
+          contact_points.block<3,1>(0,num_contact_points) = this_point + (1.0-val) * sensor_plane.thickness * sensor_plane.normal;
           num_contact_points++;
         } else {
-          noncontact_points.block<3,1>(0,num_noncontact_points) = this_point;
+          noncontact_points.block<3,1>(0,num_noncontact_points) = this_point + (1.0-val) * sensor_plane.thickness * sensor_plane.normal;
           num_noncontact_points++; 
         }
       }
@@ -271,6 +277,9 @@ bool GelsightCost::constructCost(ManipulationTracker * tracker, const Eigen::Mat
     }
 
 
+    //ghost of an issue where this cost causes the object to get dragged if it gets
+    //significantly behind the gelsight surface, somehow? very weird.
+
     // and for each point for which we have no contact, repel nearby surfaces
     if (!std::isinf(gelsight_freespace_var) && noncontact_points.cols() > 0){
       double FREESPACE_WEIGHT = 1. / (2. * gelsight_freespace_var * gelsight_freespace_var);
@@ -303,7 +312,6 @@ bool GelsightCost::constructCost(ManipulationTracker * tracker, const Eigen::Mat
           Matrix3Xd z_norms(3, num_points_on_body[i]); // normals corresponding to these points
           int k = 0;
 
-          bot_lcmgl_begin(lcmgl_gelsight_, LCMGL_POINTS);
           for (int j=0; j < body_idx.size(); j++){
             assert(k < body_idx.size());
             if (body_idx[j] == i){
@@ -311,7 +319,7 @@ bool GelsightCost::constructCost(ManipulationTracker * tracker, const Eigen::Mat
               if (noncontact_points(0, j) == 0.0){
                 cout << "Zero points " << noncontact_points.block<3, 1>(0, j).transpose() << " slipping in at bdyidx " << body_idx[j] << endl;
               }
-              if (phi(j) < 0.0){
+              if (phi(j) < -min_considered_penetration_distance){
                 z.block<3, 1>(0, k) = noncontact_points.block<3, 1>(0, j);
                 z_prime.block<3, 1>(0, k) = x.block<3, 1>(0, j);
                 body_z_prime.block<3, 1>(0, k) = body_x.block<3, 1>(0, j);
@@ -321,7 +329,6 @@ bool GelsightCost::constructCost(ManipulationTracker * tracker, const Eigen::Mat
               }
             }
           }
-          bot_lcmgl_end(lcmgl_gelsight_);
 
           z.conservativeResize(3, k);
           z_prime.conservativeResize(3, k);

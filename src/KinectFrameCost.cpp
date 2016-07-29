@@ -58,6 +58,8 @@ KinectFrameCost::KinectFrameCost(std::shared_ptr<RigidBodyTree> robot_, std::sha
     verbose_lcmgl = config["verbose_lcmgl"].as<bool>();
   if (config["world_frame"])
     world_frame = config["world_frame"].as<bool>();
+  if (config["downsample_amount"])
+    downsample_amount = config["downsample_amount"].as<double>();
 
   if (config["kinect2world"]){
     have_hardcoded_kinect2world_ = true;

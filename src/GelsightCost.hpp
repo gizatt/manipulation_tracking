@@ -38,6 +38,8 @@ private:
       Eigen::Vector3d lower_right; // v=0, u=cols
       Eigen::Vector3d upper_left; // v=rows, u=0
       Eigen::Vector3d upper_right; // v=rows, u=cols
+      Eigen::Vector3d normal;
+      double thickness;
   };
   SensorPlane sensor_plane;
   int sensor_body_id = -1;
@@ -50,6 +52,9 @@ private:
   double gelsight_depth_var = INFINITY;
   double gelsight_freespace_var = INFINITY;
   double max_considered_corresp_distance = 0.05;
+  double min_considered_penetration_distance = 0.001; // TODO(gizatt): why is this necessary? Seems to prevent
+                                                      // "sticking" behavior when pulling gelsight away from an
+                                                      // object.
   double timeout_time = 0.5;
   bool verbose = false;
 

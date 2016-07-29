@@ -9,7 +9,7 @@ robots:
     urdf: "/software/perception/manipulation_tracking/urdf/optotrak_cube.urdf"
     q0:
       base_x: 0.6
-      base_y: 0.35
+      base_y: 0.20
       base_z: 0.789
       base_roll: -1.57
 
@@ -40,9 +40,9 @@ robots_less_collision:
       base_y: 0.2
       base_z: 0.71
 
-post_transform:
-  source_robot: "IRB140_ATI_GELSIGHT"
-  dest_frame: "robot_base"
+#post_transform:
+#  source_robot: "IRB140_ATI_GELSIGHT"
+#  dest_frame: "robot_base"
 
 publish:
   irb140_state:
@@ -73,7 +73,7 @@ costs:
     verbose: False
     verbose_lcmgl: True
     world_frame: True
-
+    downsample_amount: 5.0
     bounds:
       xMin: 0.4
       xMax: 0.9
@@ -84,7 +84,8 @@ costs:
 
   - type: "GelsightCost"
     max_considered_corresp_distance: 0.02
-    gelsight_depth_var: 0.002
+    min_considered_penetration_distance: 0.001
+    gelsight_depth_var: .inf #0.002
     gelsight_freespace_var: 0.001
     num_sample_points: 1000
     timeout_time: 0.2
@@ -92,10 +93,12 @@ costs:
     verbose: True
     surface:
       body: "gelsight_box"
-      lower_left:  [-0.0125, 0.0125, 0.0]
-      lower_right: [-0.0125,  -0.0125, 0.0]
-      upper_left:  [ 0.0125, 0.0125, 0.0]
-      upper_right:  [ 0.0125,  -0.0125, 0.0]
+      lower_left:  [0.0125, -0.0125, 0.0]
+      lower_right: [0.0125,  0.0125, 0.0]
+      upper_left:  [ -0.0125, -0.0125, 0.0]
+      upper_right:  [ -0.0125,  0.0125, 0.0]
+      normal: [0.0, 0.0, 1.0]
+      thickness: 0.002 # 2mm
 
 #  - type: "AttachedApriltagCost"
 #    verbose: false
