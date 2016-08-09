@@ -1,0 +1,40 @@
+urdf: "/software/perception/manipulation_tracking/urdf/optotrak_cube.urdf"
+bot_param_filename: "/software/config/irb140/irb140.cfg" 
+q0:
+  base_x: 0.0
+  base_y: 0.0
+  base_z: 0.5 # 0.06 / cos(roll) / cos(pitch)
+  base_roll: 0.78
+  base_pitch: 0.0
+
+q0_err: #offset from q0 above
+  base_x: 0.00
+  base_y: 0.00
+  base_z: 0.00
+
+gt_publish_channel: "EST_MANIPULAND_STATE_optotrak_cube_GT"
+
+publish:
+  optotrak_cube_state:
+    robot_name: "optotrak_cube"
+    type: "state"
+    channel: "EST_MANIPULAND_STATE_optotrak_cube"
+
+gelsight_cost:
+  type: "GelsightCost"
+  max_considered_corresp_distance: 0.02
+  min_considered_penetration_distance: 0.001
+  gelsight_depth_var: 0.001
+  gelsight_freespace_var: 0.01
+  num_sample_points: 1000
+  timeout_time: 0.2
+  contact_threshold: 0.1
+  verbose: True
+  surface:
+    #body: "gelsight_box"
+    lower_left:  [0.0125, -0.0125, 0.0]
+    lower_right: [0.0125,  0.0125, 0.0]
+    upper_left:  [ -0.0125, -0.0125, 0.0]
+    upper_right:  [ -0.0125,  0.0125, 0.0]
+    normal: [0.0, 0.0, 1.0]
+    thickness: 0.002 # 2mm

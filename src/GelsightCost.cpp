@@ -73,7 +73,10 @@ GelsightCost::GelsightCost(std::shared_ptr<RigidBodyTree> robot_, std::shared_pt
                                    config["surface"]["normal"][1].as<double>(), 
                                    config["surface"]["normal"][2].as<double>());
     sensor_plane.thickness = config["surface"]["thickness"].as<double>();
-    sensor_body_id = robot->findLinkId(config["surface"]["body"].as<string>());
+    if (config["surface"]["body"])
+      sensor_body_id = robot->findLinkId(config["surface"]["body"].as<string>());
+    else
+      sensor_body_id = 0; // default to world... this puts gelsight at the origin
   } else {
     printf("Must define image plane to use a Gelsight cost\n");
     exit(1);
@@ -383,6 +386,13 @@ bool GelsightCost::constructCost(ManipulationTracker * tracker, const Eigen::Mat
 
     return true;
   }
+}
+
+void GelsightCost::updateGelsightImage(const Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> new_gelsight_image){
+  gelsight_frame_mutex.lock();
+  latest_gelsight_image = new_gelsight_image;
+  gelsight_frame_mutex.unlock();
+  lastReceivedTime = getUnixTime();
 }
 
 void GelsightCost::handleGelsightFrameMsg(const lcm::ReceiveBuffer* rbuf,

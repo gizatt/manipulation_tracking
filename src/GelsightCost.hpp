@@ -26,12 +26,14 @@ public:
 
   int get_trans_with_utime(std::string from_frame, std::string to_frame,
                                long long utime, Eigen::Isometry3d & mat);
+  void updateGelsightImage(const Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> new_gelsight_image);
   void handleGelsightFrameMsg(const lcm::ReceiveBuffer* rbuf,
                            const std::string& chan,
                            const bot_core::image_t* msg);
 
+  int get_input_num_pixel_cols() const { return input_num_pixel_cols; }
+  int get_input_num_pixel_rows() const { return input_num_pixel_rows; }
 
-private:
   struct SensorPlane
   {
       Eigen::Vector3d lower_left; // v=0, u=0
@@ -41,6 +43,9 @@ private:
       Eigen::Vector3d normal;
       double thickness;
   };
+  SensorPlane get_sensor_plane() const { return sensor_plane; }
+
+private:
   SensorPlane sensor_plane;
   int sensor_body_id = -1;
   double downsample_amount = 4.0;

@@ -7,7 +7,7 @@ pods_install_executables(test_2D_sdf)
 
 add_library(ManipulationTracker SHARED ManipulationTracker.cpp)
 pods_use_pkg_config_packages(ManipulationTracker drake-convex-hull eigen3)
-target_link_libraries(ManipulationTracker drakeRBM yaml-cpp)
+target_link_libraries(ManipulationTracker drakeRBM yaml-cpp bot2-core bot2-frames bot2-param-client)
 pods_install_libraries(ManipulationTracker)
 pods_install_headers(ManipulationTracker.hpp DESTINATION perception_manipulation_tracker)
 
@@ -61,3 +61,7 @@ add_executable(runErrorCalculator runErrorCalculator.cpp)
 pods_use_pkg_config_packages(runErrorCalculator lcmtypes_drc_lcmtypes lcm bot2-core bot2-lcmgl-client bot2-frames bot2-param-client kinect-utils opencv drake-convex-hull eigen3)
 target_link_libraries(runErrorCalculator drakeRBM drakeJoints yaml-cpp)
 pods_install_executables(runErrorCalculator)
+
+add_executable(testGelsightCost testGelsightCost.cpp)
+target_link_libraries(testGelsightCost ManipulationTracker RobotStateCost GelsightCost JointStateCost KinectFrameCost AttachedApriltagCost DynamicsCost OptotrakMarkerCost yaml-cpp bot2-core bot2-frames bot2-param-client drakeRBM drakeJoints)
+pods_install_executables(testGelsightCost)

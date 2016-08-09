@@ -137,8 +137,8 @@ ManipulationTracker::ManipulationTracker(std::shared_ptr<const RigidBodyTree> ro
   }
 
   const char * filename = NULL;
-  if (config["filename"])
-    filename = config["filename"].as<string>().c_str();
+  if (config["bot_param_filename"])
+    filename = config["bot_param_filename"].as<string>().c_str();
   this->initBotConfig(filename);
 
 }
@@ -148,7 +148,8 @@ void ManipulationTracker::initBotConfig(const char* filename)
 {
   if (filename && filename[0])
     {
-      botparam_ = bot_param_new_from_file(filename);
+      string filename_full = string(std::getenv("DRC_BASE")) + string(filename);
+      botparam_ = bot_param_new_from_file(filename_full.c_str());
     }
   else
     {
