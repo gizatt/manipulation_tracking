@@ -130,12 +130,12 @@ int main(int argc, char** argv) {
   
   robot_1 = new RigidBodyTree(drc_path + config["robot_1"]["urdf"].as<string>(), DrakeJoint::QUATERNION);
   string link_1_name = config["robot_1"]["link"].as<string>();
-  int link_ind_1 = robot_1->findLinkId(link_1_name);
+  int link_ind_1 = robot_1->FindBodyIndex(link_1_name);
 
 
   robot_2 = new RigidBodyTree(drc_path + config["robot_2"]["urdf"].as<string>(), DrakeJoint::QUATERNION);
   string link_2_name = config["robot_2"]["link"].as<string>();
-  int link_ind_2 = robot_2->findLinkId(link_2_name);
+  int link_ind_2 = robot_2->FindBodyIndex(link_2_name);
 
   Handler handlerRobot1_tracking(lcm, config["robot_1"]["channel"].as<string>());
   Handler handlerRobot1_gt(lcm, config["robot_1"]["gt_channel"].as<string>());

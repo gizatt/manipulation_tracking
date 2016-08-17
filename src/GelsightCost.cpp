@@ -74,7 +74,7 @@ GelsightCost::GelsightCost(std::shared_ptr<RigidBodyTree> robot_, std::shared_pt
                                    config["surface"]["normal"][2].as<double>());
     sensor_plane.thickness = config["surface"]["thickness"].as<double>();
     if (config["surface"]["body"])
-      sensor_body_id = robot->findLinkId(config["surface"]["body"].as<string>());
+      sensor_body_id = robot->FindBodyIndex(config["surface"]["body"].as<string>());
     else
       sensor_body_id = 0; // default to world... this puts gelsight at the origin
   } else {

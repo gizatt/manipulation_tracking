@@ -3,12 +3,14 @@
 #include <fstream>
 #include "OptotrakMarkerCost.hpp"
 #include "drake/util/convexHull.h"
+#include "drake/util/drakeGeometryUtil.h"
 #include "zlib.h"
 #include <cmath>
 #include "common.hpp"
 
 using namespace std;
 using namespace Eigen;
+using namespace drake::math;
 
 Matrix3d calcS(double x, double y, double z){
   Matrix3d S;
@@ -57,12 +59,12 @@ OptotrakMarkerCost::OptotrakMarkerCost(std::shared_ptr<const RigidBodyTree> robo
 
       // first try to find the robot name
       string linkname = (*iter)["body"].as<string>();
-      auto search = robot->findLink(linkname, robot_name);
+      auto search = robot->FindBody(linkname, robot_name);
       if (search == nullptr){
         printf("Couldn't find link name %s on robot %s", linkname.c_str(), robot_name.c_str());
         exit(1);
       }
-      attachment.body_id = search->body_index;
+      attachment.body_id = search->get_body_index();
       attachment.marker_ids = (*iter)["ids"].as<vector<int>>();
 
       // shift from 1-index to 0-index

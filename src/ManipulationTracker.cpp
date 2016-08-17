@@ -10,13 +10,17 @@
 #include <opencv2/imgproc/imgproc.hpp>
 #include <cmath>
 #include <cfloat>
+#include "drake/util/drakeGeometryUtil.h"
 #include "drake/systems/plants/joints/RevoluteJoint.h"
+#include <drake/systems/plants/parser_urdf.h>
+
 #include "lcmtypes/bot_core/robot_state_t.hpp"
 #include "lcmtypes/vicon/body_t.hpp"
 #include "common.hpp"
 
 using namespace std;
 using namespace Eigen;
+using namespace drake::math;
 
 std::shared_ptr<RigidBodyTree> setupRobotFromConfig(YAML::Node config, Eigen::VectorXd& x0_robot, std::string base_path, bool verbose, bool less_collision){
   // generate robot from yaml file by adding each robot in sequence
@@ -45,7 +49,7 @@ std::shared_ptr<RigidBodyTree> setupRobotFromConfig(YAML::Node config, Eigen::Ve
   manip++;
   // each new robot can be added via addRobotFromURDF
   while (manip != config[robots_string].end()){
-    robot->addRobotFromURDF(base_path + manip->second["urdf"].as<string>(), DrakeJoint::ROLLPITCHYAW);
+    drake::parsers::urdf::AddModelInstanceFromURDF(base_path + manip->second["urdf"].as<string>(), DrakeJoint::ROLLPITCHYAW, robot.get());
     x0_robot.conservativeResize(robot->number_of_positions());
     if (manip->second["q0"] && manip->second["q0"].Type() == YAML::NodeType::Map){
       for (int i=old_num_positions; i < robot->number_of_positions(); i++){
@@ -100,9 +104,9 @@ ManipulationTracker::ManipulationTracker(std::shared_ptr<const RigidBodyTree> ro
 
   // generate robot names
   for (auto it=robot->bodies.begin(); it!=robot->bodies.end(); it++){
-    auto findit = find(robot_names_.begin(), robot_names_.end(), (*it)->model_name());
+    auto findit = find(robot_names_.begin(), robot_names_.end(), (*it)->get_model_name());
     if (findit == robot_names_.end())
-      robot_names_.push_back((*it)->model_name());
+      robot_names_.push_back((*it)->get_model_name());
   }
 
   // get dynamics configuration from yaml
@@ -382,7 +386,7 @@ void ManipulationTracker::publish(){
     // find the floating base of the desired robot
     int floating_base_body = -1;
     for (int i=0; i<robot_->bodies.size(); i++){
-      if (robot_->bodies[i]->model_name() == post_transform_robot_ && robot_->bodies[i]->getJoint().isFloating()){
+      if (robot_->bodies[i]->get_model_name() == post_transform_robot_ && robot_->bodies[i]->getJoint().isFloating()){
         floating_base_body = i;
         break;
       }
@@ -392,9 +396,9 @@ void ManipulationTracker::publish(){
       exit(1);
     }
 
-    auto quat = rpy2quat(x_.block<3, 1>(robot_->bodies[floating_base_body]->position_num_start + 3, 0));
+    auto quat = rpy2quat(x_.block<3, 1>(robot_->bodies[floating_base_body]->get_position_start_index() + 3, 0));
     post_transform.matrix().block<3, 3>(0,0) = Quaterniond(quat[0], quat[1], quat[2], quat[3]).matrix();
-    post_transform.matrix().block<3, 1>(0,3) = x_.block(robot_->bodies[floating_base_body]->position_num_start, 0, 3, 1);
+    post_transform.matrix().block<3, 1>(0,3) = x_.block(robot_->bodies[floating_base_body]->get_position_start_index(), 0, 3, 1);
 
     // find error between that and the designated frame
     long long utime = 0;
@@ -423,14 +427,14 @@ void ManipulationTracker::publish(){
           manipulation_state.num_joints = 0;
           bool found_floating = false;
           for (int i=0; i<robot_->bodies.size(); i++){
-            if (robot_->bodies[i]->model_name() == robot_name){
+            if (robot_->bodies[i]->get_model_name() == robot_name){
               if (robot_->bodies[i]->getJoint().isFloating()){
-                Vector3d xyz = post_transform*x_.block<3, 1>(robot_->bodies[i]->position_num_start + 0, 0);
+                Vector3d xyz = post_transform*x_.block<3, 1>(robot_->bodies[i]->get_position_start_index() + 0, 0);
                 manipulation_state.pose.translation.x = xyz[0];
                 manipulation_state.pose.translation.y = xyz[1];
                 manipulation_state.pose.translation.z = xyz[2];
                 Quaterniond quat1(post_transform.rotation());
-                auto quat2 = rpy2quat(x_.block<3, 1>(robot_->bodies[i]->position_num_start + 3, 0));
+                auto quat2 = rpy2quat(x_.block<3, 1>(robot_->bodies[i]->get_position_start_index() + 3, 0));
                 quat1 *= Quaterniond(quat2[0], quat2[1], quat2[2], quat2[3]);
                 manipulation_state.pose.rotation.w = quat1.w();
                 manipulation_state.pose.rotation.x = quat1.x();
@@ -446,8 +450,8 @@ void ManipulationTracker::publish(){
                 manipulation_state.num_joints += robot_->bodies[i]->getJoint().getNumPositions();
                 for (int j=0; j < robot_->bodies[i]->getJoint().getNumPositions(); j++){
                   manipulation_state.joint_name.push_back(robot_->bodies[i]->getJoint().getPositionName(j));
-                  manipulation_state.joint_position.push_back(x_[robot_->bodies[i]->position_num_start + j]);
-                  manipulation_state.joint_velocity.push_back(x_[robot_->bodies[i]->position_num_start + j + robot_->number_of_positions()]);
+                  manipulation_state.joint_position.push_back(x_[robot_->bodies[i]->get_position_start_index() + j]);
+                  manipulation_state.joint_velocity.push_back(x_[robot_->bodies[i]->get_position_start_index() + j + robot_->number_of_positions()]);
                 }
               }
             }
@@ -464,14 +468,14 @@ void ManipulationTracker::publish(){
 
           bool found_floating = false;
           for (int i=0; i<robot_->bodies.size(); i++){
-            if (robot_->bodies[i]->model_name() == robot_names_[roboti]){
+            if (robot_->bodies[i]->get_model_name() == robot_names_[roboti]){
               if (robot_->bodies[i]->getJoint().isFloating()){
-                Vector3d xyz = post_transform*x_.block<3, 1>(robot_->bodies[i]->position_num_start + 0, 0);
+                Vector3d xyz = post_transform*x_.block<3, 1>(robot_->bodies[i]->get_position_start_index() + 0, 0);
                 floating_base_transform.trans[0] = xyz[0];
                 floating_base_transform.trans[1] = xyz[1];
                 floating_base_transform.trans[2] = xyz[2];
                 Quaterniond quat1(post_transform.rotation());
-                auto quat2 = rpy2quat(x_.block<3, 1>(robot_->bodies[i]->position_num_start + 3, 0));
+                auto quat2 = rpy2quat(x_.block<3, 1>(robot_->bodies[i]->get_position_start_index() + 3, 0));
                 quat1 *= Quaterniond(quat2[0], quat2[1], quat2[2], quat2[3]);
                 floating_base_transform.quat[0] = quat1.w();
                 floating_base_transform.quat[1] = quat1.x();

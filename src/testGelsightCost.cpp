@@ -21,6 +21,7 @@
 
 using namespace std;
 using namespace Eigen;
+using namespace drake::math;
 
 Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> generateNewGelsightImage(
             std::shared_ptr<GelsightCost> gelsight_cost, 
@@ -50,7 +51,8 @@ Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> generateNewGelsightImage(
     }
   }
 
-  auto cache = robot->doKinematics(x_robot.head(robot->number_of_positions()));
+  VectorXd q = x_robot.head(robot->number_of_positions());
+  auto cache = robot->doKinematics(q);
   robot->collisionRaycast(cache, origins, ray_endpoints, distances, normals, false);
 
   for (int i=0; i < new_gelsight_image.rows(); i++){
@@ -187,11 +189,11 @@ int main(int argc, char** argv) {
     bool found_floating = false;
     for (int i=1; i<robot->bodies.size(); i++){
       if (robot->bodies[i]->getJoint().isFloating()){
-        Vector3d xyz = x_robot.block<3, 1>(robot->bodies[i]->position_num_start + 0, 0);
+        Vector3d xyz = x_robot.block<3, 1>(robot->bodies[i]->get_position_start_index() + 0, 0);
         gt_state.pose.translation.x = xyz[0];
         gt_state.pose.translation.y = xyz[1];
         gt_state.pose.translation.z = xyz[2];
-        auto quat = rpy2quat(x_robot.block<3, 1>(robot->bodies[i]->position_num_start + 3, 0));
+        auto quat = rpy2quat(x_robot.block<3, 1>(robot->bodies[i]->get_position_start_index() + 3, 0));
         gt_state.pose.rotation.w = quat.x(); // these two somehow disagree with each other... whyyy
         gt_state.pose.rotation.x = quat.y();
         gt_state.pose.rotation.y = quat.z();
@@ -206,8 +208,8 @@ int main(int argc, char** argv) {
         gt_state.num_joints += robot->bodies[i]->getJoint().getNumPositions();
         for (int j=0; j < robot->bodies[i]->getJoint().getNumPositions(); j++){
           gt_state.joint_name.push_back(robot->bodies[i]->getJoint().getPositionName(j));
-          gt_state.joint_position.push_back(x_robot[robot->bodies[i]->position_num_start + j]);
-          gt_state.joint_velocity.push_back(x_robot[robot->bodies[i]->position_num_start + j + robot->number_of_positions()]);
+          gt_state.joint_position.push_back(x_robot[robot->bodies[i]->get_position_start_index() + j]);
+          gt_state.joint_velocity.push_back(x_robot[robot->bodies[i]->get_position_start_index() + j + robot->number_of_positions()]);
         }
       }
     }

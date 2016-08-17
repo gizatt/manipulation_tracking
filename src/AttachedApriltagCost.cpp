@@ -3,12 +3,14 @@
 #include <fstream>
 #include "AttachedApriltagCost.hpp"
 #include "drake/util/convexHull.h"
+#include "drake/util/drakeGeometryUtil.h"
 #include "zlib.h"
 #include <cmath>
 #include "common.hpp"
 
 using namespace std;
 using namespace Eigen;
+using namespace drake::math;
 
 AttachedApriltagCost::AttachedApriltagCost(std::shared_ptr<const RigidBodyTree> robot_, std::shared_ptr<lcm::LCM> lcm_, YAML::Node config) :
     robot(robot_),
@@ -53,12 +55,12 @@ AttachedApriltagCost::AttachedApriltagCost(std::shared_ptr<const RigidBodyTree> 
 
       // first try to find the robot name
       std:string linkname = (*iter)["body"].as<string>();
-      auto search = robot->findLink(linkname, robot_name);
+      auto search = robot->FindBody(linkname, robot_name);
       if (search == nullptr){
         printf("Couldn't find link name %s on robot %s", linkname.c_str(), robot_name.c_str());
         exit(1);
       }
-      attachment.body_id = search->body_index;
+      attachment.body_id = search->get_body_index();
       
       // and parse transformation
       
