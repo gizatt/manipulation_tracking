@@ -1,0 +1,52 @@
+robots:
+  desk:
+    urdf: "/software/perception/manipulation_tracking/urdf/desk.urdf"
+    q0:
+      base_x: 0.68
+      base_y: 0.05
+      base_z: 0.65
+  bolt:
+    urdf: "/software/perception/manipulation_tracking/urdf/tiny_bolt.urdf"
+    q0:
+      base_x: 0.65
+      base_y: 0.12
+      base_z: 0.70
+      base_roll: 1.57
+
+#post_transform:
+#  source_robot: "IRB140_ATI_GELSIGHT"
+#  dest_frame: "robot_base"
+
+publish:
+  tiny_bolt_state:
+    robot_name: "bolt"
+    type: "state"
+    channel: "EST_MANIPULAND_STATE_bolt"
+  desk_state:
+    robot_name: "desk"
+    type: "state"
+    channel: "EST_MANIPULAND_STATE_desk"
+
+dynamics:
+  dynamics_floating_base_var: 0.01 # m per frame
+  dynamics_other_var: 0.01 # rad per frame
+  verbose: False
+
+costs:
+  - type: "KinectFrameCost"
+    config: "/software/config/irb140/irb140.cfg"
+    icp_var: 0.02 # m
+    free_space_var: 0.05
+    max_considered_icp_distance: 0.05
+    min_considered_joint_distance: 0.03
+    verbose: False
+    verbose_lcmgl: True
+    world_frame: True
+    downsample_amount: 5.0
+    bounds:
+      xMin: 0.4
+      xMax: 0.9
+      yMin: 0
+      yMax: 0.5
+      zMin: 0.7
+      zMax: 1.1

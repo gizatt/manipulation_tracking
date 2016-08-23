@@ -1,0 +1,50 @@
+<?xml version="1.0"?>
+<robot
+  name="bolt">
+  <link name="head">
+    <visual>
+      <geometry>
+        <cylinder length="0.005" radius="0.005" />
+      </geometry>
+      <origin xyz="0 0 0"/>
+    </visual>
+    <collision>
+      <geometry>
+        <cylinder length="0.005" radius="0.005" />
+      </geometry>
+      <origin xyz="0 0 0"/>
+    </collision>
+    <inertial>
+      <mass value="0.1"/>
+      <inertia ixx="0.01" ixy="0.0" ixz="0.0" iyy="0.01" iyz="0.0" izz="0.01"/>
+      <origin xyz="0 0 -0.166"/>
+    </inertial>
+  </link>
+  <link name="body">
+    <visual>
+      <geometry>
+        <cylinder length=".04" radius="0.0035" />
+      </geometry>
+      <origin xyz="0 0 0"/>
+    </visual>
+    <collision>
+      <geometry>
+        <cylinder length="0.04" radius="0.0035" />
+      </geometry>
+      <origin xyz="0 0 0"/>
+    </collision>
+    <inertial>
+      <mass value="0.1"/>
+      <inertia ixx="0.01" ixy="0.0" ixz="0.0" iyy="0.01" iyz="0.0" izz="0.01"/>
+      <origin xyz="0 0 -0.166"/>
+    </inertial>
+  </link>
+
+  <joint name="head_to_body" type="fixed">
+    <parent link="head"/>
+    <child link="body"/>
+    <origin rpy="0 0 0" xyz="0 0 0.02"/>
+  </joint>
+
+
+</robot>
