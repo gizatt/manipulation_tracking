@@ -1,10 +1,11 @@
-urdf: "/software/perception/manipulation_tracking/urdf/optotrak_cube.urdf"
+urdf: "/software/perception/manipulation_tracking/urdf/screwdriver_torx/screwdriver_torx.urdf"
+obj: "/home/gizatt/drc/software/perception/manipulation_tracking/urdf/screwdriver_torx/625330_TX10_Garant.obj"
 bot_param_filename: "/software/config/irb140/irb140.cfg" 
 q0:
-  base_x: 0.0
+  base_x: -0.1
   base_y: 0.0
-  base_z: 0.3 # 0.06 / cos(roll) / cos(pitch)
-  base_roll: 0.78
+  base_z: 0.15 # 0.06 / cos(roll) / cos(pitch)
+  base_roll: 0.0
   base_pitch: 0.0
 
 q0_err: #offset from q0 above
@@ -12,13 +13,13 @@ q0_err: #offset from q0 above
   base_y: 0.00
   base_z: 0.00
 
-gt_publish_channel: "EST_MANIPULAND_STATE_optotrak_cube_GT"
+gt_publish_channel: "EST_MANIPULAND_STATE_screwdriver_GT"
 
 publish:
-  optotrak_cube_state:
-    robot_name: "optotrak_cube"
+  screwdriver_state:
+    robot_name: "screwdriver_torx"
     type: "state"
-    channel: "EST_MANIPULAND_STATE_optotrak_cube"
+    channel: "EST_MANIPULAND_STATE_screwdriver"
 
 gelsight_cost:
   type: "GelsightCost"

@@ -62,6 +62,17 @@ pods_use_pkg_config_packages(runErrorCalculator lcmtypes_drc_lcmtypes lcm bot2-c
 target_link_libraries(runErrorCalculator drakeRBM drakeJoints drakeUtil drakeXMLUtil drakeCommon yaml-cpp)
 pods_install_executables(runErrorCalculator)
 
+add_library(GelsightOpenGLSim SHARED GelsightOpenGLSim.cpp)
+target_link_libraries(GelsightOpenGLSim ManipulationTracker stdc++ pthread GL GLU glut GLEW)
+pods_use_pkg_config_packages(GelsightOpenGLSim drake-shapes eigen3)
+pods_install_libraries(GelsightOpenGLSim)
+pods_install_headers(GelsightOpenGLSim.hpp DESTINATION perception_manipulation_tracker)
+
 add_executable(testGelsightCost testGelsightCost.cpp)
-target_link_libraries(testGelsightCost ManipulationTracker RobotStateCost GelsightCost JointStateCost KinectFrameCost AttachedApriltagCost DynamicsCost OptotrakMarkerCost yaml-cpp bot2-core bot2-frames bot2-param-client drakeRBM drakeJoints drakeCollision drakeUtil drakeXMLUtil drakeCommon)
+target_link_libraries(testGelsightCost stdc++ pthread GL GLU glut GLEW ManipulationTracker RobotStateCost GelsightCost JointStateCost KinectFrameCost AttachedApriltagCost DynamicsCost OptotrakMarkerCost GelsightOpenGLSim yaml-cpp bot2-core bot2-frames bot2-param-client drakeRBM drakeJoints drakeCollision drakeUtil drakeXMLUtil drakeCommon)
 pods_install_executables(testGelsightCost)
+
+add_executable(testGelsightSim gelsight_sim.cpp)
+target_link_libraries(testGelsightSim stdc++ pthread GL GLU glut GLEW)
+pods_use_pkg_config_packages(testGelsightSim drake-shapes)
+pods_install_executables(testGelsightSim)

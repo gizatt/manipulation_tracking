@@ -94,9 +94,6 @@ GelsightCost::GelsightCost(std::shared_ptr<RigidBodyTree> robot_, std::shared_pt
   robot->compile();
   */
 
-  num_pixel_cols = (int) floor( ((double)input_num_pixel_cols) / downsample_amount);
-  num_pixel_rows = (int) floor( ((double)input_num_pixel_rows) / downsample_amount);
-
   lcmgl_gelsight_ = bot_lcmgl_init(lcm->getUnderlyingLCM(), "gelsight");
   lcmgl_corresp_ = bot_lcmgl_init(lcm->getUnderlyingLCM(), "gelsight_corrs");
 
@@ -165,7 +162,7 @@ bool GelsightCost::constructCost(ManipulationTracker * tracker, const Eigen::Mat
           num_noncontact_points++; 
         }
       }
-    } 
+    }
 
     contact_points.conservativeResize(3, num_contact_points);
     noncontact_points.conservativeResize(3, num_noncontact_points);
@@ -391,6 +388,12 @@ bool GelsightCost::constructCost(ManipulationTracker * tracker, const Eigen::Mat
 void GelsightCost::updateGelsightImage(const Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> new_gelsight_image){
   gelsight_frame_mutex.lock();
   latest_gelsight_image = new_gelsight_image;
+  input_num_pixel_cols = latest_gelsight_image.cols();
+  input_num_pixel_rows = latest_gelsight_image.rows();
+
+  num_pixel_cols = (int) floor( ((double)input_num_pixel_cols) / downsample_amount);
+  num_pixel_rows = (int) floor( ((double)input_num_pixel_rows) / downsample_amount);
+
   gelsight_frame_mutex.unlock();
   lastReceivedTime = getUnixTime();
 }
@@ -402,6 +405,7 @@ void GelsightCost::handleGelsightFrameMsg(const lcm::ReceiveBuffer* rbuf,
 
   gelsight_frame_mutex.lock();
  
+
   // gelsight frame comes in as an image
   bool success = false;
   cv::Mat decodedImage;
@@ -437,6 +441,9 @@ void GelsightCost::handleGelsightFrameMsg(const lcm::ReceiveBuffer* rbuf,
    printf("Got a Gelsight image in a format I don't understand: %d\n", msg->pixelformat);
   }
 
+  num_pixel_cols = (int) floor( ((double)input_num_pixel_cols) / downsample_amount);
+  num_pixel_rows = (int) floor( ((double)input_num_pixel_rows) / downsample_amount);
+  
 
   gelsight_frame_mutex.unlock();
 

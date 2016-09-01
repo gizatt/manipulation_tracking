@@ -380,6 +380,8 @@ void ManipulationTracker::update(){
 } 
 
 void ManipulationTracker::publish(){
+  cout << "State: " << x_.transpose() << endl;
+  
   Isometry3d post_transform;
   post_transform.setIdentity();
   if (do_post_transform_){
