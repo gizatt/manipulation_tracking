@@ -1,6 +1,6 @@
 robots:
   irb140:
-    urdf: "/software/perception/manipulation_tracking/urdf/irb140_chull_ati_gelsight.urdf"
+    urdf: "/software/models/IRB140/irb_140_ati_schunk_gelsight.urdf"
     q0:
       base_x: -0.17
       base_z: 0.91
@@ -92,12 +92,12 @@ costs:
     contact_threshold: 0.5
     verbose: True
     surface:
-      body: "gelsight_box"
-      lower_left:  [0.0125, -0.0125, 0.0]
-      lower_right: [0.0125,  0.0125, 0.0]
-      upper_left:  [ -0.0125, -0.0125, 0.0]
-      upper_right:  [ -0.0125,  0.0125, 0.0]
-      normal: [0.0, 0.0, 1.0]
+      body: "wsg_50_finger_right_link"
+      lower_left:  [0.0189, 0.0862, -0.0057]
+      lower_right: [0.0078, 0.0862, -0.0057]
+      upper_left:  [0.0189, 0.1129, -0.0057]
+      upper_right: [0.0078, 0.1129, -0.0057]
+      normal: [0.0, 0.0, -1.0]
       thickness: 0.002 # 2mm
 
 #  - type: "AttachedApriltagCost"
