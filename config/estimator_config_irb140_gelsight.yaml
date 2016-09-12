@@ -1,17 +1,17 @@
 robots:
   irb140:
-    urdf: "/software/models/IRB140/irb_140_ati_schunk_gelsight.urdf"
+    urdf: "/software/models/IRB140/urdf/irb_140_ati_schunk_gelsight.urdf"
     q0:
       base_x: -0.17
       base_z: 0.91
 
-  optotrak_cube:
-    urdf: "/software/perception/manipulation_tracking/urdf/optotrak_cube.urdf"
+  bolt:
+    urdf: "/software/perception/manipulation_tracking/urdf/tiny_bolt.urdf"
     q0:
-      base_x: 0.6
-      base_y: 0.20
-      base_z: 0.789
-      base_roll: -1.57
+      base_x: 0.65
+      base_y: 0.10
+      base_z: 0.70
+      base_roll: 0.0
 
   desk:
     urdf: "/software/perception/manipulation_tracking/urdf/desk.urdf"
@@ -22,17 +22,18 @@ robots:
 
 robots_less_collision:
   irb140:
-    urdf: "/software/perception/manipulation_tracking/urdf/irb140_chull_ati_gelsight_no_collision.urdf"
+    urdf: "/software/models/IRB140/urdf/irb_140_ati_schunk_gelsight_less_collision.urdf"
     q0:
       base_x: -0.17
       base_z: 0.91
-  optotrak_cube:
-    urdf: "/software/perception/manipulation_tracking/urdf/optotrak_cube.urdf"
+
+  bolt:
+    urdf: "/software/perception/manipulation_tracking/urdf/tiny_bolt.urdf"
     q0:
-      base_x: 0.6
-      base_y: 0.23
-      base_z: 0.789
-      base_roll: -1.57
+      base_x: 0.65
+      base_y: 0.10
+      base_z: 0.70
+      base_roll: 0.0
   desk:
     urdf: "/software/perception/manipulation_tracking/urdf/desk.urdf"
     q0:
@@ -46,20 +47,20 @@ robots_less_collision:
 
 publish:
   irb140_state:
-    robot_name: "IRB140_ATI_GELSIGHT"
+    robot_name: "IRB140"
     type: "state"
     channel: "EST_MANIPULAND_STATE_IRB140_ATI_GELSIGHT"
-  optotrak_cube_state:
-    robot_name: "optotrak_cube"
+  tiny_bolt_state:
+    robot_name: "bolt"
     type: "state"
-    channel: "EST_MANIPULAND_STATE_optotrak_cube"
+    channel: "EST_MANIPULAND_STATE_bolt"
   desk_state:
     robot_name: "desk"
     type: "state"
     channel: "EST_MANIPULAND_STATE_desk"
 
 dynamics:
-  dynamics_floating_base_var: 0.00001 # m per frame
+  dynamics_floating_base_var: 0 # m per frame
   dynamics_other_var: 0.01 # rad per frame
   verbose: False
 
@@ -83,22 +84,22 @@ costs:
       zMax: 1.1
 
   - type: "GelsightCost"
-    max_considered_corresp_distance: 0.02
+    max_considered_corresp_distance: 0.03
     min_considered_penetration_distance: 0.001
-    gelsight_depth_var: .inf #0.002
+    gelsight_depth_var: 0.002
     gelsight_freespace_var: 0.001
-    num_sample_points: 1000
     timeout_time: 0.2
-    contact_threshold: 0.5
+    contact_threshold: 0.1
     verbose: True
     surface:
+
       body: "wsg_50_finger_right_link"
-      lower_left:  [0.0189, 0.0862, -0.0057]
-      lower_right: [0.0078, 0.0862, -0.0057]
-      upper_left:  [0.0189, 0.1129, -0.0057]
-      upper_right: [0.0078, 0.1129, -0.0057]
+      lower_left:  [-0.0189,0.0862, -0.0061]
+      lower_right: [-0.0189,0.1129, -0.0061]
+      upper_left:  [0.0078, 0.0862, -0.0061]
+      upper_right: [0.0078, 0.1129, -0.0061]
       normal: [0.0, 0.0, -1.0]
-      thickness: 0.002 # 2mm
+      thickness: 0.002 # 5mm
 
 #  - type: "AttachedApriltagCost"
 #    verbose: false
@@ -141,7 +142,7 @@ costs:
 #        channel: APRIL_TAG_0051_TO_CAMERA_LEFT
 
   - type: "RobotStateCost"
-    joint_known_fb_var: 0.0001 # m
+    joint_known_fb_var: 0.01 # m
     joint_known_encoder_var: 0.001 # radian
     transcribe_floating_base_vars: False
     verbose: False

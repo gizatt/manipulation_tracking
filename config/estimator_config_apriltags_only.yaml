@@ -6,19 +6,10 @@ robots:
       base_z: 0.0
 
   irb140:
-    urdf: "/software/perception/manipulation_tracking/urdf/irb140_chull_ati_gelsight.urdf"
+    urdf: "/software/models/IRB140/urdf/irb_140_ati_schunk_gelsight.urdf"
     q0:
       base_x: -0.17
       base_z: 0.91
-      finger_1_joint_1: 0.339477
-      finger_1_joint_2: 0.778470
-      finger_1_joint_3: 0.383365
-      finger_2_joint_1: 0.400276
-      finger_2_joint_2: 0.623641
-      finger_2_joint_3: 0.371457
-      finger_middle_joint_1: 0.170630
-      finger_middle_joint_2: 0.800355
-      finger_middle_joint_3: 0.484916
   xtion:
     urdf: "/software/perception/manipulation_tracking/urdf/xtion.urdf"
     q0:
@@ -37,7 +28,7 @@ publish:
     channel: "GT_CAMERA_OFFSET"
 
 post_transform:
-  source_robot: "IRB140_ATI_GELSIGHT"
+  source_robot: "IRB140"
   dest_frame: "robot_base"
 
 timestep: 0.1
@@ -90,7 +81,7 @@ costs:
     localization_var: 0.01
     transform_var: .inf
     world_frame: false
-    attached_manipuland: "IRB140_ATI_GELSIGHT"
+    attached_manipuland: "IRB140"
     apriltags:
       #- id: 100
       #  body: "base_link"
