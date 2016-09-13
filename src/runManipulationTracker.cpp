@@ -7,6 +7,7 @@
 #include "GelsightCost.hpp"
 #include "AttachedApriltagCost.hpp"
 #include "OptotrakMarkerCost.hpp"
+#include "NonpenetratingObjectCost.hpp"
 #include "yaml-cpp/yaml.h"
 #include "common.hpp"
 
@@ -66,13 +67,26 @@ int main(int argc, char** argv) {
       } else if (cost_type == "OptotrakMarkerCost") { 
         std::shared_ptr<OptotrakMarkerCost> cost(new OptotrakMarkerCost(robot, lcm, *iter));
         estimator.addCost(dynamic_pointer_cast<ManipulationTrackerCost, OptotrakMarkerCost>(cost));
-      }else {
+      } else if (cost_type == "NonpenetratingObjectCost") {
+        // demands a modifiable copy of the robot to do collision calls
+        // also requires a list of all other robots in the scene, minus those excluded in "penetrable"
+        
+        ////std::string obj_name = (*iter)["nonpenetrating_robot"].as<string>();
+        ////std::vector<std::string> penetrable_names = (*iter)["penetrable_robot"].as<vector<string>>();
+        ////for (int i=0; i<robot)
+        
+        std::shared_ptr<NonpenetratingObjectCost> cost(new NonpenetratingObjectCost(setupRobotFromConfigSubset(config, x0_robot, string(drc_path), true, true, std::vector<std::string>()), lcm, *iter));
+        estimator.addCost(dynamic_pointer_cast<ManipulationTrackerCost, NonpenetratingObjectCost>(cost));
+      } else {
         cout << "Got cost type " << cost_type << " but I don't know what to do with it!" << endl;
       }
     }
   }
 
   std::cout << "Manipulation Tracker Listening" << std::endl;
+
+  // DEBUG
+  return 1;
 
   double last_update_time = getUnixTime();
   double timestep = 0.01;

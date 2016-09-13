@@ -35,6 +35,12 @@ target_link_libraries(KinectFrameCost ManipulationTracker yaml-cpp)
 pods_install_libraries(KinectFrameCost)
 pods_install_headers(KinectFrameCost.hpp DESTINATION perception_manipulation_tracker)
 
+add_library(NonpenetratingObjectCost SHARED NonpenetratingObjectCost.cpp)
+pods_use_pkg_config_packages(NonpenetratingObjectCost lcmtypes_drc_lcmtypes lcm bot2-core bot2-lcmgl-client bot2-frames bot2-param-client kinect-utils opencv)
+target_link_libraries(NonpenetratingObjectCost ManipulationTracker yaml-cpp)
+pods_install_libraries(NonpenetratingObjectCost)
+pods_install_headers(NonpenetratingObjectCost.hpp DESTINATION perception_manipulation_tracker)
+
 add_library(GelsightCost SHARED GelsightCost.cpp)
 pods_use_pkg_config_packages(GelsightCost lcmtypes_drc_lcmtypes lcm bot2-core bot2-lcmgl-client bot2-frames bot2-param-client kinect-utils opencv)
 target_link_libraries(GelsightCost ManipulationTracker yaml-cpp)
@@ -54,7 +60,7 @@ pods_install_libraries(OptotrakMarkerCost)
 pods_install_headers(OptotrakMarkerCost.hpp DESTINATION perception_manipulation_tracker)
 
 add_executable(runManipulationTracker runManipulationTracker.cpp)
-target_link_libraries(runManipulationTracker ManipulationTracker RobotStateCost GelsightCost JointStateCost KinectFrameCost AttachedApriltagCost DynamicsCost OptotrakMarkerCost yaml-cpp)
+target_link_libraries(runManipulationTracker ManipulationTracker RobotStateCost GelsightCost JointStateCost KinectFrameCost AttachedApriltagCost DynamicsCost OptotrakMarkerCost NonpenetratingObjectCost yaml-cpp)
 pods_install_executables(runManipulationTracker)
 
 add_executable(runErrorCalculator runErrorCalculator.cpp)
@@ -69,7 +75,7 @@ pods_install_libraries(GelsightOpenGLSim)
 pods_install_headers(GelsightOpenGLSim.hpp DESTINATION perception_manipulation_tracker)
 
 add_executable(testGelsightCost testGelsightCost.cpp)
-target_link_libraries(testGelsightCost stdc++ pthread GL GLU glut GLEW ManipulationTracker RobotStateCost GelsightCost JointStateCost KinectFrameCost AttachedApriltagCost DynamicsCost OptotrakMarkerCost GelsightOpenGLSim yaml-cpp bot2-core bot2-frames bot2-param-client drakeRBM drakeJoints drakeCollision drakeUtil drakeXMLUtil drakeCommon)
+target_link_libraries(testGelsightCost stdc++ pthread GL GLU glut GLEW ManipulationTracker RobotStateCost GelsightCost JointStateCost KinectFrameCost AttachedApriltagCost DynamicsCost OptotrakMarkerCost NonpenetratingObjectCost GelsightOpenGLSim yaml-cpp bot2-core bot2-frames bot2-param-client drakeRBM drakeJoints drakeCollision drakeUtil drakeXMLUtil drakeCommon)
 pods_install_executables(testGelsightCost)
 
 add_executable(testGelsightSim gelsight_sim.cpp)
