@@ -26,14 +26,14 @@
     <visual>
       <geometry>
         <!--<box size="0.0137 0.0137 0.03724"/>-->
-        <cylinder length=".03724" radius="0.00635" />
+        <cylinder length=".03724" radius="0.0060" />
       </geometry>
       <origin xyz="0 0 0"/>
     </visual>
     <collision>
       <geometry>
         <!--<box size="0.0137 0.0137 0.03724"/>-->
-        <cylinder length=".03724" radius="0.00635" />
+        <cylinder length=".03724" radius="0.0060" />
       </geometry>
       <origin xyz="0 0 0"/>
     </collision>

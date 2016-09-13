@@ -34,6 +34,7 @@ public:
   void addCost(std::shared_ptr<ManipulationTrackerCost> new_cost);
 
   void update();
+  std::shared_ptr<const RigidBodyTree> getRobot() { return robot_; };
   Eigen::Matrix<double, Eigen::Dynamic, 1> getMean() { return x_; }
   Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> getCovariance() { return covar_; }
 

@@ -41,11 +41,15 @@ private:
   bool verbose = false;
   bool verbose_lcmgl = false;
   int num_surface_pts = 500;
-  double timeout_time = 0.5;
+  double timeout_time = 5.0;
 
   std::shared_ptr<lcm::LCM> lcm;
 
   std::vector<int> collision_robot_state_indices;
+  Eigen::Matrix3Xd surface_pts;
+  double min_considered_penetration_distance = 0.001; // TODO(gizatt): why is this necessary? Seems to prevent
+                                                      // "sticking" behavior when pulling gelsight away from an
+                                                      // object.
 
   int object_index = 0;
   int object_state_index = 0;
@@ -60,6 +64,11 @@ private:
   int nq_object;
   std::vector<int> robot_object_correspondences;
 
+  int robot_object_id = -1;
+
+
+  bot_lcmgl_t* lcmgl_surface_pts_ = NULL;
+  bot_lcmgl_t* lcmgl_nonpen_corresp_ = NULL;
   //bot_lcmgl_t* lcmgl_lidar_ = NULL;
   //bot_lcmgl_t* lcmgl_icp_ = NULL;
   //bot_lcmgl_t* lcmgl_measurement_model_ = NULL;

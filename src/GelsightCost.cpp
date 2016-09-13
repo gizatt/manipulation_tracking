@@ -184,7 +184,7 @@ bool GelsightCost::constructCost(ManipulationTracker * tracker, const Eigen::Mat
     bot_lcmgl_color3f(lcmgl_gelsight_, 1, 0, 0);  
     for (int i=0; i < noncontact_points.cols(); i++){
       bot_lcmgl_vertex3f(lcmgl_gelsight_, noncontact_points(0, i), noncontact_points(1, i), noncontact_points(2, i));
-    }    
+    }
     bot_lcmgl_end(lcmgl_gelsight_);
     
 

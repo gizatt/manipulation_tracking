@@ -66,12 +66,13 @@ dynamics:
 
 costs:
   - type: "NonpenetratingObjectCost"
-    nonpenetration_var: 0.001 # m
+    nonpenetration_var: 0.005 # m
+    min_considered_penetration_distance: 0.001
     verbose: False
-    verbose_lcmgl: True
-    num_surface_pts: 50
+    verbose_lcmgl: False
+    num_surface_pts: 200
     nonpenetrating_robot: "bolt"
-    penetrable_robots: ["desk"]
+    penetrable_robots: []
 
   - type: "KinectFrameCost"
     config: "/software/config/irb140/irb140.cfg"
@@ -79,8 +80,8 @@ costs:
     free_space_var: 0.05
     max_considered_icp_distance: 0.05
     min_considered_joint_distance: 0.03
-    verbose: True
-    verbose_lcmgl: True
+    verbose: False
+    verbose_lcmgl: false
     world_frame: True
     downsample_amount: 5.0
     bounds:
@@ -94,11 +95,11 @@ costs:
   - type: "GelsightCost"
     max_considered_corresp_distance: 0.03
     min_considered_penetration_distance: 0.001
-    gelsight_depth_var: 0.002
-    gelsight_freespace_var: 0.001
+    gelsight_depth_var: 0.001
+    gelsight_freespace_var: 0.005
     timeout_time: 0.2
     contact_threshold: 0.1
-    verbose: True
+    verbose: False
     surface:
 
       body: "wsg_50_finger_right_link"
@@ -151,7 +152,7 @@ costs:
 
   - type: "RobotStateCost"
     joint_known_fb_var: 0.01 # m
-    joint_known_encoder_var: 0.001 # radian
+    joint_known_encoder_var: 0.000001 # radian
     transcribe_floating_base_vars: False
     verbose: False
     state_channelname: "EST_ROBOT_STATE"

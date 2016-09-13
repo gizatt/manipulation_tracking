@@ -54,7 +54,7 @@ public:
   void setBounds(BoundingBox bounds) { pointcloud_bounds = bounds; }
 
 private:
-  double downsample_amount = 10.0;
+  double downsample_amount = 20.0;
   int input_num_pixel_cols = 640;
   int input_num_pixel_rows = 480;
   int num_pixel_cols, num_pixel_rows;
