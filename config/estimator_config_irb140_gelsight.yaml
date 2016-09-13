@@ -70,8 +70,8 @@ costs:
     verbose: False
     verbose_lcmgl: True
     num_surface_pts: 50
-    nonpenetrating_robot: 1
-    penetrable_robots: [2]
+    nonpenetrating_robot: "bolt"
+    penetrable_robots: ["desk"]
 
   - type: "KinectFrameCost"
     config: "/software/config/irb140/irb140.cfg"

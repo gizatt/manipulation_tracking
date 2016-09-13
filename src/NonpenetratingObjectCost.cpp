@@ -34,12 +34,29 @@ void eigen2cv( const Eigen::Matrix<_Tp, _rows, _cols, _options, _maxRows, _maxCo
     }
 }
 
-NonpenetratingObjectCost::NonpenetratingObjectCost(std::shared_ptr<RigidBodyTree> robot_, std::shared_ptr<lcm::LCM> lcm_, YAML::Node config) :
+NonpenetratingObjectCost::NonpenetratingObjectCost(std::shared_ptr<RigidBodyTree> robot_, std::vector<int> robot_correspondences_,
+        std::shared_ptr<RigidBodyTree> robot_object_, std::vector<int> robot_object_correspondences_, std::shared_ptr<lcm::LCM> lcm_, YAML::Node config) :
+    lcm(lcm_),
     robot(robot_),
     robot_kinematics_cache(robot->bodies),
-    lcm(lcm_),
-    nq(robot->number_of_positions())
+    nq(robot->number_of_positions()),
+    robot_correspondences(robot_correspondences_),
+    robot_object(robot_object_),
+    robot_object_kinematics_cache(robot_object->bodies),
+    nq_object(robot_object->number_of_positions()),
+    robot_object_correspondences(robot_object_correspondences_)
 {
+  std::cout << "Important #1: " << robot_correspondences.size() << "\n";
+  std::cout << "Important #2: " << robot_object_correspondences.size() << "\n";
+
+  std::cout << "\n";
+  for (int i=0; i<robot_correspondences.size(); i++)
+    std::cout << robot_correspondences[i] << " ";
+  std::cout << "\n";
+  for (int i=0; i<robot_object_correspondences.size(); i++)
+    std::cout << robot_object_correspondences[i] << " ";
+  std::cout << "\n";std::cout << "\n";
+
   if (config["nonpenetration_var"])
     nonpenetration_var = config["nonpenetration_var"].as<double>();
   if (config["verbose"])
@@ -50,14 +67,6 @@ NonpenetratingObjectCost::NonpenetratingObjectCost(std::shared_ptr<RigidBodyTree
     num_surface_pts = config["num_surface_pts"].as<int>();
   if (config["timeout_time"])
     timeout_time = config["timeout_time"].as<double>();
-  if (config["nonpenetrating_robot"])
-    object_index = config["nonpenetrating_robot"].as<int>();
-  if (config["penetrable_robots"])
-    collision_robot_indices = config["penetrable_robots"].as<std::vector<int>>();
-
-  for (int i=0; i<collision_robot_indices.size(); i++) {
-    std::cout << collision_robot_indices[i] << std::endl << std::endl;
-  }
 
   //lcmgl_lidar_= bot_lcmgl_init(lcm->getUnderlyingLCM(), "trimmed_lidar");
   //lcmgl_icp_= bot_lcmgl_init(lcm->getUnderlyingLCM(), "icp_p2pl");
@@ -126,6 +135,16 @@ bool NonpenetratingObjectCost::constructCost(ManipulationTracker * tracker, cons
   }
 
   // TODO: LOOOOOOOTS TO DO HERE
+
+  // First, convert x_old into corresponding q values for robot and robot_object
+
+  // Use raycasting on robot_object to get a smattering of points on object surface
+
+  // Downsample object surface points
+
+  // Loop over points, colliding them with robot() geometry to find nearest-point correspondences
+
+  // Proceed as usual... ICP
 
   return true;
 }

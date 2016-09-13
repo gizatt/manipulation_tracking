@@ -24,7 +24,8 @@
 
 class NonpenetratingObjectCost : public ManipulationTrackerCost {
 public:
-  NonpenetratingObjectCost(std::shared_ptr<RigidBodyTree> robot_, std::shared_ptr<lcm::LCM> lcm_, YAML::Node config);
+  NonpenetratingObjectCost(std::shared_ptr<RigidBodyTree> robot_, std::vector<int> robot_correspondences_,
+        std::shared_ptr<RigidBodyTree> robot_object_, std::vector<int> robot_object_correspondences_, std::shared_ptr<lcm::LCM> lcm_, YAML::Node config);
   ~NonpenetratingObjectCost() {};
   bool constructCost(ManipulationTracker * tracker, const Eigen::Matrix<double, Eigen::Dynamic, 1> x_old, Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>& Q, Eigen::Matrix<double, Eigen::Dynamic, 1>& f, double& K);
 
@@ -43,17 +44,21 @@ private:
   double timeout_time = 0.5;
 
   std::shared_ptr<lcm::LCM> lcm;
-  std::shared_ptr<RigidBodyTree> complete_robot_;
 
-  std::shared_ptr<RigidBodyTree> robot;
-  std::vector<int> collision_robot_indices;
   std::vector<int> collision_robot_state_indices;
 
   int object_index = 0;
   int object_state_index = 0;
 
+  std::shared_ptr<RigidBodyTree> robot;
   KinematicsCache<double> robot_kinematics_cache;
   int nq;
+  std::vector<int> robot_correspondences;
+
+  std::shared_ptr<RigidBodyTree> robot_object;
+  KinematicsCache<double> robot_object_kinematics_cache;
+  int nq_object;
+  std::vector<int> robot_object_correspondences;
 
   //bot_lcmgl_t* lcmgl_lidar_ = NULL;
   //bot_lcmgl_t* lcmgl_icp_ = NULL;

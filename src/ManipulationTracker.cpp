@@ -83,14 +83,15 @@ std::shared_ptr<RigidBodyTree> setupRobotFromConfig(YAML::Node config, Eigen::Ve
 }
 
 static bool vector_contains_str(std::vector<std::string> vec, std::string str) {
-  for (int i=0; i<collision_robot_indices.size(); i++) {
+  for (int i=0; i<vec.size(); i++) {
     if (str == vec[i])
       return true;
   }
   return false;
 }
 
-std::shared_ptr<RigidBodyTree> setupRobotFromConfigSubset(YAML::Node config, Eigen::VectorXd& x0_robot_subset, std::string base_path, bool verbose, bool less_collision, std::vector<std::string> exceptions){
+std::shared_ptr<RigidBodyTree> setupRobotFromConfigSubset(YAML::Node config, Eigen::VectorXd& x0_robot_subset, std::string base_path,
+    bool verbose, bool less_collision, bool exclusionary, std::vector<std::string> exceptions, std::vector<int> &index_correspondences){
   // generate robot from yaml file by adding each robot in sequence
   // if some robots are to be excluded, their yaml file names will appear in exceptions
   // first robot -- need to initialize the RBT
@@ -104,51 +105,23 @@ std::shared_ptr<RigidBodyTree> setupRobotFromConfigSubset(YAML::Node config, Eig
     robots_string = "robots";
 
   auto manip = config[robots_string].begin();
-
-  std::cout << manip->first << std::endl;
-  for (int i=0; i<50; i++) {
-    std::cout << "+\n";
-  }
-
   
-  std::shared_ptr<RigidBodyTree> robot(new RigidBodyTree(base_path + manip->second["urdf"].as<string>()));
-  
+  std::shared_ptr<RigidBodyTree> robot(new RigidBodyTree());
   std::shared_ptr<RigidBodyTree> robot_subset(new RigidBodyTree());
+
   x0_robot_subset.resize(robot_subset->number_of_positions());
-
-  std::vector<int> index_correspondences;
-
-  if (!vector_contains_str(exceptions, manip->first)) {
-    drake::parsers::urdf::AddModelInstanceFromURDF(base_path + manip->second["urdf"].as<string>(), DrakeJoint::ROLLPITCHYAW, robot_subset.get());
-    if (manip->second["q0"] && manip->second["q0"].Type() == YAML::NodeType::Map){
-      for (int i=old_num_positions_subset; i < robot->number_of_positions(); i++){
-        index_correspondences.push_back(old_num_positions+i);
-
-        auto find = manip->second["q0"][robot->getPositionName(i)];
-        if (find)
-          x0_robot_subset(i) = find.as<double>();
-        else // unnecessary in this first loop but here for clarity
-          x0_robot_subset(i) = 0.0;
-      }
-    } else {
-      for (int i=old_num_positions; i < robot->number_of_positions(); i++){
-        index_correspondences.push_back(old_num_positions+i);
-      }
-    }
-  }
 
   old_num_positions = robot->number_of_positions();
   old_num_positions_subset = robot_subset->number_of_positions();
 
-  manip++;
-  // each new robot can be added via addRobotFromURDF
-
-  while (manip != config[robots_string].end()){
+  // each new robot can b
+  while (manip != config[robots_string].end()) {
     drake::parsers::urdf::AddModelInstanceFromURDF(base_path + manip->second["urdf"].as<string>(), DrakeJoint::ROLLPITCHYAW, robot.get());
-    if (!vector_contains_str(exceptions, manip->first)) {
+    if (vector_contains_str(exceptions, manip->first.as<std::string>()) != exclusionary) { // check (CONTAINED) XOR (EXCLUSIONARY)
       drake::parsers::urdf::AddModelInstanceFromURDF(base_path + manip->second["urdf"].as<string>(), DrakeJoint::ROLLPITCHYAW, robot_subset.get());
 
-      x0_robot_subset.conservativeResize(robot->number_of_positions());
+      x0_robot_subset.conservativeResize(robot_subset->number_of_positions());
+
       if (manip->second["q0"] && manip->second["q0"].Type() == YAML::NodeType::Map){
         for (int i=old_num_positions_subset; i < robot_subset->number_of_positions(); i++){
           auto find = manip->second["q0"][robot_subset->getPositionName(i)];
@@ -162,6 +135,13 @@ std::shared_ptr<RigidBodyTree> setupRobotFromConfigSubset(YAML::Node config, Eig
       } else {
         x0_robot_subset.block(old_num_positions_subset, 0, robot_subset->number_of_positions()-old_num_positions_subset, 1) *= 0.0;
       }
+
+      int cur_position = old_num_positions;
+      for (int i=old_num_positions_subset; i < robot_subset->number_of_positions(); i++){
+        // for each new index, make a correspondence with whole robot's indices
+        index_correspondences.push_back(cur_position);
+        cur_position++;
+      }
     }
 
     old_num_positions = robot->number_of_positions();
@@ -169,18 +149,19 @@ std::shared_ptr<RigidBodyTree> setupRobotFromConfigSubset(YAML::Node config, Eig
 
     manip++;
   }
-  robot->compile();
+  robot_subset->compile();
 
-  x0_robot_subset.conservativeResize(robot->number_of_positions() + robot->number_of_velocities());
-  x0_robot_subset.block(robot->number_of_positions(), 0, robot->number_of_velocities(), 1).setZero();
+//  x0_robot_subset.conservativeResize(robot_subset->number_of_positions() + robot_subset->number_of_velocities());
+//  x0_robot_subset.block(robot_subset->number_of_positions(), 0, robot->number_of_velocities(), 1).setZero();
 
   if (verbose){
     cout << "All position names and init values: " << endl;
-    for (int i=0; i < robot->number_of_positions(); i++){
+    for (int i=0; i < robot_subset->number_of_positions(); i++){
       cout << "\t " << i << ": \"" << robot->getPositionName(i) << "\" = " << x0_robot_subset[i] << endl;
     }
   }
-  return robot;
+
+  return robot_subset;
 }
 
 ManipulationTracker::ManipulationTracker(std::shared_ptr<const RigidBodyTree> robot, Eigen::Matrix<double, Eigen::Dynamic, 1> x0_robot, std::shared_ptr<lcm::LCM> lcm, YAML::Node config, bool verbose) :

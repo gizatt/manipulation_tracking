@@ -70,12 +70,20 @@ int main(int argc, char** argv) {
       } else if (cost_type == "NonpenetratingObjectCost") {
         // demands a modifiable copy of the robot to do collision calls
         // also requires a list of all other robots in the scene, minus those excluded in "penetrable"
+        std::string object_str = (*iter)["nonpenetrating_robot"].as<std::string>();
+
+        std::vector<int> collider_index_correspondences;
+        std::vector<std::string> non_colliders = (*iter)["penetrable_robots"].as<std::vector<std::string>>(); // confirmed: this clones rep, can mutate new var without mutating parsed YAML
+        non_colliders.push_back(object_str);
+
+        std::vector<int> object_index_correspondences;
+        std::vector<std::string> object_vec;
+        object_vec.push_back(object_str);
         
-        ////std::string obj_name = (*iter)["nonpenetrating_robot"].as<string>();
-        ////std::vector<std::string> penetrable_names = (*iter)["penetrable_robot"].as<vector<string>>();
-        ////for (int i=0; i<robot)
-        
-        std::shared_ptr<NonpenetratingObjectCost> cost(new NonpenetratingObjectCost(setupRobotFromConfigSubset(config, x0_robot, string(drc_path), true, true, std::vector<std::string>()), lcm, *iter));
+        std::shared_ptr<NonpenetratingObjectCost> cost(new NonpenetratingObjectCost(
+          setupRobotFromConfigSubset(config, x0_robot, string(drc_path), true, false, true, non_colliders, collider_index_correspondences), collider_index_correspondences,
+          setupRobotFromConfigSubset(config, x0_robot, string(drc_path), true, false, false, object_vec, object_index_correspondences), object_index_correspondences,
+          lcm, *iter));
         estimator.addCost(dynamic_pointer_cast<ManipulationTrackerCost, NonpenetratingObjectCost>(cost));
       } else {
         cout << "Got cost type " << cost_type << " but I don't know what to do with it!" << endl;
@@ -84,9 +92,6 @@ int main(int argc, char** argv) {
   }
 
   std::cout << "Manipulation Tracker Listening" << std::endl;
-
-  // DEBUG
-  return 1;
 
   double last_update_time = getUnixTime();
   double timestep = 0.01;
