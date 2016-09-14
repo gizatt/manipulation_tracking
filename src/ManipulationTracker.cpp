@@ -181,7 +181,7 @@ ManipulationTracker::ManipulationTracker(std::shared_ptr<const RigidBodyTree> ro
   x_.block(0,0,x0_robot.rows(), 1) = x0_robot;
   covar_.resize(x0_robot.rows(), x0_robot.rows());
   covar_.setZero(); // TODO: how to better initialize covariance?
-  covar_ += MatrixXd::Identity(covar_.rows(), covar_.cols())*0.000001;
+  covar_ += MatrixXd::Identity(covar_.rows(), covar_.cols())*0.0000000001;
 
   // generate robot names
   for (auto it=robot->bodies.begin(); it!=robot->bodies.end(); it++){
@@ -193,11 +193,23 @@ ManipulationTracker::ManipulationTracker(std::shared_ptr<const RigidBodyTree> ro
   // get dynamics configuration from yaml
   if (config["dynamics"]){
     if (config["dynamics"]["dynamics_floating_base_var"])
-      dynamics_floating_base_var_ = config["dynamics"]["dynamics_floating_base_var"].as<double>();
+      dynamics_vars_defaults_.floating_base_var = config["dynamics"]["dynamics_floating_base_var"].as<double>();
     if (config["dynamics"]["dynamics_other_var"])
-      dynamics_other_var_ = config["dynamics"]["dynamics_other_var"].as<double>();
+      dynamics_vars_defaults_.other_var = config["dynamics"]["dynamics_other_var"].as<double>();
     if (config["dynamics"]["verbose"])
       dynamics_verbose_ = config["dynamics"]["verbose"].as<bool>();
+
+    if (config["dynamics"]["robot_specific_vars"]){
+      for (auto iter = config["dynamics"]["robot_specific_vars"].begin();
+                iter != config["dynamics"]["robot_specific_vars"].end();
+                iter++){
+        DynamicsVars robot_vars;
+        robot_vars.floating_base_var = (*iter)["dynamics_floating_base_var"].as<double>();
+        robot_vars.other_var = (*iter)["dynamics_other_var"].as<double>();
+        dynamics_vars_per_robot_[(*iter)["robot"].as<string>()] = robot_vars;
+        printf("Loaded vars %f, %f for robot %s\n", robot_vars.floating_base_var, robot_vars.other_var, (*iter)["robot"].as<string>().c_str());
+      }
+    }
   }
 
   // get publish info from yaml
@@ -330,19 +342,35 @@ void ManipulationTracker::update(){
     }
   }
 
-  if (!std::isinf(dynamics_other_var_)){
-    for (int i=0; i < 6; i++){
-      covar_pred(i, i) += dynamics_floating_base_var_*dynamics_floating_base_var_;
-    }
-  }
-  if (!std::isinf(dynamics_floating_base_var_)){
-    for (int i=6; i<x_.rows(); i++){
-      covar_pred(i, i) += dynamics_other_var_*dynamics_other_var_;
-    }
-  }
+  for (int i=1; i<robot_->bodies.size(); i++){
+    // todo: some caching? maybe? this is pretty inefficient
+    auto it = dynamics_vars_per_robot_.find(robot_->bodies[i]->get_model_name());
+    DynamicsVars these_vars;
+    if (it != dynamics_vars_per_robot_.end())
+      these_vars = it->second;
+    else
+      these_vars = dynamics_vars_defaults_;
 
-  //cout << "X Pred: " << x_pred.transpose() << endl;
-  //cout << "Covar Pred: " << covar_pred.diagonal().transpose() << endl;
+    printf("For robot %s and link %s, using vars %f and %f\n", robot_->bodies[i]->get_model_name().c_str(), robot_->bodies[i]->get_name().c_str(), these_vars.floating_base_var, these_vars.other_var);
+    if (robot_->bodies[i]->getJoint().isFloating() && !std::isinf(these_vars.floating_base_var)){
+      for (int j = 0; j < robot_->bodies[i]->getJoint().getNumPositions(); j++){
+        covar_pred(j + robot_->bodies[i]->get_position_start_index(), j + robot_->bodies[i]->get_position_start_index()) += these_vars.floating_base_var;
+      }
+      for (int j = 0; j < robot_->bodies[i]->getJoint().getNumVelocities(); j++){
+        covar_pred(j + robot_->bodies[i]->get_velocity_start_index(), j + robot_->bodies[i]->get_velocity_start_index()) += these_vars.floating_base_var;
+      }
+    }
+    else if (!robot_->bodies[i]->getJoint().isFloating() && !std::isinf(these_vars.other_var)){
+      for (int j = 0; j < robot_->bodies[i]->getJoint().getNumPositions(); j++){
+        covar_pred(j + robot_->bodies[i]->get_position_start_index(), j + robot_->bodies[i]->get_position_start_index()) += these_vars.other_var;
+      }
+      for (int j = 0; j < robot_->bodies[i]->getJoint().getNumVelocities(); j++){
+        covar_pred(j + robot_->bodies[i]->get_velocity_start_index(), j + robot_->bodies[i]->get_velocity_start_index()) += these_vars.other_var;
+      }
+    }
+  }
+  cout << "X Pred: " << x_pred.transpose() << endl;
+  cout << "Covar Pred: " << covar_pred.diagonal().transpose() << endl;
 
   // TODO: accept parameters for this or pawn it off to a 
   // different object

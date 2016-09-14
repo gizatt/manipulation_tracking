@@ -68,8 +68,13 @@ private:
   std::shared_ptr<lcm::LCM> lcm_;
 
   // dynamics updating
-  double dynamics_floating_base_var_ = 0.1;
-  double dynamics_other_var_ = 0.1;
+  struct DynamicsVars {
+      double floating_base_var = INFINITY;
+      double other_var = INFINITY;
+  };
+  DynamicsVars dynamics_vars_defaults_;
+
+  std::map<std::string, DynamicsVars> dynamics_vars_per_robot_;
   bool dynamics_verbose_ = false;
 
   // store all registered costs alongside a view into the variable

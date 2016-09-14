@@ -14,18 +14,25 @@
 
 class DynamicsCost : public ManipulationTrackerCost {
 public:
-  DynamicsCost(std::shared_ptr<const RigidBodyTree> robot_, std::shared_ptr<lcm::LCM> lcm_, YAML::Node config);
+  DynamicsCost(std::shared_ptr<const RigidBodyTree> robot, std::shared_ptr<lcm::LCM> lcm, YAML::Node config);
   ~DynamicsCost() {};
   bool constructPredictionMatrices(ManipulationTracker * tracker, const Eigen::Matrix<double, Eigen::Dynamic, 1> x_old, Eigen::Matrix<double, Eigen::Dynamic, 1>& x, Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>& P);
 
 private:
-  double dynamics_floating_base_var = INFINITY;
-  double dynamics_other_var = INFINITY;
-  bool verbose = false;
+  struct DynamicsVars {
+  	double floating_base_var = INFINITY;
+  	double other_var = INFINITY;
+  };
 
-  std::shared_ptr<lcm::LCM> lcm;
-  std::shared_ptr<const RigidBodyTree> robot;
-  int nq;
+  DynamicsVars dynamics_vars_defaults_;
+
+  std::map<std::string, DynamicsVars> dynamics_vars_per_robot_;
+ 
+  bool verbose_ = false;
+
+  std::shared_ptr<lcm::LCM> lcm_;
+  std::shared_ptr<const RigidBodyTree> robot_;
+  int nq_;
 };
 
 #endif

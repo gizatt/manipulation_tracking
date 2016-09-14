@@ -1,0 +1,40 @@
+<?xml version="1.0"?>
+<robot
+  name="tiny_screwdriver">
+  <link name="tiny_screwdriver_body">
+    <visual>
+      <geometry>
+        <!--<box size="0.019 0.019 0.01285"/>-->
+        <cylinder length="0.108" radius="0.0055" />
+      </geometry>
+      <origin xyz="0 0 0"/>
+    </visual>
+    <visual>
+      <geometry>
+        <!--<box size="0.019 0.019 0.01285"/>-->
+        <cylinder length="0.06" radius="0.002" />
+      </geometry>
+      <origin xyz="0 0 0.08"/>
+    </visual>
+    <collision>
+      <geometry>
+        <!--<box size="0.019 0.019 0.01285"/>-->
+        <cylinder length="0.108" radius="0.0055" />
+      </geometry>
+      <origin xyz="0 0 0"/>
+    </collision>
+    <collision>
+      <geometry>
+        <!--<box size="0.019 0.019 0.01285"/>-->
+        <cylinder length="0.06" radius="0.002" />
+      </geometry>
+      <origin xyz="0 0 0.08"/>
+    </collision>
+    <inertial>
+      <mass value="0.1"/>
+      <inertia ixx="0.01" ixy="0.0" ixz="0.0" iyy="0.01" iyz="0.0" izz="0.01"/>
+      <origin xyz="0 0 0"/>
+    </inertial>
+  </link>
+</robot>
+

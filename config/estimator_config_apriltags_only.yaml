@@ -33,6 +33,12 @@ post_transform:
 
 timestep: 0.1
 
+
+dynamics:
+  dynamics_floating_base_var: 0.01 # m per frame
+  dynamics_other_var: 0.01 # rad per frame
+  verbose: True
+  
 costs:
   #- type: "AttachedApriltagCost"
   #  verbose: false
@@ -100,7 +106,7 @@ costs:
       #  channel: APRIL_TAG_0102_TO_CAMERA_LEFT
       - id: 50
         body: "base_link"
-        pos: [0.83, -0.055, -0.20]
+        pos: [0.825, -0.08, -0.19]
         rot: [180.0, 0.0, 90.0]
         channel: APRIL_TAG_0050_TO_CAMERA_LEFT
       #- id: 52

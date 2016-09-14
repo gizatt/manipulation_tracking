@@ -54,7 +54,7 @@ public:
   void setBounds(BoundingBox bounds) { pointcloud_bounds = bounds; }
 
 private:
-  double downsample_amount = 20.0;
+  double downsample_amount = 10.0;
   int input_num_pixel_cols = 640;
   int input_num_pixel_rows = 480;
   int num_pixel_cols, num_pixel_rows;
@@ -67,6 +67,15 @@ private:
   double max_scan_dist = 10.0;
   bool verbose = false;
   bool verbose_lcmgl = false;
+
+  // We operate in one of four modes:
+  // 1) Kinect has a body whose pose is learned. Have_camera_body is true. have_camera_body=true,world_frame=true
+  // 2) Kinect listens to pose on LCM, have_camera_body=false but world_frame=true
+  // 3) Kinect has hard coded world frame if world_frame=true. have_hardcoded_kinect2world = true
+  // 3) Kinect frame is world frame. have_camera_body and world_frame = false
+  bool have_camera_body_ = false;
+  std::string camera_body_name_;
+  int camera_body_ind_;
   bool world_frame = true;
 
   std::shared_ptr<lcm::LCM> lcm;

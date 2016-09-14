@@ -1,115 +1,188 @@
 robots:
   irb140:
-    urdf: "/software/models/IRB140/urdf/irb_140_ati_schunk_gelsight_one_finger.urdf"
+    urdf: "/software/models/IRB140/urdf/irb_140_ati_schunk_gelsight.urdf"
     q0:
       base_x: -0.17
       base_z: 0.911
-  optotrak_cube:
-    urdf: "/software/perception/manipulation_tracking/urdf/optotrak_cube.urdf"
+  #bolt:
+  #  urdf: "/software/perception/manipulation_tracking/urdf/tiny_bolt.urdf"
+  #  q0:
+  #    base_x: 0.52
+  #    base_y: 0.13
+  #    base_z: 0.70
+  #    base_roll: 0.0
+  hole_box:
+    urdf: "/software/perception/manipulation_tracking/urdf/hole_box.urdf"
     q0:
-      base_x: 0.6
-      base_y: 0.2
-      base_z: 0.75
-  bolt:
-    urdf: "/software/perception/manipulation_tracking/urdf/tiny_bolt.urdf"
-    q0:
-      base_x: 0.65
+      base_x: 0.55
       base_y: 0.10
       base_z: 0.70
       base_roll: 0.0
+  tiny_screwdriver:
+    urdf: "/software/perception/manipulation_tracking/urdf/tiny_screwdriver.urdf"
+    q0:
+      base_x: 0.60
+      base_y: 0.13
+      base_z: 0.75
+      base_roll: 3.14
   desk:
     urdf: "/software/perception/manipulation_tracking/urdf/desk.urdf"
     q0:
       base_x: 0.61
       base_y: 0.2
       base_z: 0.65
+  xtion:
+    urdf: "/software/perception/manipulation_tracking/urdf/xtion.urdf"
+    q0:
+      base_x: 0.95
+      base_y: -0.54
+      base_z: 1.24
+      base_roll: -2.12
+      base_pitch: -0.018
+      base_yaw: 0.469
 
 robots_less_collision:
   irb140:
     urdf: "/software/models/IRB140/urdf/irb_140_ati_schunk_gelsight_less_collision.urdf"
     q0:
       base_x: -0.17
-      base_z: 0.91
-  optotrak_cube:
-    urdf: "/software/perception/manipulation_tracking/urdf/optotrak_cube.urdf"
+      base_z: 0.911
+  #bolt:
+  #  urdf: "/software/perception/manipulation_tracking/urdf/tiny_bolt.urdf"
+  #  q0:
+  #    base_x: 0.52
+  #    base_y: 0.13
+  #    base_z: 0.70
+  #    base_roll: 0.0
+  hole_box:
+    urdf: "/software/perception/manipulation_tracking/urdf/hole_box.urdf"
     q0:
-      base_x: 0.6
-      base_z: 1.0
-  bolt:
-    urdf: "/software/perception/manipulation_tracking/urdf/tiny_bolt.urdf"
-    q0:
-      base_x: 0.65
-      base_y: 0.10
-      base_z: 0.70
+      base_x: 0.55
+      base_y: 0.70
+      base_z: 0.0
       base_roll: 0.0
+  tiny_screwdriver:
+    urdf: "/software/perception/manipulation_tracking/urdf/tiny_screwdriver.urdf"
+    q0:
+      base_x: 0.60
+      base_y: 0.13
+      base_z: 0.75
+      base_roll: 3.14
   desk:
     urdf: "/software/perception/manipulation_tracking/urdf/desk.urdf"
     q0:
       base_x: 0.61
       base_y: 0.2
       base_z: 0.71
+  xtion:
+    urdf: "/software/perception/manipulation_tracking/urdf/xtion.urdf"
+    q0:
+      base_x: 0.95
+      base_y: -0.54
+      base_z: 1.24
+      base_roll: -2.12
+      base_pitch: -0.018
+      base_yaw: 0.469
 
-#post_transform:
-#  source_robot: "IRB140_ATI_GELSIGHT"
-#  dest_frame: "robot_base"
+
+force_align:
+  # force alignment of these frames in the estimator every iteration
+  source_robot: "IRB140"
+  dest_frame: "robot_base"
 
 publish:
   irb140_state:
     robot_name: "IRB140"
     type: "state"
     channel: "EST_MANIPULAND_STATE_IRB140_ATI_GELSIGHT"
-  tiny_bolt_state:
-    robot_name: "bolt"
+  #tiny_bolt_state:
+  #  robot_name: "bolt"
+  #  type: "state"
+  #  channel: "EST_MANIPULAND_STATE_bolt"
+  tiny_screwdriver_state:
+    robot_name: "tiny_screwdriver"
     type: "state"
-    channel: "EST_MANIPULAND_STATE_bolt"
+    channel: "EST_MANIPULAND_STATE_tiny_screwdriver"
   desk_state:
     robot_name: "desk"
     type: "state"
     channel: "EST_MANIPULAND_STATE_desk"
-  optotrak_cube_state:
-    robot_name: "optotrak_cube"
+  hole_box_state:
+    robot_name: "hole_box"
     type: "state"
-    channel: "EST_MANIPULAND_STATE_optotrak_cube"
+    channel: "EST_MANIPULAND_STATE_hole_box"
+  #xtion_state:
+  #  robot_name: "xtion"
+  #  type: "state"
+  #  channel: "EST_MANIPULAND_STATE_xtion"
+  #xtion_offset:    
+  #  robot_name: "xtion"
+  #  type: "transform"
+  #  channel: "GT_CAMERA_OFFSET"
+
 
 dynamics:
-  dynamics_floating_base_var: 0.000001 # m per frame
-  dynamics_other_var: 0.01 # rad per frame
-  verbose: False
+  dynamics_floating_base_var: 0.001 # m per frame
+  dynamics_other_var: 0.001 # rad per frame
+  verbose: True
+  # and robot-specific additional gains:
+  robot_specific_vars:
+    - robot: "IRB140"
+      dynamics_floating_base_var: 0.00000001 # m per frame
+      dynamics_other_var: 0.01 # rad per frame
+    - robot: "xtion"
+      dynamics_floating_base_var: 0.000000001
+      dynamics_other_var: 0.000000001
+    - robot: "tiny_screwdriver"
+      dynamics_floating_base_var: 0.0001
+      dynamics_other_var: 0.0001
+    #- robot: "bolt"
+    #  dynamics_floating_base_var: 0.001
+    #  dynamics_other_var: 0.001
 
 costs:
+ # - type: "NonpenetratingObjectCost"
+ #   nonpenetration_var: 0.01 # m
+ #   min_considered_penetration_distance: 0.001
+ #   verbose: False
+ #   verbose_lcmgl: False
+ #   num_surface_pts: 200
+ #   nonpenetrating_robot: "bolt"
+ #   penetrable_robots: ["hole_box"]
+ # - type: "NonpenetratingObjectCost"
+ #   nonpenetration_var: 0.01 # m
+ #   min_considered_penetration_distance: 0.001
+ #   verbose: False
+ #   verbose_lcmgl: False
+ #   num_surface_pts: 200
+ #   nonpenetrating_robot: "hole_box"
+ #   penetrable_robots: ["bolt"]
   - type: "NonpenetratingObjectCost"
-    nonpenetration_var: 0.01 # m
+    nonpenetration_var: 0.001 # m
     min_considered_penetration_distance: 0.001
-    verbose: False
-    verbose_lcmgl: False
-    num_surface_pts: 200
-    nonpenetrating_robot: "bolt"
-    penetrable_robots: []
-
-  - type: "NonpenetratingObjectCost"
-    nonpenetration_var: 0.005 # m
-    min_considered_penetration_distance: 0.001
-    verbose: False
+    verbose: True
     verbose_lcmgl: True
     num_surface_pts: 200
-    nonpenetrating_robot: "optotrak_cube"
-    penetrable_robots: []
+    nonpenetrating_robot: "tiny_screwdriver"
+    penetrable_robots: ["hole_box"]
 
   - type: "KinectFrameCost"
     config: "/software/config/irb140/irb140.cfg"
     icp_var: 0.02 # m
-    free_space_var: 0.05
-    max_considered_icp_distance: 0.05
+    free_space_var: .inf
+    max_considered_icp_distance: 0.01
     min_considered_joint_distance: 0.03
-    verbose: False
-    verbose_lcmgl: false
-    world_frame: True
+    verbose: True
+    verbose_lcmgl: True
     downsample_amount: 5.0
+    #camera_body: "xtion"
+    world_frame: True
+    #kinect2world: [0.9538, -0.5394, 1.2478, 0.477, -0.8474, -0.208, 0.105]
     bounds:
       xMin: 0.4
-      xMax: 0.9
+      xMax: 0.7
       yMin: 0
-      yMax: 0.5
+      yMax: 0.2
       zMin: 0.7
       zMax: 1.1
 
@@ -120,9 +193,8 @@ costs:
     gelsight_freespace_var: 0.001
     timeout_time: 0.2
     contact_threshold: 0.1
-    verbose: False
+    verbose: True
     surface:
-
       body: "wsg_50_finger_right_link"
       lower_left:  [-0.0189,0.0862, -0.0061]
       lower_right: [-0.0189,0.1129, -0.0061]

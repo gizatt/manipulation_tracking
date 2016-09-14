@@ -60,6 +60,11 @@ KinectFrameCost::KinectFrameCost(std::shared_ptr<RigidBodyTree> robot_, std::sha
     world_frame = config["world_frame"].as<bool>();
   if (config["downsample_amount"])
     downsample_amount = config["downsample_amount"].as<double>();
+  if (config["camera_body"]){
+    camera_body_name_ = config["camera_body"].as<string>();
+    have_camera_body_ = true;
+    camera_body_ind_ = robot->FindBodyIndex(camera_body_name_);
+  }
 
   if (config["kinect2world"]){
     have_hardcoded_kinect2world_ = true;
@@ -119,7 +124,7 @@ KinectFrameCost::KinectFrameCost(std::shared_ptr<RigidBodyTree> robot_, std::sha
   cv::namedWindow( "KinectFrameCostDebug", cv::WINDOW_AUTOSIZE );
   cv::startWindowThread();
 
-  if (!have_hardcoded_kinect2world_){
+  if (!have_hardcoded_kinect2world_ && !have_camera_body_){
     auto camera_offset_sub = lcm->subscribe("GT_CAMERA_OFFSET", &KinectFrameCost::handleCameraOffsetMsg, this);
     camera_offset_sub->setQueueCapacity(1);
   }
@@ -178,7 +183,7 @@ bool KinectFrameCost::constructCost(ManipulationTracker * tracker, const Eigen::
 {
   double now = getUnixTime();
 
-  if (now - lastReceivedTime > timeout_time || (!have_hardcoded_kinect2world_ && (world_frame && now - last_got_kinect_frame > timeout_time))){
+  if (now - lastReceivedTime > timeout_time || (!have_hardcoded_kinect2world_ && !have_camera_body_ && world_frame && now - last_got_kinect_frame > timeout_time)){
     if (verbose)
       printf("KinectFrameCost: constructed but timed out\n");
     return false;
@@ -203,10 +208,12 @@ bool KinectFrameCost::constructCost(ManipulationTracker * tracker, const Eigen::
     if (world_frame){
       if (have_hardcoded_kinect2world_){
         kinect2world = hardcoded_kinect2world_;
-      } else {
+      } else if (!have_camera_body_){
         camera_offset_mutex.lock();
         kinect2world = kinect2world_;
         camera_offset_mutex.unlock();
+      } else {
+        kinect2world = robot->relativeTransform(robot_kinematics_cache, 0, camera_body_ind_);
       }
     }
 
@@ -344,7 +351,14 @@ bool KinectFrameCost::constructCost(ManipulationTracker * tracker, const Eigen::
           z_norms.conservativeResize(3, k);
 
           // forwardkin to get our jacobians at the project points on the body
-          auto J = robot->transformPointsJacobian(robot_kinematics_cache, body_z_prime, i, 0, false);
+          auto J_z = robot->transformPointsJacobian(robot_kinematics_cache, body_z_prime, i, 0, false);
+          MatrixXd J;
+          if (have_camera_body_){
+            auto J_cam = robot->transformPointsJacobian(robot_kinematics_cache, z, camera_body_ind_, 0, false);
+            J = (J_z - J_cam);
+          } else {
+            J = J_z;
+          }
 
           // apply point-to-plane cost
           // we're minimizing point-to-plane projected distance after moving the body config by delta_q
@@ -577,7 +591,14 @@ bool KinectFrameCost::constructCost(ManipulationTracker * tracker, const Eigen::
           // forwardkin the points in the body frame
           Matrix3Xd z_body = robot->transformPoints(robot_kinematics_cache, z, 0, bdy_i);
           // forwardkin to get our jacobians at the project points on the body
-          auto J = robot->transformPointsJacobian(robot_kinematics_cache, z_body, bdy_i, 0, false);
+          auto J_z = robot->transformPointsJacobian(robot_kinematics_cache, z_body, bdy_i, 0, false);
+          MatrixXd J;
+          if (0 && have_camera_body_){
+            auto J_cam = robot->transformPointsJacobian(robot_kinematics_cache, z, camera_body_ind_, 0, false);
+            J = (J_z - J_cam);
+          } else {
+            J = J_z;
+          }
 
           // apply corrections in the big linear solve
           for (int j=0; j < z.cols(); j++){
@@ -616,6 +637,20 @@ bool KinectFrameCost::constructCost(ManipulationTracker * tracker, const Eigen::
       }
       if (verbose)
         printf("Spend %f in free space constraints.\n", getUnixTime() - now);
+    }
+
+    if (have_hardcoded_kinect2world_){
+      vicon::body_t floating_base_transform;
+      floating_base_transform.utime = getUnixTime();
+      floating_base_transform.trans[0] = kinect2world.matrix()(0, 3);
+      floating_base_transform.trans[1] = kinect2world.matrix()(1, 3);
+      floating_base_transform.trans[2] = kinect2world.matrix()(2, 3);
+      Quaterniond quat1(kinect2world.rotation());
+      floating_base_transform.quat[0] = quat1.w();
+      floating_base_transform.quat[1] = quat1.x();
+      floating_base_transform.quat[2] = quat1.y();
+      floating_base_transform.quat[3] = quat1.z();
+      lcm->publish("GT_CAMERA_OFFSET", &floating_base_transform);
     }
 
     return true;
