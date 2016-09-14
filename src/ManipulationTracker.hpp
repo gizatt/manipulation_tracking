@@ -56,6 +56,9 @@ private:
   bool do_post_transform_ = false;
   std::string post_transform_robot_;
   std::string post_transform_dest_frame_;
+  bool do_force_align_ = false;
+  std::string force_align_robot_;
+  std::string force_align_dest_frame_;
   BotParam* botparam_ = NULL;
   BotFrames* botframes_ = NULL;
 

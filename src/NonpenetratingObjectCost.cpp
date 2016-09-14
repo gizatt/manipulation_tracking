@@ -69,7 +69,7 @@ NonpenetratingObjectCost::NonpenetratingObjectCost(std::shared_ptr<RigidBodyTree
     timeout_time = config["timeout_time"].as<double>();
 
 
-  robot_object_id = robot_object->FindBodyIndex("body");
+  robot_object_id = 1; //robot_object->FindBodyIndex("body");
 
   //lcmgl_lidar_= bot_lcmgl_init(lcm->getUnderlyingLCM(), "trimmed_lidar");
   //lcmgl_icp_= bot_lcmgl_init(lcm->getUnderlyingLCM(), "icp_p2pl");

@@ -5,7 +5,7 @@ robots:
       base_x: 0.6
       base_z: 1.0
   irb140:
-    urdf: "/software/perception/manipulation_tracking/urdf/irb140_chull_ati_gelsight.urdf"
+    urdf: "/software/models/IRB140/urdf/irb_140_ati_schunk_gelsight.urdf"
     q0:
       base_x: -0.17
       base_z: 0.91
@@ -26,7 +26,7 @@ timestep: 0.01
 
 publish:
   irb140_state:
-    robot_name: "IRB140_ATI_GELSIGHT"
+    robot_name: "IRB140"
     type: "state"
     channel: "EST_MANIPULAND_STATE_IRB140_ATI_GELSIGHT_GT"
   optotrak_cube_state:
@@ -48,7 +48,7 @@ publish:
 
 
 post_transform:
-  source_robot: "IRB140_ATI_GELSIGHT"
+  source_robot: "IRB140"
   dest_frame: "robot_base"
 
 dynamics:
@@ -149,53 +149,63 @@ costs:
     timeout_time: 0.2
     localization_var: 0.001
     transform_var: .inf
-    attached_manipuland: "IRB140_ATI_GELSIGHT"
+    attached_manipuland: "IRB140"
     markers:
-      - ids: [17]
-        body: "link_1"
-        pos: [6.396297e-02, -2.511530e-01, 2.142800e-01]
-      - ids: [18]
-        body: "link_1"
-        pos: [6.581854e-02, -2.312759e-01, 2.137990e-01]
-      - ids: [19]
-        body: "link_1"
-        pos: [8.239935e-02, -2.428834e-01, 2.143577e-01]
-      - ids: [20]
-        body: "link_3"
-        pos: [1.206068e-02, -4.525537e-03, 9.600543e-02]
-      - ids: [21]
-        body: "link_3"
-        pos: [-8.394403e-03, -4.102342e-03, 9.559292e-02]
-      - ids: [22]
-        body: "link_3"
-        pos: [2.081893e-03, 1.301942e-02, 9.577409e-02]
-      - ids: [23]
-        body: "link_4"
-        pos: [1.720351e-01, -4.269576e-02, 6.853713e-02]
-      - ids: [24]
-        body: "link_4"
-        pos: [1.519473e-01, -4.232051e-02, 6.818615e-02]
-      - ids: [25]
-        body: "link_4"
-        pos: [1.623122e-01, -2.493538e-02, 6.846220e-02]
-      - ids: [26]
-        body: "link_4"
-        pos: [1.714975e-01, -6.428956e-03, 6.999270e-02]
-      - ids: [27]
-        body: "link_4"
-        pos: [1.509259e-01, -5.417801e-03, 6.989076e-02]
-      - ids: [28]
-        body: "link_4"
-        pos: [1.621192e-01, 1.180479e-02, 6.994824e-02]
+      #- ids: [17]
+      #  body: "link_1"
+      #  pos: [6.396297e-02, -2.511530e-01, 2.142800e-01]
+      #- ids: [18]
+      #  body: "link_1"
+      #  pos: [6.581854e-02, -2.312759e-01, 2.137990e-01]
+      #- ids: [19]
+      #  body: "link_1"
+      #  pos: [8.239935e-02, -2.428834e-01, 2.143577e-01]
+      #- ids: [17]
+      #  body: "link_3"
+      #  pos: [1.206068e-02, -4.525537e-03, 9.600543e-02]
+      #- ids: [18]
+      #  body: "link_3"
+      #  pos: [-8.394403e-03, -4.102342e-03, 9.559292e-02]
+      #- ids: [19]
+      #  body: "link_3"
+      #  pos: [2.081893e-03, 1.301942e-02, 9.577409e-02]
+      #- ids: [20]
+      #  body: "link_4"
+      #  pos: [1.720351e-01, -4.269576e-02, 6.853713e-02]
+      #- ids: [21]
+      #  body: "link_4"
+      #  pos: [1.519473e-01, -4.232051e-02, 6.818615e-02]
+      #- ids: [22]
+      #  body: "link_4"
+      #  pos: [1.623122e-01, -2.493538e-02, 6.846220e-02]
+      #- ids: [23]
+      #  body: "link_4"
+      #  pos: [1.714975e-01, -6.428956e-03, 6.999270e-02]
+      #- ids: [24]
+      #  body: "link_4"
+      #  pos: [1.509259e-01, -5.417801e-03, 6.989076e-02]
+      #- ids: [25]
+      #  body: "link_4"
+      #  pos: [1.621192e-01, 1.180479e-02, 6.994824e-02]
+      #- ids: [26]
+      #  body: "link_4"
+      #  pos: [4.209599e-02, 9.174603e-03, 7.244508e-02]
+      #- ids: [27]
+      #  body: "link_4"
+      #  pos: [3.943231e-02, -1.069512e-02, 7.293605e-02]
+      #- ids: [28]
+      #  body: "link_4"
+      #  pos: [2.332111e-02, 1.576340e-03, 7.367985e-02]
+        # from CAD
       - ids: [29]
-        body: "link_4"
-        pos: [4.209599e-02, 9.174603e-03, 7.244508e-02]
+        body: "wsg_50_finger_right_link"
+        pos: [0.099, 0.0818, 0.0449]
       - ids: [30]
-        body: "link_4"
-        pos: [3.943231e-02, -1.069512e-02, 7.293605e-02]
+        body: "wsg_50_finger_right_link"
+        pos: [-0.099, 0.0818, 0.0449]
       - ids: [31]
-        body: "link_4"
-        pos: [2.332111e-02, 1.576340e-03, 7.367985e-02]
+        body: "wsg_50_finger_right_link"
+        pos: [0, 0.0989, 0.0449]
 
   - type: "RobotStateCost"
     joint_known_fb_var: .inf # m

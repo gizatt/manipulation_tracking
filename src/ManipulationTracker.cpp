@@ -221,6 +221,13 @@ ManipulationTracker::ManipulationTracker(std::shared_ptr<const RigidBodyTree> ro
     post_transform_dest_frame_ = config["post_transform"]["dest_frame"].as<string>(); 
   }
 
+  if (config["force_align"]){
+    do_force_align_ = true;
+    force_align_robot_ = config["force_align"]["source_robot"].as<string>();
+    force_align_dest_frame_ = config["force_align"]["dest_frame"].as<string>(); 
+  }
+
+
   const char * filename = NULL;
   if (config["bot_param_filename"])
     filename = config["bot_param_filename"].as<string>().c_str();
@@ -451,6 +458,51 @@ void ManipulationTracker::update(){
         }
 
         ir++;
+      }
+    }
+  }
+
+  if (do_force_align_){
+    Isometry3d force_align;
+    force_align.setIdentity();
+    // find the floating base of the desired robot
+    int floating_base_body = -1;
+    for (int i=0; i<robot_->bodies.size(); i++){
+      if (robot_->bodies[i]->get_model_name() == force_align_robot_ && robot_->bodies[i]->getJoint().isFloating()){
+        floating_base_body = i;
+        break;
+      }
+    }
+    if (floating_base_body < 0){
+      printf("couldn't find desired floating base for post transform!\n");
+      exit(1);
+    }
+
+    auto quat = rpy2quat(x_.block<3, 1>(robot_->bodies[floating_base_body]->get_position_start_index() + 3, 0));
+    force_align.matrix().block<3, 3>(0,0) = Quaterniond(quat[0], quat[1], quat[2], quat[3]).matrix();
+    force_align.matrix().block<3, 1>(0,3) = x_.block(robot_->bodies[floating_base_body]->get_position_start_index(), 0, 3, 1);
+
+    // find error between that and the designated frame
+    long long utime = 0;
+    Eigen::Isometry3d to_dest_frame;
+    this->get_trans_with_utime(force_align_dest_frame_, "local", utime, to_dest_frame);
+
+    /*
+    cout << "to robot base: " << force_align.matrix() << endl;
+    cout << "dest_frame: " << to_dest_frame.matrix() << endl;
+    cout << "post: " << force_align.matrix() << endl;
+    */
+    force_align =  to_dest_frame * force_align.inverse();
+    // and update all floating bases in our robot with that
+    for (int i=1; i<robot_->bodies.size(); i++){
+      if (robot_->bodies[i]->getJoint().isFloating()){
+        x_.block<3, 1>(robot_->bodies[i]->get_position_start_index() + 0, 0) = 
+          force_align*x_.block<3, 1>(robot_->bodies[i]->get_position_start_index() + 0, 0);
+
+        Quaterniond quat1(force_align.rotation());
+        auto quat2 = rpy2quat(x_.block<3, 1>(robot_->bodies[i]->get_position_start_index() + 3, 0));
+        quat1 *= Quaterniond(quat2[0], quat2[1], quat2[2], quat2[3]);
+        x_.block<3,1>(robot_->bodies[i]->get_position_start_index() + 3, 0) = quat2rpy(Vector4d(quat1.w(), quat1.x(), quat1.y(), quat1.z()));
       }
     }
   }
