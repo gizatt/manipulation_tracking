@@ -122,8 +122,8 @@ publish:
 
 
 dynamics:
-  dynamics_floating_base_var: 0.001 # m per frame
-  dynamics_other_var: 0.001 # rad per frame
+  dynamics_floating_base_var: 0.0001 # m per frame
+  dynamics_other_var: 0.0001 # rad per frame
   verbose: True
   # and robot-specific additional gains:
   robot_specific_vars:
@@ -168,9 +168,9 @@ costs:
 
   - type: "KinectFrameCost"
     config: "/software/config/irb140/irb140.cfg"
-    icp_var: 0.02 # m
+    icp_var: 0.005 # m
     free_space_var: 0.05
-    max_considered_icp_distance: 0.01
+    max_considered_icp_distance: 0.04
     min_considered_joint_distance: 0.03
     verbose: True
     verbose_lcmgl: True
@@ -185,22 +185,22 @@ costs:
       zMin: 0.7
       zMax: 1.0
 
- # - type: "GelsightCost"
- #   max_considered_corresp_distance: 0.03
- #   min_considered_penetration_distance: 0.001
- #   gelsight_depth_var: 0.001
- #   gelsight_freespace_var: 0.001
- #   timeout_time: 0.2
- #   contact_threshold: 0.1
- #   verbose: True
- #   surface:
- #     body: "wsg_50_finger_right_link"
- #     lower_left:  [-0.0189,0.0862, -0.0061]
- #     lower_right: [-0.0189,0.1129, -0.0061]
- #     upper_left:  [0.0078, 0.0862, -0.0061]
- #     upper_right: [0.0078, 0.1129, -0.0061]
- #     normal: [0.0, 0.0, -1.0]
- #     thickness: 0.002 # 5mm
+  - type: "GelsightCost"
+    max_considered_corresp_distance: 0.05
+    min_considered_penetration_distance: 0.0005
+    gelsight_depth_var: 0.005
+    gelsight_freespace_var: 0.0005
+    timeout_time: 0.2
+    contact_threshold: 0.1
+    verbose: True
+    surface:
+      body: "wsg_50_finger_right_link"
+      lower_left:  [-0.0189,0.0862, -0.0061]
+      lower_right: [-0.0189,0.1129, -0.0061]
+      upper_left:  [0.0078, 0.0862, -0.0061]
+      upper_right: [0.0078, 0.1129, -0.0061]
+      normal: [0.0, 0.0, -1.0]
+      thickness: 0.002 # 5mm
 
 #  - type: "AttachedApriltagCost"
 #    verbose: false
