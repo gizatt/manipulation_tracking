@@ -3,6 +3,7 @@ robot_1:
   channel: "EST_MANIPULAND_STATE_optotrak_cube_GT"
   gt_channel: "EST_MANIPULAND_STATE_optotrak_cube_GT"
   link: "optotrak_cube"
+  offset: [0, 0.06305, -0.06305]
 
 robot_2:
   urdf: "/software/perception/manipulation_tracking/urdf/optotrak_cube.urdf"

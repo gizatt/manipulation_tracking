@@ -14,23 +14,23 @@ robots:
   hole_box:
     urdf: "/software/perception/manipulation_tracking/urdf/hole_box.urdf"
     q0:
-      base_x: 0.55
+      base_x: 0.60
       base_y: 0.10
-      base_z: 0.70
+      base_z: 0.73
       base_roll: 0.0
   tiny_screwdriver:
     urdf: "/software/perception/manipulation_tracking/urdf/tiny_screwdriver.urdf"
     q0:
-      base_x: 0.60
+      base_x: 0.57
       base_y: 0.13
-      base_z: 0.75
+      base_z: 0.8
       base_roll: 3.14
   desk:
     urdf: "/software/perception/manipulation_tracking/urdf/desk.urdf"
     q0:
       base_x: 0.61
       base_y: 0.2
-      base_z: 0.65
+      base_z: 0.7
   xtion:
     urdf: "/software/perception/manipulation_tracking/urdf/xtion.urdf"
     q0:
@@ -57,23 +57,23 @@ robots_less_collision:
   hole_box:
     urdf: "/software/perception/manipulation_tracking/urdf/hole_box.urdf"
     q0:
-      base_x: 0.55
+      base_x: 0.60
       base_y: 0.70
       base_z: 0.0
       base_roll: 0.0
   tiny_screwdriver:
     urdf: "/software/perception/manipulation_tracking/urdf/tiny_screwdriver.urdf"
     q0:
-      base_x: 0.60
+      base_x: 0.57
       base_y: 0.13
-      base_z: 0.75
+      base_z: 0.8
       base_roll: 3.14
   desk:
     urdf: "/software/perception/manipulation_tracking/urdf/desk.urdf"
     q0:
       base_x: 0.61
       base_y: 0.2
-      base_z: 0.71
+      base_z: 0.7
   xtion:
     urdf: "/software/perception/manipulation_tracking/urdf/xtion.urdf"
     q0:
@@ -169,7 +169,7 @@ costs:
   - type: "KinectFrameCost"
     config: "/software/config/irb140/irb140.cfg"
     icp_var: 0.02 # m
-    free_space_var: .inf
+    free_space_var: 0.05
     max_considered_icp_distance: 0.01
     min_considered_joint_distance: 0.03
     verbose: True
@@ -177,31 +177,30 @@ costs:
     downsample_amount: 5.0
     #camera_body: "xtion"
     world_frame: True
-    #kinect2world: [0.9538, -0.5394, 1.2478, 0.477, -0.8474, -0.208, 0.105]
     bounds:
-      xMin: 0.4
-      xMax: 0.7
-      yMin: 0
-      yMax: 0.2
+      xMin: 0.43
+      xMax: 0.67
+      yMin: 0.03
+      yMax: 0.17
       zMin: 0.7
-      zMax: 1.1
+      zMax: 1.0
 
-  - type: "GelsightCost"
-    max_considered_corresp_distance: 0.03
-    min_considered_penetration_distance: 0.001
-    gelsight_depth_var: 0.001
-    gelsight_freespace_var: 0.001
-    timeout_time: 0.2
-    contact_threshold: 0.1
-    verbose: True
-    surface:
-      body: "wsg_50_finger_right_link"
-      lower_left:  [-0.0189,0.0862, -0.0061]
-      lower_right: [-0.0189,0.1129, -0.0061]
-      upper_left:  [0.0078, 0.0862, -0.0061]
-      upper_right: [0.0078, 0.1129, -0.0061]
-      normal: [0.0, 0.0, -1.0]
-      thickness: 0.002 # 5mm
+ # - type: "GelsightCost"
+ #   max_considered_corresp_distance: 0.03
+ #   min_considered_penetration_distance: 0.001
+ #   gelsight_depth_var: 0.001
+ #   gelsight_freespace_var: 0.001
+ #   timeout_time: 0.2
+ #   contact_threshold: 0.1
+ #   verbose: True
+ #   surface:
+ #     body: "wsg_50_finger_right_link"
+ #     lower_left:  [-0.0189,0.0862, -0.0061]
+ #     lower_right: [-0.0189,0.1129, -0.0061]
+ #     upper_left:  [0.0078, 0.0862, -0.0061]
+ #     upper_right: [0.0078, 0.1129, -0.0061]
+ #     normal: [0.0, 0.0, -1.0]
+ #     thickness: 0.002 # 5mm
 
 #  - type: "AttachedApriltagCost"
 #    verbose: false

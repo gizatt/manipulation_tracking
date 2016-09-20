@@ -48,7 +48,7 @@ public:
 private:
   SensorPlane sensor_plane;
   int sensor_body_id = -1;
-  double downsample_amount = 10.0;
+  double downsample_amount = 20.0;
   double contact_threshold = 0.1;
   int input_num_pixel_cols = 256;
   int input_num_pixel_rows = 192;

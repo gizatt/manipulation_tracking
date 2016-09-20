@@ -53,7 +53,7 @@ post_transform:
 
 dynamics:
   dynamics_floating_base_var: 0.01 # m per frame
-  dynamics_other_var: 0.1 # rad per frame
+  dynamics_other_var: 0.01 # rad per frame
   verbose: False
 
 costs:

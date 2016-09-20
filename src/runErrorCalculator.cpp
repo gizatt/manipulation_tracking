@@ -24,6 +24,7 @@ using namespace Eigen;
 RigidBodyTree * robot_1;
 RigidBodyTree * robot_2;
 
+
 class Handler
 {
   private:
@@ -87,7 +88,7 @@ void broadcast_transform(shared_ptr<lcm::LCM> lcm, string channel, Isometry3d tr
   lcm->publish(channel, &tf_msg);
 }
 
-Isometry3d getTransform(VectorXd q_r1, int link_ind_1, VectorXd q_r2, int link_ind_2){
+Isometry3d getTransform(VectorXd q_r1, int link_ind_1, Vector3d offset_1, VectorXd q_r2, int link_ind_2, Vector3d offset_2, Isometry3d extra_transform){
   Isometry3d transform;
   transform.setIdentity();
 
@@ -99,9 +100,21 @@ Isometry3d getTransform(VectorXd q_r1, int link_ind_1, VectorXd q_r2, int link_i
   robot_kinematics_cache_2.initialize(q_r2);
   robot_2->doKinematics(robot_kinematics_cache_2);
 
+  Isometry3d tf_offset_1;
+  tf_offset_1.setIdentity();
+  tf_offset_1.matrix().block<3, 1>(0, 3) = offset_1;
+
+
+  Isometry3d tf_offset_2;
+  tf_offset_2.setIdentity();
+  tf_offset_2.matrix().block<3, 1>(0, 3) = offset_2;
+
   // do forwardkin to the frame of choice
-  Isometry3d transform_1 = robot_1->relativeTransform(robot_kinematics_cache_1, 0, link_ind_1);
-  Isometry3d transform_2 = robot_2->relativeTransform(robot_kinematics_cache_2, 0, link_ind_2);
+  Isometry3d transform_1 = robot_1->relativeTransform(robot_kinematics_cache_1, 0, link_ind_1) * tf_offset_1.inverse();
+
+  Isometry3d transform_2_pre = robot_2->relativeTransform(robot_kinematics_cache_2, 0, link_ind_2);
+  transform_2_pre.matrix().block<3, 3>(0, 0) *= extra_transform.matrix().block<3, 3>(0, 0);
+  Isometry3d transform_2 = transform_2_pre * tf_offset_2.inverse();
 
   return transform_2.inverse() * transform_1;
 }
@@ -128,14 +141,38 @@ int main(int argc, char** argv) {
   string configFile(argv[1]);
   YAML::Node config = YAML::LoadFile(configFile);
   
+  Isometry3d relative_transform;
+  relative_transform.setIdentity();
+  if (config["relative_transform"]){
+    vector<double> relative_transform_vec = config["relative_transform"].as<vector<double>>();
+    relative_transform.matrix().block<3, 1>(0,3) = Vector3d(relative_transform_vec[0], relative_transform_vec[1], relative_transform_vec[2]);
+    auto relative_transform_quat = drake::math::rpy2quat(Vector3d(relative_transform_vec[3], relative_transform_vec[4], relative_transform_vec[5])*3.141592/180.);
+    relative_transform.matrix().block<3, 3>(0,0) = Quaterniond(relative_transform_quat[0], relative_transform_quat[1],relative_transform_quat[2], relative_transform_quat[3]).toRotationMatrix();
+  }
+
   robot_1 = new RigidBodyTree(drc_path + config["robot_1"]["urdf"].as<string>(), DrakeJoint::QUATERNION);
   string link_1_name = config["robot_1"]["link"].as<string>();
   int link_ind_1 = robot_1->FindBodyIndex(link_1_name);
-
+  Vector3d offset_1;
+  offset_1.setZero();
+  if (config["robot_1"]["offset"]){
+    std::vector<double> offset = config["robot_1"]["offset"].as<std::vector<double>>();
+    offset_1[0] = offset[0];
+    offset_1[1] = offset[1];
+    offset_1[2] = offset[2];
+  }
 
   robot_2 = new RigidBodyTree(drc_path + config["robot_2"]["urdf"].as<string>(), DrakeJoint::QUATERNION);
   string link_2_name = config["robot_2"]["link"].as<string>();
   int link_ind_2 = robot_2->FindBodyIndex(link_2_name);
+  Vector3d offset_2;
+  offset_2.setZero();
+  if (config["robot_2"]["offset"]){
+    std::vector<double> offset = config["robot_2"]["offset"].as<std::vector<double>>();
+    offset_2[0] = offset[0];
+    offset_2[1] = offset[1];
+    offset_2[2] = offset[2];
+  }
 
   Handler handlerRobot1_tracking(lcm, config["robot_1"]["channel"].as<string>());
   Handler handlerRobot1_gt(lcm, config["robot_1"]["gt_channel"].as<string>());
@@ -157,8 +194,9 @@ int main(int argc, char** argv) {
         VectorXd robot_2_q = handlerRobot2_tracking.get_q();
         VectorXd robot_2_q_gt = handlerRobot2_gt.get_q();
 
-        Isometry3d transform_gt = getTransform(robot_1_q_gt, link_ind_1, robot_2_q_gt, link_ind_2);
-        Isometry3d transform = getTransform(robot_1_q, link_ind_1, robot_2_q, link_ind_2);
+        Isometry3d transform_identity; transform_identity.setIdentity();
+        Isometry3d transform_gt = getTransform(robot_1_q_gt, link_ind_1, offset_1, robot_2_q_gt, link_ind_2, offset_2, transform_identity);
+        Isometry3d transform = getTransform(robot_1_q, link_ind_1, offset_1, robot_2_q, link_ind_2, offset_2, relative_transform);
 
         cout << "*****" << endl;
         cout << "GT: " << transform_gt.matrix() << endl;

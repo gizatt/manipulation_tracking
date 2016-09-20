@@ -1,39 +1,40 @@
 robots:
   irb140:
-    urdf: "/software/models/IRB140/urdf/irb_140_ati_schunk_gelsight.urdf"
+    urdf: "/software/models/IRB140/urdf/irb_140_ati_schunk_gelsight_one_finger.urdf"
     q0:
       base_x: -0.17
       base_z: 0.911
-  optotrak_cube:
-    urdf: "/software/perception/manipulation_tracking/urdf/optotrak_cube.urdf"
-    q0:
-      base_x: 0.6
-      base_y: 0.2
-      base_z: 0.75
   desk:
     urdf: "/software/perception/manipulation_tracking/urdf/desk.urdf"
     q0:
       base_x: 0.61
       base_y: 0.2
       base_z: 0.65
+  optotrak_cube:
+    urdf: "/software/perception/manipulation_tracking/urdf/optotrak_cube.urdf"
+    q0:
+      base_x: 0.6
+      base_y: 0.2
+      base_z: 0.75
 
 robots_less_collision:
   irb140:
     urdf: "/software/models/IRB140/urdf/irb_140_ati_schunk_gelsight_less_collision.urdf"
     q0:
       base_x: -0.17
-      base_z: 0.91
-  optotrak_cube:
-    urdf: "/software/perception/manipulation_tracking/urdf/optotrak_cube.urdf"
-    q0:
-      base_x: 0.6
-      base_z: 1.0
+      base_z: 0.911
   desk:
     urdf: "/software/perception/manipulation_tracking/urdf/desk.urdf"
     q0:
       base_x: 0.61
       base_y: 0.2
       base_z: 0.71
+  optotrak_cube:
+    urdf: "/software/perception/manipulation_tracking/urdf/optotrak_cube.urdf"
+    q0:
+      base_x: 0.6
+      base_y: 0.2
+      base_z: 0.75
 
 force_align:
   # force alignment of these frames in the estimator every iteration
@@ -56,30 +57,36 @@ publish:
     channel: "EST_MANIPULAND_STATE_optotrak_cube"
 
 dynamics:
-  dynamics_floating_base_var: 0.00001 # m per frame.
-  dynamics_other_var: 0.01 # rad per frame
-  verbose: False
+  dynamics_floating_base_var: 0.001 # m per frame
+  dynamics_other_var: 0.001 # rad per frame
+  verbose: True
+  # and robot-specific additional gains:
+  robot_specific_vars:
+    - robot: "IRB140"
+      dynamics_floating_base_var: 0.00000001 # m per frame
+      dynamics_other_var: 0.01 # rad per frame
 
 costs:
   - type: "NonpenetratingObjectCost"
-    nonpenetration_var: 0.01 # m
+    nonpenetration_var: 0.001 # m
     min_considered_penetration_distance: 0.001
     verbose: False
     verbose_lcmgl: False
     num_surface_pts: 200
     nonpenetrating_robot: "optotrak_cube"
-    penetrable_robots: []
+    penetrable_robots: ["desk"]
 
   - type: "KinectFrameCost"
     config: "/software/config/irb140/irb140.cfg"
-    icp_var: 0.01 # m
+    icp_var: 0.02 # m
     free_space_var: 0.05
     max_considered_icp_distance: 0.05
     min_considered_joint_distance: 0.03
-    verbose: False
+    verbose: True
     verbose_lcmgl: True
-    world_frame: True
     downsample_amount: 5.0
+    #camera_body: "xtion"
+    world_frame: True
     bounds:
       xMin: 0.4
       xMax: 0.9
@@ -89,15 +96,14 @@ costs:
       zMax: 1.1
 
   - type: "GelsightCost"
-    max_considered_corresp_distance: 0.05
+    max_considered_corresp_distance: 0.03
     min_considered_penetration_distance: 0.001
     gelsight_depth_var: 0.001
-    gelsight_freespace_var: 0.005
+    gelsight_freespace_var: 0.001
     timeout_time: 0.2
     contact_threshold: 0.1
-    verbose: False
+    verbose: True
     surface:
-
       body: "wsg_50_finger_right_link"
       lower_left:  [-0.0189,0.0862, -0.0061]
       lower_right: [-0.0189,0.1129, -0.0061]
@@ -147,8 +153,8 @@ costs:
 #        channel: APRIL_TAG_0051_TO_CAMERA_LEFT
 
   - type: "RobotStateCost"
-    joint_known_fb_var: 0.000000001 # m
-    joint_known_encoder_var: 0.000000001 # radian
-    transcribe_floating_base_vars: True
+    joint_known_fb_var: 0.0000001 # m
+    joint_known_encoder_var: 0.000001 # radian
+    transcribe_floating_base_vars: False
     verbose: False
     state_channelname: "EST_ROBOT_STATE"

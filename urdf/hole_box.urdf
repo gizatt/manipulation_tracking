@@ -7,6 +7,55 @@
         <box size="0.154 0.101 0.051"/>
       </geometry>
     </visual>
+
+    <!-- "T" left 31/64 -->
+    <visual>
+      <origin xyz="0.0516 0.0254 .0250" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius=".0061515625" length=".01"/>
+      </geometry>
+    </visual>
+
+    <!-- "T" right 15/32 -->
+    <visual>
+      <origin xyz="0.0516 -0.0254 .0250" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius=".005953125" length=".01"/>
+      </geometry>
+    </visual>
+
+    <!-- "T" center 1 1/2-->
+    <visual>
+      <origin xyz="0.0516 0 .0250" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius=".00635" length=".01"/>
+      </geometry>
+    </visual>
+
+    <!-- "T" center 2 9/16-->
+    <visual>
+      <origin xyz="0.0262 0 .0250" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius=".00714375" length=".01"/>
+      </geometry>
+    </visual>
+
+    <!-- "T" center 3 5/8-->
+    <visual>
+      <origin xyz="0.0008 0 .0250" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius=".0079375" length=".01"/>
+      </geometry>
+    </visual>
+
+    <!-- "T" center 4 11/16 -->
+    <visual>
+      <origin xyz="-0.0246 0 .0250" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius=".00873125" length=".01"/>
+      </geometry>
+    </visual>
+
     <collision>
       <geometry>
         <box size="0.154 0.101 0.051"/>
