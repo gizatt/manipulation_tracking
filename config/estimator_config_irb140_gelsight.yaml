@@ -4,33 +4,33 @@ robots:
     q0:
       base_x: -0.17
       base_z: 0.911
-  #bolt:
-  #  urdf: "/software/perception/manipulation_tracking/urdf/tiny_bolt.urdf"
-  #  q0:
-  #    base_x: 0.52
-  #    base_y: 0.13
-  #    base_z: 0.70
-  #    base_roll: 0.0
+  bolt:
+    urdf: "/software/perception/manipulation_tracking/urdf/tiny_bolt.urdf"
+    q0:
+      base_x: 0.52
+      base_y: 0.09
+      base_z: 0.72
+      base_roll: 0.0
   hole_box:
     urdf: "/software/perception/manipulation_tracking/urdf/hole_box.urdf"
     q0:
       base_x: 0.60
       base_y: 0.10
-      base_z: 0.73
+      base_z: 5.73
       base_roll: 0.0
-  tiny_screwdriver:
-    urdf: "/software/perception/manipulation_tracking/urdf/tiny_screwdriver.urdf"
-    q0:
-      base_x: 0.57
-      base_y: 0.13
-      base_z: 0.8
-      base_roll: 3.14
+  #tiny_screwdriver:
+  #  urdf: "/software/perception/manipulation_tracking/urdf/tiny_screwdriver.urdf"
+  #  q0:
+  #    base_x: 0.57
+  #    base_y: 0.13
+  #    base_z: 0.8
+  #    base_roll: 3.14
   desk:
     urdf: "/software/perception/manipulation_tracking/urdf/desk.urdf"
     q0:
       base_x: 0.61
       base_y: 0.2
-      base_z: 0.7
+      base_z: 0.64
   xtion:
     urdf: "/software/perception/manipulation_tracking/urdf/xtion.urdf"
     q0:
@@ -47,13 +47,13 @@ robots_less_collision:
     q0:
       base_x: -0.17
       base_z: 0.911
-  #bolt:
-  #  urdf: "/software/perception/manipulation_tracking/urdf/tiny_bolt.urdf"
-  #  q0:
-  #    base_x: 0.52
-  #    base_y: 0.13
-  #    base_z: 0.70
-  #    base_roll: 0.0
+  bolt:
+    urdf: "/software/perception/manipulation_tracking/urdf/tiny_bolt.urdf"
+    q0:
+      base_x: 0.52
+      base_y: 0.08
+      base_z: 0.73
+      base_roll: 0.0
   hole_box:
     urdf: "/software/perception/manipulation_tracking/urdf/hole_box.urdf"
     q0:
@@ -61,13 +61,13 @@ robots_less_collision:
       base_y: 0.70
       base_z: 0.0
       base_roll: 0.0
-  tiny_screwdriver:
-    urdf: "/software/perception/manipulation_tracking/urdf/tiny_screwdriver.urdf"
-    q0:
-      base_x: 0.57
-      base_y: 0.13
-      base_z: 0.8
-      base_roll: 3.14
+  #tiny_screwdriver:
+  #  urdf: "/software/perception/manipulation_tracking/urdf/tiny_screwdriver.urdf"
+  #  q0:
+  #    base_x: 0.57
+  #    base_y: 0.13
+  #    base_z: 0.8
+  #    base_roll: 3.14
   desk:
     urdf: "/software/perception/manipulation_tracking/urdf/desk.urdf"
     q0:
@@ -95,14 +95,14 @@ publish:
     robot_name: "IRB140"
     type: "state"
     channel: "EST_MANIPULAND_STATE_IRB140_ATI_GELSIGHT"
-  #tiny_bolt_state:
-  #  robot_name: "bolt"
-  #  type: "state"
-  #  channel: "EST_MANIPULAND_STATE_bolt"
-  tiny_screwdriver_state:
-    robot_name: "tiny_screwdriver"
+  tiny_bolt_state:
+    robot_name: "bolt"
     type: "state"
-    channel: "EST_MANIPULAND_STATE_tiny_screwdriver"
+    channel: "EST_MANIPULAND_STATE_bolt"
+  #tiny_screwdriver_state:
+  #  robot_name: "tiny_screwdriver"
+  #  type: "state"
+  #  channel: "EST_MANIPULAND_STATE_tiny_screwdriver"
   desk_state:
     robot_name: "desk"
     type: "state"
@@ -133,22 +133,22 @@ dynamics:
     - robot: "xtion"
       dynamics_floating_base_var: 0.000000001
       dynamics_other_var: 0.000000001
-    - robot: "tiny_screwdriver"
-      dynamics_floating_base_var: 0.0001
-      dynamics_other_var: 0.0001
-    #- robot: "bolt"
-    #  dynamics_floating_base_var: 0.001
-    #  dynamics_other_var: 0.001
+    #- robot: "tiny_screwdriver"
+    #  dynamics_floating_base_var: 0.0001
+    #  dynamics_other_var: 0.0001
+    - robot: "bolt"
+      dynamics_floating_base_var: 0.000001
+      dynamics_other_var: 0.000001
 
 costs:
- # - type: "NonpenetratingObjectCost"
- #   nonpenetration_var: 0.01 # m
- #   min_considered_penetration_distance: 0.001
- #   verbose: False
- #   verbose_lcmgl: False
- #   num_surface_pts: 200
- #   nonpenetrating_robot: "bolt"
- #   penetrable_robots: ["hole_box"]
+  #- type: "NonpenetratingObjectCost"
+  #  nonpenetration_var: 0.01 # m
+  #  min_considered_penetration_distance: 0.001
+  #  verbose: False
+  #  verbose_lcmgl: False
+  #  num_surface_pts: 200
+  #  nonpenetrating_robot: "bolt"
+  #  penetrable_robots: []
  # - type: "NonpenetratingObjectCost"
  #   nonpenetration_var: 0.01 # m
  #   min_considered_penetration_distance: 0.001
@@ -157,21 +157,21 @@ costs:
  #   num_surface_pts: 200
  #   nonpenetrating_robot: "hole_box"
  #   penetrable_robots: ["bolt"]
-  - type: "NonpenetratingObjectCost"
-    nonpenetration_var: 0.001 # m
-    min_considered_penetration_distance: 0.001
-    verbose: True
-    verbose_lcmgl: True
-    num_surface_pts: 200
-    nonpenetrating_robot: "tiny_screwdriver"
-    penetrable_robots: ["hole_box"]
+ #- type: "NonpenetratingObjectCost"
+ #  nonpenetration_var: 0.001 # m
+ #  min_considered_penetration_distance: 0.001
+ #  verbose: True
+ #  verbose_lcmgl: True
+ #  num_surface_pts: 200
+ #  nonpenetrating_robot: "tiny_screwdriver"
+ #  penetrable_robots: ["hole_box"]
 
   - type: "KinectFrameCost"
     config: "/software/config/irb140/irb140.cfg"
     icp_var: 0.005 # m
     free_space_var: 0.05
     max_considered_icp_distance: 0.04
-    min_considered_joint_distance: 0.03
+    min_considered_joint_distance: 0.00
     verbose: True
     verbose_lcmgl: True
     downsample_amount: 5.0
@@ -191,7 +191,7 @@ costs:
     gelsight_depth_var: 0.005
     gelsight_freespace_var: 0.0005
     timeout_time: 0.2
-    contact_threshold: 0.1
+    contact_threshold: 0.05
     verbose: True
     surface:
       body: "wsg_50_finger_right_link"

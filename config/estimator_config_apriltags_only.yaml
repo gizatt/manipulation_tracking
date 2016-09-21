@@ -106,7 +106,7 @@ costs:
       #  channel: APRIL_TAG_0102_TO_CAMERA_LEFT
       - id: 50
         body: "base_link"
-        pos: [0.812, -0.08, -0.19]
+        pos: [0.812, -0.075, -0.198] #-0.198 true
         rot: [183.0, 0.0, 90.0]
         channel: APRIL_TAG_0050_TO_CAMERA_LEFT
       #- id: 52
