@@ -157,19 +157,19 @@ costs:
  #   num_surface_pts: 200
  #   nonpenetrating_robot: "hole_box"
  #   penetrable_robots: ["bolt"]
- #- type: "NonpenetratingObjectCost"
- #  nonpenetration_var: 0.001 # m
- #  min_considered_penetration_distance: 0.001
- #  verbose: True
- #  verbose_lcmgl: True
- #  num_surface_pts: 200
- #  nonpenetrating_robot: "tiny_screwdriver"
- #  penetrable_robots: ["hole_box"]
+  - type: "NonpenetratingObjectCost"
+    nonpenetration_var: 0.001 # m
+    min_considered_penetration_distance: 0.001
+    verbose: True
+    verbose_lcmgl: True
+    num_surface_pts: 200
+    nonpenetrating_robot: "bolt"
+    penetrable_robots: ["hole_box"]
 
   - type: "KinectFrameCost"
     config: "/software/config/irb140/irb140.cfg"
     icp_var: 0.005 # m
-    free_space_var: 0.05
+    free_space_var: 0.5
     max_considered_icp_distance: 0.04
     min_considered_joint_distance: 0.00
     verbose: True

@@ -1,17 +1,15 @@
 <?xml version="1.0"?>
 <robot
   name="bolt">
-  <link name="head">
+<!--  <link name="head">
     <visual>
       <geometry>
-        <!--<box size="0.019 0.019 0.01285"/>-->
         <cylinder length="0.01285" radius="0.0095" />
       </geometry>
       <origin xyz="0 0 0"/>
     </visual>
     <collision>
       <geometry>
-        <!--<box size="0.019 0.019 0.01285"/>-->
         <cylinder length="0.01285" radius="0.0095" />
       </geometry> 
       <origin xyz="0 0 0"/>
@@ -21,19 +19,19 @@
       <inertia ixx="0.01" ixy="0.0" ixz="0.0" iyy="0.01" iyz="0.0" izz="0.01"/>
       <origin xyz="0 0 0"/>
     </inertial>
-  </link>
+  </link> -->
   <link name="body">
     <visual>
       <geometry>
         <!--<box size="0.0137 0.0137 0.03724"/>-->
-        <cylinder length=".03724" radius="0.0060" />
+        <cylinder length=".03724" radius="0.0051" />
       </geometry>
       <origin xyz="0 0 0"/>
     </visual>
     <collision>
       <geometry>
         <!--<box size="0.0137 0.0137 0.03724"/>-->
-        <cylinder length=".03724" radius="0.0060" />
+        <cylinder length=".03724" radius="0.0051" />
       </geometry>
       <origin xyz="0 0 0"/>
     </collision>
@@ -44,11 +42,10 @@
     </inertial>
   </link>
 
-  <joint name="head_to_body" type="fixed">
+  <!--<joint name="head_to_body" type="fixed">
     <parent link="head"/>
     <child link="body"/>
-    <!-- 0.01285/2 + 0.03724/2 -->
     <origin rpy="0 0 0" xyz="0 0 0.025045"/>
-  </joint>
+  </joint>-->
 </robot>
 
