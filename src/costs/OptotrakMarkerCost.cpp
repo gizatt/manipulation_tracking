@@ -5,7 +5,7 @@
 #include "drake/util/convexHull.h"
 #include "drake/util/drakeGeometryUtil.h"
 #include <cmath>
-#include "common.hpp"
+#include "common/common.hpp"
 
 using namespace std;
 using namespace Eigen;

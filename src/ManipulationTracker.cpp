@@ -7,7 +7,7 @@
 #include "drake/util/drakeGeometryUtil.h"
 #include <drake/systems/plants/parser_urdf.h>
 
-#include "common.hpp"
+#include "common/common.hpp"
 
 using namespace std;
 using namespace Eigen;

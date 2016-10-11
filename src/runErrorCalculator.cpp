@@ -6,9 +6,9 @@
 #include <cfloat>
 #include "lcmtypes/bot_core/robot_state_t.hpp"
 #include "lcmtypes/bot_core/rigid_transform_t.hpp"
-#include "common.hpp"
+#include "common/common.hpp"
 #include "drake/systems/plants/RigidBodyTree.h"
-#include "ManipulationTrackerCost.hpp"
+#include "costs/ManipulationTrackerCost.hpp"
 #include "yaml-cpp/yaml.h"
 #include <lcm/lcm-cpp.hpp>
 #include <stdexcept>

@@ -14,10 +14,10 @@
  */
 
 #include "ManipulationTracker.hpp"
-#include "DynamicsCost.hpp"
-#include "GelsightCost.hpp"
+#include "costs/DynamicsCost.hpp"
+#include "costs/GelsightCost.hpp"
 #include "yaml-cpp/yaml.h"
-#include "common.hpp"
+#include "common/common.hpp"
 #include "GelsightOpenGLSim.hpp"
 
 using namespace std;

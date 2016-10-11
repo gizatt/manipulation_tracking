@@ -5,7 +5,8 @@
 #include <iostream>
 
 #include "drake/systems/plants/RigidBodyTree.h"
-#include "ManipulationTrackerCost.hpp"
+
+#include "costs/ManipulationTrackerCost.hpp"
 #include "yaml-cpp/yaml.h"
 #include <lcm/lcm-cpp.hpp>
 #include <bot_lcmgl_client/lcmgl.h>

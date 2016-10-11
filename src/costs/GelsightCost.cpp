@@ -3,10 +3,10 @@
 
 #include <assert.h> 
 #include <fstream>
-#include "common.hpp"
+#include "common/common.hpp"
 #include "drake/util/convexHull.h"
 #include <cmath>
-#include "sdf_2d_functions.hpp"
+#include "common/sdf_2d_functions.hpp"
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>

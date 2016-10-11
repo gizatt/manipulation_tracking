@@ -2,7 +2,7 @@
 #include <iostream>
 #include <Eigen/Core>
 #include <Eigen/Dense>
-#include "sdf_2d_functions.hpp"
+#include "common/sdf_2d_functions.hpp"
 
 using namespace std;
 using namespace Eigen;

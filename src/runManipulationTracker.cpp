@@ -1,15 +1,15 @@
 
 #include "ManipulationTracker.hpp"
-#include "RobotStateCost.hpp"
-#include "JointStateCost.hpp"
-#include "KinectFrameCost.hpp"
-#include "DynamicsCost.hpp"
-#include "GelsightCost.hpp"
-#include "AttachedApriltagCost.hpp"
-#include "OptotrakMarkerCost.hpp"
-#include "NonpenetratingObjectCost.hpp"
+#include "costs/RobotStateCost.hpp"
+#include "costs/JointStateCost.hpp"
+#include "costs/KinectFrameCost.hpp"
+#include "costs/DynamicsCost.hpp"
+#include "costs/GelsightCost.hpp"
+#include "costs/AttachedApriltagCost.hpp"
+#include "costs/OptotrakMarkerCost.hpp"
+#include "costs/NonpenetratingObjectCost.hpp"
 #include "yaml-cpp/yaml.h"
-#include "common.hpp"
+#include "common/common.hpp"
 
 using namespace std;
 using namespace Eigen;

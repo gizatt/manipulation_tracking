@@ -4,7 +4,7 @@
 #include "DynamicsCost.hpp"
 #include "drake/util/convexHull.h"
 #include <cmath>
-#include "common.hpp"
+#include "common/common.hpp"
 
 using namespace std;
 using namespace Eigen;
