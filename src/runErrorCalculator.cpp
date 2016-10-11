@@ -2,7 +2,6 @@
 #include <assert.h> 
 #include <fstream>
 #include "drake/util/convexHull.h"
-#include "zlib.h"
 #include <cmath>
 #include <cfloat>
 #include "lcmtypes/bot_core/robot_state_t.hpp"

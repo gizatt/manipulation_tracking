@@ -5,7 +5,6 @@
 #include <fstream>
 #include "common.hpp"
 #include "drake/util/convexHull.h"
-#include "zlib.h"
 #include <cmath>
 #include "sdf_2d_functions.hpp"
 #include <opencv2/core/core.hpp>

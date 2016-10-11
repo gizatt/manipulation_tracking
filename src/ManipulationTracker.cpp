@@ -2,20 +2,11 @@
 #include <assert.h> 
 #include <fstream>
 #include "ManipulationTracker.hpp"
-#include "drake/util/convexHull.h"
-#include "zlib.h"
-#include "sdf_2d_functions.hpp"
-#include <opencv2/core/core.hpp>
-#include <opencv2/highgui/highgui.hpp>
-#include <opencv2/imgproc/imgproc.hpp>
 #include <cmath>
 #include <cfloat>
 #include "drake/util/drakeGeometryUtil.h"
-#include "drake/systems/plants/joints/RevoluteJoint.h"
 #include <drake/systems/plants/parser_urdf.h>
 
-#include "lcmtypes/bot_core/robot_state_t.hpp"
-#include "lcmtypes/vicon/body_t.hpp"
 #include "common.hpp"
 
 using namespace std;

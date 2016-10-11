@@ -4,7 +4,6 @@
 #include "AttachedApriltagCost.hpp"
 #include "drake/util/convexHull.h"
 #include "drake/util/drakeGeometryUtil.h"
-#include "zlib.h"
 #include <cmath>
 #include "common.hpp"
 

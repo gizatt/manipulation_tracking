@@ -3,7 +3,6 @@
 #include <fstream>
 #include "RobotStateCost.hpp"
 #include "drake/util/convexHull.h"
-#include "zlib.h"
 #include <cmath>
 #include "common.hpp"
 
