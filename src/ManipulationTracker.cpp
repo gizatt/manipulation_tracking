@@ -617,7 +617,7 @@ void ManipulationTracker::publish(){
 
         // publish just the floating base transform?
         else if (it->publish_type == "transform") {
-          vicon::body_t floating_base_transform;
+          bot_core::rigid_transform_t floating_base_transform;
           floating_base_transform.utime = getUnixTime();
 
           bool found_floating = false;

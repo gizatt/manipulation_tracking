@@ -13,7 +13,7 @@
 #include <bot_frames/bot_frames.h>
 #include <bot_param/param_client.h>
 #include "lcmtypes/bot_core/robot_state_t.hpp"
-#include "lcmtypes/vicon/body_t.hpp"
+#include "lcmtypes/bot_core/rigid_transform_t.hpp"
 
 // forward def
 class ManipulationTrackerCost;
