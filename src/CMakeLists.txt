@@ -16,7 +16,7 @@ pods_install_executables(runManipulationTracker)
 
 add_executable(runErrorCalculator runErrorCalculator.cpp)
 pods_use_pkg_config_packages(runErrorCalculator lcm bot2-core bot2-lcmgl-client bot2-frames bot2-param-client kinect-utils opencv drake-convex-hull eigen3)
-target_link_libraries(runErrorCalculator drakeRBM drakeJoints drakeUtil drakeXMLUtil drakeCommon yaml-cpp)
+target_link_libraries(runErrorCalculator drakeRBM drakeJoints drakeXMLUtil drakeCommon yaml-cpp)
 pods_install_executables(runErrorCalculator)
 
 add_library(GelsightOpenGLSim SHARED GelsightOpenGLSim.cpp)
