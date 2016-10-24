@@ -38,7 +38,7 @@ KinectFrameCost::KinectFrameCost(std::shared_ptr<RigidBodyTree> robot_, std::sha
     robot(robot_),
     robot_kinematics_cache(robot->bodies),
     lcm(lcm_),
-    nq(robot->number_of_positions())
+    nq(robot->get_num_positions())
 {
   if (config["icp_var"])
     icp_var = config["icp_var"].as<double>();
@@ -189,7 +189,7 @@ bool KinectFrameCost::constructCost(ManipulationTracker * tracker, const Eigen::
     return false;
   }
   else {
-    VectorXd q_old = x_old.block(0, 0, robot->number_of_positions(), 1);
+    VectorXd q_old = x_old.block(0, 0, robot->get_num_positions(), 1);
     robot_kinematics_cache.initialize(q_old);
     robot->doKinematics(robot_kinematics_cache);
 
@@ -640,7 +640,7 @@ bool KinectFrameCost::constructCost(ManipulationTracker * tracker, const Eigen::
     }
 
     if (have_hardcoded_kinect2world_){
-      vicon::body_t floating_base_transform;
+      bot_core::rigid_transform_t floating_base_transform;
       floating_base_transform.utime = getUnixTime();
       floating_base_transform.trans[0] = kinect2world.matrix()(0, 3);
       floating_base_transform.trans[1] = kinect2world.matrix()(1, 3);
@@ -660,7 +660,7 @@ bool KinectFrameCost::constructCost(ManipulationTracker * tracker, const Eigen::
 
 void KinectFrameCost::handleCameraOffsetMsg(const lcm::ReceiveBuffer* rbuf,
                            const std::string& chan,
-                           const vicon::body_t* msg){
+                           const bot_core::rigid_transform_t* msg){
   camera_offset_mutex.lock();
   Vector3d trans(msg->trans[0], msg->trans[1], msg->trans[2]);
   Quaterniond rot(msg->quat[0], msg->quat[1], msg->quat[2], msg->quat[3]);
