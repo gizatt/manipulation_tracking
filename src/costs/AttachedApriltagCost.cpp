@@ -15,7 +15,7 @@ AttachedApriltagCost::AttachedApriltagCost(std::shared_ptr<const RigidBodyTree> 
     robot(robot_),
     robot_kinematics_cache(robot->bodies),
     lcm(lcm_),
-    nq(robot->number_of_positions())
+    nq(robot->get_num_positions())
 {
   if (config["attached_manipuland"]){
     // try to find this robot
@@ -142,7 +142,7 @@ bool AttachedApriltagCost::constructCost(ManipulationTracker * tracker, const Ei
   double ATTACHED_APRILTAG_WEIGHT = std::isinf(localization_var) ? 0.0 : 1. / (2. * localization_var * localization_var);
   double BODY_TRANSFORM_WEIGHT = std::isinf(transform_var) ? 0.0 : 1. / (2. * transform_var * transform_var);
 
-  VectorXd q_old = x_old.block(0, 0, robot->number_of_positions(), 1);
+  VectorXd q_old = x_old.block(0, 0, robot->get_num_positions(), 1);
   robot_kinematics_cache.initialize(q_old);
   robot->doKinematics(robot_kinematics_cache);
 
@@ -167,7 +167,7 @@ bool AttachedApriltagCost::constructCost(ManipulationTracker * tracker, const Ei
     Transform<double, 3, Isometry> current_transform =  robot->relativeTransform(robot_kinematics_cache, 0,  attachment->body_id);
 
     // spawn transform from state variables
-    int start_ind = robot->number_of_positions() + robot->number_of_velocities() + 6*attachment->list_id;
+    int start_ind = robot->get_num_positions() + robot->get_num_velocities() + 6*attachment->list_id;
     Vector3d trans(x_old.block(start_ind, 0, 3, 1));
     Vector3d rpy(x_old.block(start_ind + 3, 0, 3, 1));
     Quaterniond rot = AngleAxisd(rpy[2], Vector3d::UnitZ())
@@ -241,7 +241,7 @@ bool AttachedApriltagCost::constructCost(ManipulationTracker * tracker, const Ei
       z_c << z_current, rpy_current;
       VectorXd z_d(6);
       z_d << z_des, rpy_des;
-      MatrixXd J(6, robot->number_of_positions());
+      MatrixXd J(6, robot->get_num_positions());
       J << J_xyz, J_rpy;
 
       // POSITION FROM DETECTED TRANSFORM:
@@ -370,7 +370,7 @@ void AttachedApriltagCost::handleTagDetectionMsg(const lcm::ReceiveBuffer* rbuf,
 
 void AttachedApriltagCost::handleCameraOffsetMsg(const lcm::ReceiveBuffer* rbuf,
                            const std::string& chan,
-                           const vicon::body_t* msg){
+                           const bot_core::rigid_transform_t* msg){
   camera_offset_mutex.lock();
   Vector3d trans(msg->trans[0], msg->trans[1], msg->trans[2]);
   Quaterniond rot(msg->quat[0], msg->quat[1], msg->quat[2], msg->quat[3]);

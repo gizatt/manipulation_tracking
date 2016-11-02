@@ -10,14 +10,16 @@
 #include "costs/NonpenetratingObjectCost.hpp"
 #include "yaml-cpp/yaml.h"
 #include "common/common.hpp"
+#include "unistd.h"
 
 using namespace std;
 using namespace Eigen;
 
 int main(int argc, char** argv) {
-  const char* drc_path = std::getenv("DRC_BASE");
+  char * drc_path = std::getenv("DRC_BASE");
   if (!drc_path) {
-    throw std::runtime_error("environment variable DRC_BASE is not set");
+    printf("Environment variable DRC_BASE is not set -- assuming global paths\n");
+    drc_path = "";
   }
 
   if (argc != 2){

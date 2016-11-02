@@ -19,6 +19,7 @@
 #include "yaml-cpp/yaml.h"
 #include "common/common.hpp"
 #include "GelsightOpenGLSim.hpp"
+#include "unistd.h"
 
 using namespace std;
 using namespace Eigen;
@@ -33,7 +34,7 @@ void publish_gt_state(std::shared_ptr<lcm::LCM> lcm, std::shared_ptr<RigidBodyTr
   gt_state.num_joints = 0;
   bool found_floating = false;
   for (int i=1; i<robot->bodies.size(); i++){
-    if (robot->bodies[i]->getJoint().isFloating()){
+    if (robot->bodies[i]->getJoint().is_floating()){
       Vector3d xyz = x_robot.block<3, 1>(robot->bodies[i]->get_position_start_index() + 0, 0);
       gt_state.pose.translation.x = xyz[0];
       gt_state.pose.translation.y = xyz[1];
@@ -50,11 +51,11 @@ void publish_gt_state(std::shared_ptr<lcm::LCM> lcm, std::shared_ptr<RigidBodyTr
       found_floating = true;
     } else {
       // warning: if numpositions != numvelocities, problems arise...
-      gt_state.num_joints += robot->bodies[i]->getJoint().getNumPositions();
-      for (int j=0; j < robot->bodies[i]->getJoint().getNumPositions(); j++){
-        gt_state.joint_name.push_back(robot->bodies[i]->getJoint().getPositionName(j));
+      gt_state.num_joints += robot->bodies[i]->getJoint().get_num_positions();
+      for (int j=0; j < robot->bodies[i]->getJoint().get_num_positions(); j++){
+        gt_state.joint_name.push_back(robot->bodies[i]->getJoint().get_position_name(j));
         gt_state.joint_position.push_back(x_robot[robot->bodies[i]->get_position_start_index() + j]);
-        gt_state.joint_velocity.push_back(x_robot[robot->bodies[i]->get_position_start_index() + j + robot->number_of_positions()]);
+        gt_state.joint_velocity.push_back(x_robot[robot->bodies[i]->get_position_start_index() + j + robot->get_num_positions()]);
       }
     }
   }
@@ -73,7 +74,7 @@ Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> generateNewGelsightImage(
             const VectorXd x_robot){
   // this could be cleaner -- we could clean up the renderGelsight interface
   // but for now this'll make us robust to quat vs rpy parameterization
-  VectorXd q_robot = x_robot.block(0, 0, robot->number_of_positions(), 1);
+  VectorXd q_robot = x_robot.block(0, 0, robot->get_num_positions(), 1);
   auto robot_kinematics_cache = robot->doKinematics(q_robot);
 
   if (glsim){
@@ -170,7 +171,7 @@ int main(int argc, char** argv) {
   // get robot and any supplied initial condition
   string robot_urdf_path = string(drc_path) + config["urdf"].as<string>();
   shared_ptr<RigidBodyTree> robot(new RigidBodyTree(robot_urdf_path));
-  VectorXd x0_robot(robot->number_of_positions() + robot->number_of_velocities());
+  VectorXd x0_robot(robot->get_num_positions() + robot->get_num_velocities());
   x0_robot.setZero();
 
   // collision check needs a non-const RBT... so generate another one
@@ -185,8 +186,8 @@ int main(int argc, char** argv) {
   std::shared_ptr<GelsightCost> gelsight_cost(new GelsightCost(shared_ptr<RigidBodyTree>(new RigidBodyTree(robot_urdf_path)), lcm, config["gelsight_cost"]));
 
   if (config["q0"] && config["q0"].Type() == YAML::NodeType::Map){
-    for (int i=0; i < robot->number_of_positions(); i++){
-      auto find = config["q0"][robot->getPositionName(i)];
+    for (int i=0; i < robot->get_num_positions(); i++){
+      auto find = config["q0"][robot->get_position_name(i)];
       if (find){
         x0_robot(i) = find.as<double>();
       } 
@@ -229,11 +230,11 @@ int main(int argc, char** argv) {
     x0_robot(2) -= 0.0005;
   }
 
-  VectorXd x0_err(robot->number_of_positions() + robot->number_of_velocities());
+  VectorXd x0_err(robot->get_num_positions() + robot->get_num_velocities());
   x0_err.setZero();
   if (config["q0_err"] && config["q0_err"].Type() == YAML::NodeType::Map){
-    for (int i=0; i < robot->number_of_positions(); i++){
-      auto find = config["q0_err"][robot->getPositionName(i)];
+    for (int i=0; i < robot->get_num_positions(); i++){
+      auto find = config["q0_err"][robot->get_position_name(i)];
       if (find)
         x0_err(i) = find.as<double>();
       else // unnecessary but here for clarity

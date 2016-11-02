@@ -12,7 +12,7 @@
 #include <bot_lcmgl_client/lcmgl.h>
 #include <bot_frames/bot_frames.h>
 #include <bot_param/param_client.h>
-#include "lcmtypes/vicon/body_t.hpp"
+#include "lcmtypes/bot_core/rigid_transform_t.hpp"
 
 
 #include <lcmtypes/bot_core/rigid_transform_t.hpp>
@@ -33,7 +33,7 @@ public:
                            const bot_core::rigid_transform_t* msg);
   void handleCameraOffsetMsg(const lcm::ReceiveBuffer* rbuf,
                            const std::string& chan,
-                           const vicon::body_t* msg);
+                           const bot_core::rigid_transform_t* msg);
 
 private:
   std::string robot_name = "";

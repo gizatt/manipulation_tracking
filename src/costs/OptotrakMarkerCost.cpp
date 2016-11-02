@@ -23,7 +23,7 @@ OptotrakMarkerCost::OptotrakMarkerCost(std::shared_ptr<const RigidBodyTree> robo
     robot(robot_),
     robot_kinematics_cache(robot->bodies),
     lcm(lcm_),
-    nq(robot->number_of_positions())
+    nq(robot->get_num_positions())
 {
   if (config["attached_manipuland"]){
     // try to find this robot
@@ -147,7 +147,7 @@ bool OptotrakMarkerCost::constructCost(ManipulationTracker * tracker, const Eige
   double MARKER_WEIGHT = std::isinf(localization_var) ? 0.0 : 1. / (2. * localization_var * localization_var);
   double BODY_TRANSFORM_WEIGHT = std::isinf(transform_var) ? 0.0 : 1. / (2. * transform_var * transform_var);
 
-  VectorXd q_old = x_old.block(0, 0, robot->number_of_positions(), 1);
+  VectorXd q_old = x_old.block(0, 0, robot->get_num_positions(), 1);
   robot_kinematics_cache.initialize(q_old);
   robot->doKinematics(robot_kinematics_cache);
 
@@ -190,7 +190,7 @@ bool OptotrakMarkerCost::constructCost(ManipulationTracker * tracker, const Eige
       z_c << z_current;
       VectorXd z_d(3);
       z_d << z_des;
-      MatrixXd J(3, robot->number_of_positions());
+      MatrixXd J(3, robot->get_num_positions());
       J << J_xyz; //, J_rpy;
 
       // POSITION FROM DETECTED TRANSFORM:

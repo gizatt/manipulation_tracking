@@ -38,11 +38,11 @@ NonpenetratingObjectCost::NonpenetratingObjectCost(std::shared_ptr<RigidBodyTree
     lcm(lcm_),
     robot(robot_),
     robot_kinematics_cache(robot->bodies),
-    nq(robot->number_of_positions()),
+    nq(robot->get_num_positions()),
     robot_correspondences(robot_correspondences_),
     robot_object(robot_object_),
     robot_object_kinematics_cache(robot_object->bodies),
-    nq_object(robot_object->number_of_positions()),
+    nq_object(robot_object->get_num_positions()),
     robot_object_correspondences(robot_object_correspondences_)
 {
   std::cout << "Important #1: " << robot_correspondences.size() << "\n";
@@ -87,7 +87,7 @@ NonpenetratingObjectCost::NonpenetratingObjectCost(std::shared_ptr<RigidBodyTree
   //uto save_pc_sub = lcm->subscribe("IRB140_ESTIMATOR_SAVE_POINTCLOUD", &NonpenetratingObjectCost::handleSavePointcloudMsg, this);
   //save_pc_sub->setQueueCapacity(1);
 
-  VectorXd q_object_old(robot_object->number_of_positions());
+  VectorXd q_object_old(robot_object->get_num_positions());
   q_object_old *= 0;
   robot_object_kinematics_cache.initialize(q_object_old);
   robot_object->doKinematics(robot_object_kinematics_cache);
@@ -196,17 +196,17 @@ bool NonpenetratingObjectCost::constructCost(ManipulationTracker * tracker, cons
 
   // TODO: LOOOOOOOTS TO DO HERE
 
-  int nq_full = tracker->getRobot()->number_of_positions();
+  int nq_full = tracker->getRobot()->get_num_positions();
   VectorXd q_old_full = x_old.block(0,0,nq_full, 1);
 
   // First, convert x_old into corresponding q values for robot and robot_object
-  VectorXd q_old(robot->number_of_positions());
+  VectorXd q_old(robot->get_num_positions());
   for (int i=0; i<robot_correspondences.size(); i++)
     q_old(i) = x_old(robot_correspondences[i]);
   robot_kinematics_cache.initialize(q_old);
   robot->doKinematics(robot_kinematics_cache);
 
-  VectorXd q_object_old(robot_object->number_of_positions());
+  VectorXd q_object_old(robot_object->get_num_positions());
   for (int i=0; i<robot_object_correspondences.size(); i++)
     q_object_old(i) = x_old(robot_object_correspondences[i]);
   robot_object_kinematics_cache.initialize(q_object_old);

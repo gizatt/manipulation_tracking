@@ -12,7 +12,7 @@ using namespace Eigen;
 DynamicsCost::DynamicsCost(std::shared_ptr<const RigidBodyTree> robot, std::shared_ptr<lcm::LCM> lcm, YAML::Node config) :
     robot_(robot),
     lcm_(lcm),
-    nq_(robot->number_of_positions())
+    nq_(robot->get_num_positions())
 {
   if (config["dynamics_floating_base_var"])
     dynamics_vars_defaults_.floating_base_var = config["dynamics_floating_base_var"].as<double>();
@@ -42,7 +42,7 @@ bool DynamicsCost::constructPredictionMatrices(ManipulationTracker * tracker, co
 {
   double now = getUnixTime();
 
-  VectorXd q_old = x_old.block(0, 0, robot_->number_of_positions(), 1);
+  VectorXd q_old = x_old.block(0, 0, robot_->get_num_positions(), 1);
 
   // predict x to be within joint limits
   x = x_old;
@@ -70,11 +70,11 @@ bool DynamicsCost::constructPredictionMatrices(ManipulationTracker * tracker, co
     else
       these_vars = dynamics_vars_defaults_;
 
-    if (robot_->bodies[i]->getJoint().isFloating())
-      for (int i = 0; i < robot_->bodies[i]->getJoint().getNumPositions(); i++)
+    if (robot_->bodies[i]->getJoint().is_floating())
+      for (int i = 0; i < robot_->bodies[i]->getJoint().get_num_positions(); i++)
         P(i + robot_->bodies[i]->get_position_start_index(), i + robot_->bodies[i]->get_position_start_index()) += these_vars.floating_base_var;
     else
-      for (int i = 0; i < robot_->bodies[i]->getJoint().getNumPositions(); i++)
+      for (int i = 0; i < robot_->bodies[i]->getJoint().get_num_positions(); i++)
         P(i + robot_->bodies[i]->get_position_start_index(), i + robot_->bodies[i]->get_position_start_index()) += these_vars.other_var;
   }
 

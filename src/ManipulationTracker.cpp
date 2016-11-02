@@ -457,9 +457,9 @@ void ManipulationTracker::update(){
     }
 
     // perform reduced solve
-    auto QR = Q_reduced.colPivHouseholderQr();
+    ColPivHouseholderQR<MatrixXd> QR = Q_reduced.colPivHouseholderQr();
     VectorXd q_new_reduced = QR.solve(-f_reduced);
-    MatrixXd Q_reduced_inverse = QR.inverse();
+    MatrixXd Q_reduced_inverse = Q_reduced.inverse();
 
     // reexpand
     ir = 0;
