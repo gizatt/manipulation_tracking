@@ -19,15 +19,16 @@ pods_use_pkg_config_packages(runErrorCalculator lcm bot2-core bot2-lcmgl-client 
 target_link_libraries(runErrorCalculator drakeRBM drakeJoints drakeXMLUtil drakeCommon yaml-cpp)
 pods_install_executables(runErrorCalculator)
 
-add_executable(runObjectDetector runObjectDetector.cpp)
-pods_use_pkg_config_packages(runObjectDetector lcm bot2-core bot2-lcmgl-client bot2-frames bot2-param-client kinect-utils opencv drake-convex-hull eigen3)
-target_link_libraries(runObjectDetector drakeRBM drakeJoints drakeXMLUtil drakeCommon yaml-cpp)
-pods_install_executables(runObjectDetector)
-
 find_package(PCL 1.5 REQUIRED)
 include_directories(${PCL_INCLUDE_DIRS})
 link_directories(${PCL_LIBRARY_DIRS})
 add_definitions(${PCL_DEFINITIONS})
+
+
+add_executable(runObjectDetector runObjectDetector.cpp)
+pods_use_pkg_config_packages(runObjectDetector lcm bot2-core bot2-lcmgl-client bot2-frames bot2-param-client kinect-utils opencv drake-convex-hull eigen3 opencv kinect-utils)
+target_link_libraries(runObjectDetector drakeRBM drakeJoints drakeXMLUtil drakeCommon yaml-cpp ${PCL_LIBRARIES} z)
+pods_install_executables(runObjectDetector)
 
 add_executable(generatePointCloudFromURDF generatePointCloudFromURDF.cpp)
 pods_use_pkg_config_packages(generatePointCloudFromURDF lcm bot2-core bot2-lcmgl-client bot2-frames bot2-param-client kinect-utils opencv drake-convex-hull eigen3)

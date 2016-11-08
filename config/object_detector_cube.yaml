@@ -1,0 +1,4 @@
+points: "/home/gizatt/manipulation_tracking_distro/manipulation_tracking/pcd/cube.pts.pcd"
+normals: "/home/gizatt/manipulation_tracking_distro/manipulation_tracking/pcd/cube.normals.pcd"
+
+timestep: 0.05
