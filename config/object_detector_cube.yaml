@@ -2,3 +2,12 @@ points: "/home/gizatt/manipulation_tracking_distro/manipulation_tracking/pcd/cub
 normals: "/home/gizatt/manipulation_tracking_distro/manipulation_tracking/pcd/cube.normals.pcd"
 
 timestep: 0.05
+
+shot_dist_thresh: 1.0
+model_ss: 0.02
+scene_ss: 0.025
+rf_rad: 0.015
+descr_rad: 0.1
+cg_size: 0.01
+cg_thresh: 5.0
+verbose: false
