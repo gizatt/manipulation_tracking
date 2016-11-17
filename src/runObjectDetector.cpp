@@ -298,8 +298,8 @@ int main(int argc, char** argv) {
   // 
   // Load model cloud
   //
-  if (!config["points"] || !config["normals"]){
-    printf("YAML incomplete -- points or normals unspecified\n");
+  if (!config["points"]){
+    printf("YAML incomplete -- points unspecified\n");
     return -1;
   }
 
@@ -308,10 +308,19 @@ int main(int argc, char** argv) {
     std::cout << "Error loading model cloud." << std::endl;
     return (-1);
   }
-  if (pcl::io::loadPCDFile (config["normals"].as<string>(), *model_normals) < 0)
+  if (!config["normals"] || pcl::io::loadPCDFile (config["normals"].as<string>(), *model_normals) < 0)
   {
-    std::cout << "Error loading model normals." << std::endl;
-    return (-1);
+    std::cout << "Error loading model normals, computing manually" << std::endl;
+
+    pcl::NormalEstimation<pcl::PointXYZ, pcl::Normal> ne_model;
+    ne_model.setInputCloud (model);
+    pcl::search::KdTree<pcl::PointXYZ>::Ptr tree_model (new pcl::search::KdTree<pcl::PointXYZ> ());
+    ne_model.setSearchMethod (tree_model);
+
+    // Use all neighbors in a sphere of radius 3cm
+    ne_model.setRadiusSearch (0.03);
+    // Compute the features
+    ne_model.compute (*model_normals);
   }
   int num_pts = model->size();
   int num_normals = model_normals->size();

@@ -3,6 +3,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 include_directories( ./ )
 
 add_subdirectory(costs)
+add_subdirectory(object_scanning)
 
 add_library(ManipulationTracker SHARED ManipulationTracker.cpp)
 pods_use_pkg_config_packages(ManipulationTracker drake-convex-hull eigen3 lcmtypes_bot2-core)
