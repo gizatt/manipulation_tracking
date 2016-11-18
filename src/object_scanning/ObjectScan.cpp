@@ -13,8 +13,7 @@ ObjectScan::ObjectScan(YAML::Node config)
   }
 }
 
-
-void ObjectScan::update()
-{
-  printf("Update object scan\n");
+void ObjectScan::addPointCloud(pcl::PointCloud<PointType>::Ptr new_pts, Eigen::Affine3d transform){
+  printf("Trying\n");
+  cout << transform.matrix() << endl;
 }
