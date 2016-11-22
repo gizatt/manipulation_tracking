@@ -24,4 +24,28 @@ inline bool is_nan(const Eigen::MatrixBase<Derived>& x)
    return ((x.array() == x.array())).all();
 }
 
+Eigen::Transform<double, 3, Eigen::Isometry>
+getAverageTransform(std::vector<Eigen::Transform<double, 3, Eigen::Isometry>> transforms){
+  Eigen::Transform<double, 3, Eigen::Isometry> avg_transform;
+  avg_transform.setIdentity();
+  Eigen::Vector3d avg_pt = Eigen::Vector3d::Zero();
+  Eigen::Matrix3d sum_rots = Eigen::Matrix3d::Zero();
+  int k=0;
+  for (auto iter=transforms.begin(); iter!=transforms.end(); iter++){
+    avg_pt += iter->matrix().block<3, 1>(0, 3);
+    sum_rots += iter->matrix().block<3, 3>(0, 0);
+    k++;
+  }
+  
+  if (k > 0){
+    avg_pt /= (double)k;
+    // following tip from "A Note on Averaging Rotations", Curtis, Janin, Zikan, 1993...
+    Eigen::JacobiSVD<Eigen::Matrix3d> svd(sum_rots,  Eigen::ComputeFullU | Eigen::ComputeFullV);
+    Eigen::Matrix3d avg_rot = svd.matrixU() * svd.matrixV().transpose();
+    avg_transform.matrix().block<3, 3>(0, 0) = avg_rot;
+    avg_transform.matrix().block<3, 1>(0, 3) = avg_pt;
+  }
+  return avg_transform;
+}
+
 #endif

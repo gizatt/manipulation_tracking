@@ -13,13 +13,14 @@
 
 class ObjectScan {
   typedef pcl::PointXYZ PointType;
-
-
+  
   public:
     ObjectScan(YAML::Node config);
     ~ObjectScan() {};
-    void addPointCloud(pcl::PointCloud<PointType>::Ptr new_pts, Eigen::Affine3d transform);
+    void addPointCloud(pcl::PointCloud<PointType>::Ptr new_pts);
+    pcl::PointCloud<pcl::PointXYZ>::Ptr getPointCloud() { return _object_scan; }
   private:
+  	pcl::PointCloud<pcl::PointXYZ>::Ptr _object_scan;
 
 };
 

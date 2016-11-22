@@ -36,6 +36,8 @@ typedef pcl::PointXYZ PointType;
 typedef pcl::Normal NormalType;
 
 pcl::PointCloud<PointType>::Ptr scene (new pcl::PointCloud<PointType> ());
+int downsample_step = 4; // take every 4th pixel
+pcl::PointCloud<PointType>::Ptr scene_downsampled (new pcl::PointCloud<PointType> ());
 
 // state and configuration
 bool verbose_ = false;
@@ -54,7 +56,7 @@ KinectCalibration* kcal;
 // Apriltag streaming
 double lastApriltagReceivedTime = -1.0;
 std::mutex latest_apriltag_mutex;
-bool have_apriltags = false;
+bool received_apriltags = false;
 struct ApriltagAttachment {
   int list_id;
   float edge_length = 0.1;
@@ -65,11 +67,27 @@ struct ApriltagAttachment {
 std::map<int, ApriltagAttachment> attachedApriltags;
 std::map<std::string, int> channelToApriltagIndex;
 
+// Calibration
+struct ApriltagCalibration {
+  ApriltagAttachment * apriltagAttachment;
+  Eigen::Transform<double, 3, Eigen::Isometry> tagToScanOrigin;
+};
+std::vector<ApriltagCalibration> calibratedApriltags;
+
+double bb_px = 0.1; // right = +x
+double bb_nx = -0.1; // left = -x
+double bb_ny = -0.1; // back = -y
+double bb_py = 0.1; // fwd = +y
+double bb_nz = -0.2; // lower = -z
+double bb_pz = 0.0; // upper = +z
+bool show_object_model = false;
+bool do_save = false;
+
 void keyboardEventOccurred (const pcl::visualization::KeyboardEvent &event,
                             void* viewer_void)
 {
   pcl::visualization::PCLVisualizer *viewer = static_cast<pcl::visualization::PCLVisualizer *> (viewer_void);
-  if (event.getKeySym () == "a" && event.keyDown ())
+  if (event.getKeySym () == "d" && event.keyDown ())
   {
     std::cout << "a was pressed -> adding pointcloud to object model" << std::endl;
     add_next_pointcloud_to_object_model = true;
@@ -77,6 +95,18 @@ void keyboardEventOccurred (const pcl::visualization::KeyboardEvent &event,
   {
     std::cout << "r was pressed -> capturing apriltag configuration and zeroing camera" << std::endl;
     do_reset_and_calibration = true;
+  } else if (event.getKeySym () == "v" && event.keyDown ())
+  {
+    show_object_model = !show_object_model;
+  } else if (event.getKeySym () == "w" && event.keyDown ())
+  {
+    bb_pz -= 0.002;
+  } else if (event.getKeySym () == "s" && event.keyDown ())
+  {
+    bb_pz += 0.002;
+  } else if (event.getKeySym () == "a" && event.keyDown ())
+  {
+    do_save = true;
   }
 }
 
@@ -147,12 +177,20 @@ void handleKinectFrameMsg(const lcm::ReceiveBuffer* rbuf,
     // Openni Data
     // 1.2.2 unpack raw byte data into float values in mm
 
-    scene->clear();
+    if (scene->size() != msg->depth.width * msg->depth.height){
+      scene->clear();
+      scene_downsampled->clear();
 
-    scene->width = msg->depth.width;
-    scene->height = msg->depth.height;
-    scene->resize(scene->width * scene->height);
-    scene->is_dense = true; // we won't add inf / nan points
+      scene->width = msg->depth.width;
+      scene->height = msg->depth.height;
+      scene->resize(scene->width * scene->height);
+      scene->is_dense = true; // we won't add inf / nan points
+
+      scene_downsampled->width = msg->depth.width / downsample_step;
+      scene_downsampled->height = msg->depth.height / downsample_step;
+      scene_downsampled->resize(scene_downsampled->width * scene_downsampled->height);
+      scene_downsampled->is_dense = true;
+    }
 
     // NB: no depth return is given 0 range - and becomes 0,0,0 here
     if (latest_depth_image.cols() != msg->depth.width || latest_depth_image.rows() != msg->depth.height)
@@ -168,7 +206,7 @@ void handleKinectFrameMsg(const lcm::ReceiveBuffer* rbuf,
         latest_depth_image(v, u) = disparity_d;
 
         PointType new_point;
-        if (!std::isnan(disparity_d) && disparity_d > 0.0 && disparity_d < 1.0){
+        if (!std::isnan(disparity_d) && disparity_d > 0.0 && disparity_d < 4.0){
           new_point.x = (((double) u)- kcal->intrinsics_depth.cx)*disparity_d*constant;  //x right+
           new_point.y = (((double) v)- kcal->intrinsics_depth.cy)*disparity_d*constant; //y down+
           new_point.z = disparity_d; // z forward +
@@ -179,6 +217,8 @@ void handleKinectFrameMsg(const lcm::ReceiveBuffer* rbuf,
         }
 
         scene->at(u, v) = new_point;
+        if (v % 4 == 0 && u % 4 == 0)
+          scene_downsampled->at(u/4, v/4) = new_point;
       }
     }
     have_unprocessed_kinect_cloud = true;
@@ -212,6 +252,7 @@ void handleTagDetectionMsg(const lcm::ReceiveBuffer* rbuf,
   attachment->last_transform.matrix().block<3, 3>(0,0) = rot.matrix();
   attachment->last_transform.matrix().block<3, 1>(0,3) = Vector3d(msg->trans[0], msg->trans[1], msg->trans[2]);
 
+  received_apriltags = true;
   latest_apriltag_mutex.unlock();
 }
 
@@ -300,7 +341,7 @@ int main(int argc, char** argv) {
   kinect_frame_sub->setQueueCapacity(1); // ensures we don't get delays due to slow processing
 
   double last_update_time = getUnixTime();
-  double timestep = 0.01;
+  double timestep = 0.5;
   if (config["timestep"])
     timestep = config["timestep"].as<double>();
 
@@ -327,23 +368,135 @@ int main(int argc, char** argv) {
       latest_apriltag_mutex.lock();
 
       if (do_reset_and_calibration){
-        if (!have_apriltags){
+        calibrated = false;
+        bb_px = 0.1; // right = +x
+        bb_nx = -0.1; // left = -x
+        bb_ny = -0.1; // back = -y
+        bb_py = 0.1; // fwd = +y
+        bb_nz = -0.2; // lower = -z
+        bb_pz = 0.0; // upper = +z
+        calibratedApriltags.clear();
+        if (!received_apriltags){
           printf("Can't calibrate -- no apriltags have ever been detected.\n");
         } else {
           // try calibration procedure
           printf("Calibrating.\n");
+
+          // scan area is centered at the centroid of the tag positions
+          // extends in tag avg x, y, and -z (up) dirs by parameter amounts
+          // find these values by finding average transforms of the apriltags
+          std::vector<Transform<double, 3, Eigen::Isometry>> transforms;
+
+          // go through all attached apriltags, find up-to-date ones, grab them, and also
+          // update average transform
+          for (auto iter=attachedApriltags.begin(); iter!=attachedApriltags.end(); iter++){
+            ApriltagAttachment * attachment = &((*iter).second);
+            if (fabs(getUnixTime() - attachment->last_received) < 1.0){
+              ApriltagCalibration new_calib;
+              new_calib.apriltagAttachment = attachment;
+              calibratedApriltags.push_back(new_calib);
+              transforms.push_back(attachment->last_transform);
+            }
+          }
+          
+          if (transforms.size() == 0){
+            printf("Can't calibrate -- no apriltags are up to date.\n");
+            calibrated = false;
+          } else {
+            Eigen::Transform<double, 3, Eigen::Isometry> scanOriginToCamera = getAverageTransform(transforms);
+            // Go back through the calibration tags and update their transforms
+            for (auto calibrationTag=calibratedApriltags.begin(); calibrationTag!=calibratedApriltags.end(); calibrationTag++){
+              // Given last_transform, which encodes tagToCamera
+              // and scanOriginToScamera
+              // want to recover the intermediate transform, tagToScanOrigin 
+              calibrationTag->tagToScanOrigin = calibrationTag->apriltagAttachment->last_transform * (scanOriginToCamera.inverse());
+              // and expand bounding box to include origin of this tag, if desired
+              Vector3d trans = calibrationTag->tagToScanOrigin.matrix().block<3,1>(0, 3);
+              bb_px = fmax(bb_px, trans[0]);
+              bb_nx = fmin(bb_nx, trans[0]);
+              bb_py = fmax(bb_py, trans[1]);
+              bb_ny = fmin(bb_ny, trans[1]);
+            }
+
+            calibrated = true;
+          }
         }
-      } else if (add_next_pointcloud_to_object_model){
+        do_reset_and_calibration = false;
+      }
+
+      // transform scene pointcloud using calibration, if available
+      Eigen::Transform<double, 3, Eigen::Isometry> calibration_transform;
+      calibration_transform.setIdentity();
+      if (calibrated){
+        // compute avg implied transform over all apriltags
+        std::vector<Transform<double, 3, Eigen::Isometry>> transforms;
+        for (auto calibrationTag=calibratedApriltags.begin(); calibrationTag!=calibratedApriltags.end(); calibrationTag++){
+          ApriltagAttachment * attachment = calibrationTag->apriltagAttachment;
+           if (fabs(getUnixTime() - attachment->last_received) < 1.0){
+            // last_transform == tagToCamera
+            // we want cameraToOrigin
+            Transform<double, 3, Eigen::Isometry> implied_transform = attachment->last_transform.inverse() * calibrationTag->tagToScanOrigin;
+            transforms.push_back(implied_transform);
+          }
+        }
+        if (transforms.size() == 0){
+          printf("No visible tags, can't get transform\n");
+        } else {
+          calibration_transform = getAverageTransform(transforms);
+        }
+      }
+
+      pcl::PointCloud<pcl::PointXYZ>::Ptr scene_calibrated (new pcl::PointCloud<pcl::PointXYZ> ());
+      pcl::PointCloud<pcl::PointXYZ>::Ptr scene_calibrated_cropped (new pcl::PointCloud<pcl::PointXYZ> ());
+      pcl::transformPointCloud (*scene_downsampled, *scene_calibrated, calibration_transform.matrix()); 
+
+      for (auto it=scene_calibrated->begin(); it!=scene_calibrated->end(); it++){
+        if ((*it).x >= bb_nx && (*it).x <= bb_px &&
+            (*it).y >= bb_ny && (*it).y <= bb_py &&
+            (*it).z >= bb_nz && (*it).z <= bb_pz){
+          scene_calibrated_cropped->push_back(*it);
+        }
+      }
+
+      if (add_next_pointcloud_to_object_model){
         if (!have_unprocessed_kinect_cloud){
           printf("Can't add scan -- no unprocessed kinect pointcloud.\n");
-        } else if (!have_apriltags){
+        } else if (!received_apriltags){
           printf("Can't add scan -- no apriltags have ever been detected\n");
         } else if (!calibrated){
           printf("Can't add scan -- not calibrated yet. Get all tags in view then press R.");
         } else {
-          objectScanner.addPointCloud(scene, Affine3d::Identity());
-          printf("Well... that still needs work.\n");
+          printf("Adding an object scan...\n");
+
+          pcl::PointCloud<pcl::PointXYZ>::Ptr scene_calibrated_full (new pcl::PointCloud<pcl::PointXYZ> ());
+          pcl::PointCloud<pcl::PointXYZ>::Ptr object_scan (new pcl::PointCloud<pcl::PointXYZ> ());
+          pcl::transformPointCloud (*scene, *scene_calibrated_full, calibration_transform.matrix()); 
+
+          for (auto it=scene_calibrated_full->begin(); it!=scene_calibrated_full->end(); it++){
+            if ((*it).x >= bb_nx && (*it).x <= bb_px &&
+                (*it).y >= bb_ny && (*it).y <= bb_py &&
+                (*it).z >= bb_nz && (*it).z <= bb_pz){
+              object_scan->push_back(*it);
+            }
+          }
+          objectScanner.addPointCloud(object_scan);
+          printf("\tdone.\n");
         }
+        add_next_pointcloud_to_object_model = false;
+      }
+
+      if (do_save){
+        pcl::PointCloud<pcl::PointXYZ>::Ptr objectScan = objectScanner.getPointCloud();
+        char filename[128];
+        time_t    caltime;
+        struct tm * broketime;
+        time(&caltime);
+        broketime = localtime(&caltime);
+        strftime(filename,128,"objectscan_%y%m%d_%H%M%S.pcd",broketime);
+
+        pcl::io::savePCDFileASCII (filename, *objectScan);
+        printf("Saved out to %s\n", filename);
+        do_save = false;
       }
 
       // 
@@ -353,7 +506,34 @@ int main(int argc, char** argv) {
       viewer.removeAllShapes();
       
       // Add core point cloud
-      viewer.addPointCloud (scene, "scene_cloud");
+      //viewer.addPointCloud (scene, "scene_cloud");
+
+      if (show_object_model){
+        pcl::PointCloud<pcl::PointXYZ>::Ptr objectScan = objectScanner.getPointCloud();
+        pcl::visualization::PointCloudColorHandlerCustom<PointType> scene_calibrated_color_handler (objectScan, 255, 100, 100);      
+        viewer.addPointCloud (objectScan, scene_calibrated_color_handler, "object_model");
+      } else {
+        pcl::visualization::PointCloudColorHandlerCustom<PointType> scene_calibrated_color_handler (scene_calibrated_cropped, 100, 255, 100);      
+        viewer.addPointCloud (scene_calibrated_cropped, scene_calibrated_color_handler, "scene_cloud_downsampled__calibrated");
+      }
+
+      // Draw bounding box around center
+      viewer.addLine(PointType(bb_px, bb_ny, bb_nz), PointType(bb_px, bb_py, bb_nz), "l1");
+      viewer.addLine(PointType(bb_px, bb_py, bb_nz), PointType(bb_nx, bb_py, bb_nz), "l2");
+      viewer.addLine(PointType(bb_nx, bb_py, bb_nz), PointType(bb_nx, bb_ny, bb_nz), "l3");
+      viewer.addLine(PointType(bb_nx, bb_ny, bb_nz), PointType(bb_px, bb_ny, bb_nz), "l4");
+      viewer.addLine(PointType(bb_px, bb_ny, bb_pz), PointType(bb_px, bb_py, bb_pz), "l5");
+      viewer.addLine(PointType(bb_px, bb_py, bb_pz), PointType(bb_nx, bb_py, bb_pz), "l6");
+      viewer.addLine(PointType(bb_nx, bb_py, bb_pz), PointType(bb_nx, bb_ny, bb_pz), "l7");
+      viewer.addLine(PointType(bb_nx, bb_ny, bb_pz), PointType(bb_px, bb_ny, bb_pz), "l8");
+      viewer.addLine(PointType(bb_px, bb_ny, bb_nz), PointType(bb_px, bb_ny, bb_pz), "l9");
+      viewer.addLine(PointType(bb_px, bb_py, bb_nz), PointType(bb_px, bb_py, bb_pz), "l10");
+      viewer.addLine(PointType(bb_nx, bb_py, bb_nz), PointType(bb_nx, bb_py, bb_pz), "l11");
+      viewer.addLine(PointType(bb_nx, bb_ny, bb_nz), PointType(bb_nx, bb_ny, bb_pz), "l12");
+      viewer.addLine(PointType(bb_px, bb_py, bb_nz), PointType(bb_nx, bb_ny, bb_nz), "x1");
+      viewer.addLine(PointType(bb_px, bb_ny, bb_nz), PointType(bb_nx, bb_py, bb_nz), "x2");
+      viewer.addLine(PointType(bb_px, bb_py, bb_pz), PointType(bb_nx, bb_ny, bb_pz), "x3");
+      viewer.addLine(PointType(bb_px, bb_ny, bb_pz), PointType(bb_nx, bb_py, bb_pz), "x4");
 
       // Add apriltags as squares with arrows
       pcl::PointCloud<pcl::PointXYZ>::Ptr box_cloud_raw (new pcl::PointCloud<pcl::PointXYZ> ());
@@ -362,7 +542,7 @@ int main(int argc, char** argv) {
       box_cloud_raw->push_back(PointType(-1.0, 1.0, 0.0));
       box_cloud_raw->push_back(PointType(1.0, 1.0, 0.0));
       box_cloud_raw->push_back(PointType(1.0, -1.0, 0.0));
-
+/*
       for (auto iter=attachedApriltags.begin(); iter!=attachedApriltags.end(); iter++){
         auto attachment = &((*iter).second);
         if (fabs(getUnixTime() - attachment->last_received) < 1.0){
@@ -386,8 +566,14 @@ int main(int argc, char** argv) {
           viewer.addArrow(pclarrow_py, pclpt, 0.2, 1.0, 0.2, false, "arrowpy_" + thisname);
         }
       }
+*/
 
-//      
+
+      viewer.addText("r: reset calib", 10, 10, "help_text_r");
+      viewer.addText("d: add points to object", 10, 30, "help_text_d");
+      viewer.addText("v: view object model", 10, 50, "help_text_v");
+      viewer.addText("w/s: change bb top", 10, 70, "help_text_bb");
+      viewer.addText("a: save object pcd", 10, 90, "help_text_save");
 
       latest_cloud_mutex.unlock();
       latest_apriltag_mutex.unlock();
