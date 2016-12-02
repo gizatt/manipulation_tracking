@@ -6,7 +6,7 @@
 #include <cfloat>
 #include "drake/util/drakeGeometryUtil.h"
 #include "drake/math/roll_pitch_yaw.h"
-#include <drake/systems/plants/parser_urdf.h>
+#include <drake/multibody/parser_urdf.h>
 
 #include "common/common.hpp"
 
@@ -14,7 +14,7 @@ using namespace std;
 using namespace Eigen;
 using namespace drake::math;
 
-std::shared_ptr<RigidBodyTree> setupRobotFromConfig(YAML::Node config, Eigen::VectorXd& x0_robot, std::string base_path, bool verbose, bool less_collision){
+std::shared_ptr<RigidBodyTree<double>> setupRobotFromConfig(YAML::Node config, Eigen::VectorXd& x0_robot, std::string base_path, bool verbose, bool less_collision){
   // generate robot from yaml file by adding each robot in sequence
   // first robot -- need to initialize the RBT
   int old_num_positions = 0;
@@ -26,7 +26,7 @@ std::shared_ptr<RigidBodyTree> setupRobotFromConfig(YAML::Node config, Eigen::Ve
     robots_string = "robots";
 
   auto manip = config[robots_string].begin();
-  std::shared_ptr<RigidBodyTree> robot(new RigidBodyTree(base_path + manip->second["urdf"].as<string>()));
+  std::shared_ptr<RigidBodyTree<double>> robot(new RigidBodyTree<double>(base_path + manip->second["urdf"].as<string>()));
   x0_robot.resize(robot->get_num_positions());
   if (manip->second["q0"] && manip->second["q0"].Type() == YAML::NodeType::Map){
     for (int i=old_num_positions; i < robot->get_num_positions(); i++){
@@ -41,7 +41,7 @@ std::shared_ptr<RigidBodyTree> setupRobotFromConfig(YAML::Node config, Eigen::Ve
   manip++;
   // each new robot can be added via addRobotFromURDF
   while (manip != config[robots_string].end()){
-    drake::parsers::urdf::AddModelInstanceFromUrdfFile(base_path + manip->second["urdf"].as<string>(), drake::systems::plants::joints::kRollPitchYaw, robot.get());
+    drake::parsers::urdf::AddModelInstanceFromUrdfFile(base_path + manip->second["urdf"].as<string>(), drake::multibody::joints::kRollPitchYaw, robot.get());
     x0_robot.conservativeResize(robot->get_num_positions());
     if (manip->second["q0"] && manip->second["q0"].Type() == YAML::NodeType::Map){
       for (int i=old_num_positions; i < robot->get_num_positions(); i++){
@@ -82,7 +82,7 @@ static bool vector_contains_str(std::vector<std::string> vec, std::string str) {
   return false;
 }
 
-std::shared_ptr<RigidBodyTree> setupRobotFromConfigSubset(YAML::Node config, Eigen::VectorXd& x0_robot_subset, std::string base_path,
+std::shared_ptr<RigidBodyTree<double>> setupRobotFromConfigSubset(YAML::Node config, Eigen::VectorXd& x0_robot_subset, std::string base_path,
     bool verbose, bool less_collision, bool exclusionary, std::vector<std::string> exceptions, std::vector<int> &index_correspondences){
   // generate robot from yaml file by adding each robot in sequence
   // if some robots are to be excluded, their yaml file names will appear in exceptions
@@ -98,8 +98,8 @@ std::shared_ptr<RigidBodyTree> setupRobotFromConfigSubset(YAML::Node config, Eig
 
   auto manip = config[robots_string].begin();
   
-  std::shared_ptr<RigidBodyTree> robot(new RigidBodyTree());
-  std::shared_ptr<RigidBodyTree> robot_subset(new RigidBodyTree());
+  std::shared_ptr<RigidBodyTree<double>> robot(new RigidBodyTree<double>());
+  std::shared_ptr<RigidBodyTree<double>> robot_subset(new RigidBodyTree<double>());
 
   x0_robot_subset.resize(robot_subset->get_num_positions());
 
@@ -108,9 +108,9 @@ std::shared_ptr<RigidBodyTree> setupRobotFromConfigSubset(YAML::Node config, Eig
 
   // each new robot can b
   while (manip != config[robots_string].end()) {
-    drake::parsers::urdf::AddModelInstanceFromUrdfFile(base_path + manip->second["urdf"].as<string>(), drake::systems::plants::joints::kRollPitchYaw, robot.get());
+    drake::parsers::urdf::AddModelInstanceFromUrdfFile(base_path + manip->second["urdf"].as<string>(), drake::multibody::joints::kRollPitchYaw, robot.get());
     if (vector_contains_str(exceptions, manip->first.as<std::string>()) != exclusionary) { // check (CONTAINED) XOR (EXCLUSIONARY)
-      drake::parsers::urdf::AddModelInstanceFromUrdfFile(base_path + manip->second["urdf"].as<string>(), drake::systems::plants::joints::kRollPitchYaw, robot_subset.get());
+      drake::parsers::urdf::AddModelInstanceFromUrdfFile(base_path + manip->second["urdf"].as<string>(), drake::multibody::joints::kRollPitchYaw, robot_subset.get());
 
       x0_robot_subset.conservativeResize(robot_subset->get_num_positions());
 
@@ -156,7 +156,7 @@ std::shared_ptr<RigidBodyTree> setupRobotFromConfigSubset(YAML::Node config, Eig
   return robot_subset;
 }
 
-ManipulationTracker::ManipulationTracker(std::shared_ptr<const RigidBodyTree> robot, Eigen::Matrix<double, Eigen::Dynamic, 1> x0_robot, std::shared_ptr<lcm::LCM> lcm, YAML::Node config, bool verbose) :
+ManipulationTracker::ManipulationTracker(std::shared_ptr<const RigidBodyTree<double>> robot, Eigen::Matrix<double, Eigen::Dynamic, 1> x0_robot, std::shared_ptr<lcm::LCM> lcm, YAML::Node config, bool verbose) :
     robot_(robot),
     lcm_(lcm),
     verbose_(verbose),

@@ -5,7 +5,7 @@
 
 #include "ObjectScan.hpp"
 
-#include "drake/systems/plants/RigidBodyTree.h"
+#include "drake/multibody/rigid_body_tree.h"
 
 #include <lcm/lcm-cpp.hpp>
 

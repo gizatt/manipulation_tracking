@@ -32,7 +32,7 @@ void eigen2cv( const Eigen::Matrix<_Tp, _rows, _cols, _options, _maxRows, _maxCo
     }
 }
 
-GelsightCost::GelsightCost(std::shared_ptr<RigidBodyTree> robot_, std::shared_ptr<lcm::LCM> lcm_, YAML::Node config) :
+GelsightCost::GelsightCost(std::shared_ptr<RigidBodyTree<double> > robot_, std::shared_ptr<lcm::LCM> lcm_, YAML::Node config) :
     robot(robot_),
     robot_kinematics_cache(robot->bodies),
     lcm(lcm_),

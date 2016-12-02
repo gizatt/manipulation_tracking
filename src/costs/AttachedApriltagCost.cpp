@@ -11,7 +11,7 @@ using namespace std;
 using namespace Eigen;
 using namespace drake::math;
 
-AttachedApriltagCost::AttachedApriltagCost(std::shared_ptr<const RigidBodyTree> robot_, std::shared_ptr<lcm::LCM> lcm_, YAML::Node config) :
+AttachedApriltagCost::AttachedApriltagCost(std::shared_ptr<const RigidBodyTree<double> > robot_, std::shared_ptr<lcm::LCM> lcm_, YAML::Node config) :
     robot(robot_),
     robot_kinematics_cache(robot->bodies),
     lcm(lcm_),

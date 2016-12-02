@@ -37,7 +37,7 @@ int main(int argc, char** argv) {
   YAML::Node config = YAML::LoadFile(configFile);
 
   VectorXd x0_robot;
-  std::shared_ptr<const RigidBodyTree> robot = setupRobotFromConfig(config, x0_robot, string(drc_path), true, false);
+  std::shared_ptr<const RigidBodyTree<double>> robot = setupRobotFromConfig(config, x0_robot, string(drc_path), true, false);
 
   // initialize tracker itself
   ManipulationTracker estimator(robot, x0_robot, lcm, config, true);

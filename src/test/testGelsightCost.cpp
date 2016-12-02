@@ -20,12 +20,13 @@
 #include "common/common.hpp"
 #include "GelsightOpenGLSim.hpp"
 #include "unistd.h"
+#include "drake/math/roll_pitch_yaw.h"
 
 using namespace std;
 using namespace Eigen;
 using namespace drake::math;
 
-void publish_gt_state(std::shared_ptr<lcm::LCM> lcm, std::shared_ptr<RigidBodyTree> robot, VectorXd x_robot, string gt_publish_channel){
+void publish_gt_state(std::shared_ptr<lcm::LCM> lcm, std::shared_ptr<RigidBodyTree<double>> robot, VectorXd x_robot, string gt_publish_channel){
   // publish GT
   bot_core::robot_state_t gt_state;
   gt_state.utime = getUnixTime();
@@ -70,7 +71,7 @@ void publish_gt_state(std::shared_ptr<lcm::LCM> lcm, std::shared_ptr<RigidBodyTr
 Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> generateNewGelsightImage(
             GelsightOpenGLSim * glsim,
             std::shared_ptr<GelsightCost> gelsight_cost, 
-            std::shared_ptr<RigidBodyTree> robot,
+            std::shared_ptr<RigidBodyTree<double>> robot,
             const VectorXd x_robot){
   // this could be cleaner -- we could clean up the renderGelsight interface
   // but for now this'll make us robust to quat vs rpy parameterization
@@ -170,12 +171,12 @@ int main(int argc, char** argv) {
 
   // get robot and any supplied initial condition
   string robot_urdf_path = string(drc_path) + config["urdf"].as<string>();
-  shared_ptr<RigidBodyTree> robot(new RigidBodyTree(robot_urdf_path));
+  shared_ptr<RigidBodyTree<double>> robot(new RigidBodyTree<double>(robot_urdf_path));
   VectorXd x0_robot(robot->get_num_positions() + robot->get_num_velocities());
   x0_robot.setZero();
 
   // collision check needs a non-const RBT... so generate another one
-  std::shared_ptr<RigidBodyTree> robot_for_collision_sim(new RigidBodyTree(robot_urdf_path));
+  std::shared_ptr<RigidBodyTree<double>> robot_for_collision_sim(new RigidBodyTree<double>(robot_urdf_path));
 
   // (we assemble this early as we need it for finding a good contact position)
   if (!config["gelsight_cost"]){
@@ -183,7 +184,7 @@ int main(int argc, char** argv) {
     exit(-1);
   }
   // gelsight cost needs its own RBT to modify during collision checks
-  std::shared_ptr<GelsightCost> gelsight_cost(new GelsightCost(shared_ptr<RigidBodyTree>(new RigidBodyTree(robot_urdf_path)), lcm, config["gelsight_cost"]));
+  std::shared_ptr<GelsightCost> gelsight_cost(new GelsightCost(shared_ptr<RigidBodyTree<double>>(new RigidBodyTree<double>(robot_urdf_path)), lcm, config["gelsight_cost"]));
 
   if (config["q0"] && config["q0"].Type() == YAML::NodeType::Map){
     for (int i=0; i < robot->get_num_positions(); i++){

@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <vector>
 
-#include "drake/systems/plants/shapes/DrakeShapes.h"
+#include "drake/multibody/shapes/drake_shapes.h"
 
 int num_vertices, num_triangles;
 GLuint vbo_model_verts;

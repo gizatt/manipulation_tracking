@@ -1,6 +1,7 @@
 #undef NDEBUG
 #include "KinectFrameCost.hpp"
 
+#include "drake/multibody/joints/revolute_joint.h"
 #include <assert.h> 
 #include <fstream>
 #include "common/common.hpp"
@@ -11,7 +12,6 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
-#include "drake/systems/plants/joints/RevoluteJoint.h"
 
 using namespace std;
 using namespace Eigen;
@@ -34,7 +34,7 @@ void eigen2cv( const Eigen::Matrix<_Tp, _rows, _cols, _options, _maxRows, _maxCo
     }
 }
 
-KinectFrameCost::KinectFrameCost(std::shared_ptr<RigidBodyTree> robot_, std::shared_ptr<lcm::LCM> lcm_, YAML::Node config) :
+KinectFrameCost::KinectFrameCost(std::shared_ptr<RigidBodyTree<double>> robot_, std::shared_ptr<lcm::LCM> lcm_, YAML::Node config) :
     robot(robot_),
     robot_kinematics_cache(robot->bodies),
     lcm(lcm_),
@@ -319,8 +319,11 @@ bool KinectFrameCost::constructCost(ManipulationTracker * tracker, const Eigen::
                 cout << "Zero points " << points.block<3, 1>(0, j).transpose() << " slipping in at bdyidx " << body_idx[j] << endl;
               }
               if ((points.block<3, 1>(0, j) - x.block<3, 1>(0, j)).norm() <= max_considered_icp_distance){
-                auto joint = dynamic_cast<const RevoluteJoint *>(&robot->bodies[body_idx[j]]->getJoint());
+                
+                
+                //auto joint = dynamic_cast<const RevoluteJoint *>(&robot->bodies[body_idx[j]]->getJoint());
                 bool too_close_to_joint = false;
+                /*
                 if (joint){
                   // axis in body frame:
                   const Vector3d n = joint->getRotationAxis();
@@ -333,7 +336,7 @@ bool KinectFrameCost::constructCost(ManipulationTracker * tracker, const Eigen::
                     too_close_to_joint = true;
                   }
                 }
-
+                */
                 if (too_close_to_joint == false){
                   z.block<3, 1>(0, k) = points.block<3, 1>(0, j);
                   z_prime.block<3, 1>(0, k) = x.block<3, 1>(0, j);

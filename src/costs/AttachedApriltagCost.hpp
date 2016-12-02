@@ -4,7 +4,7 @@
 #include <stdexcept>
 #include <iostream>
 #include "ManipulationTrackerCost.hpp"
-#include "drake/systems/plants/RigidBodyTree.h"
+#include "drake/multibody/rigid_body_tree.h"
 #include <lcm/lcm-cpp.hpp>
 #include <memory>
 #include <mutex>
@@ -19,7 +19,7 @@
 
 class AttachedApriltagCost : public ManipulationTrackerCost {
 public:
-  AttachedApriltagCost(std::shared_ptr<const RigidBodyTree> robot_, std::shared_ptr<lcm::LCM> lcm_, YAML::Node config);
+  AttachedApriltagCost(std::shared_ptr<const RigidBodyTree<double> > robot_, std::shared_ptr<lcm::LCM> lcm_, YAML::Node config);
   ~AttachedApriltagCost() {};
 
   void initBotConfig(const char* filename);
@@ -64,7 +64,7 @@ private:
   Eigen::Isometry3d kinect2robot;
   
   std::shared_ptr<lcm::LCM> lcm;
-  std::shared_ptr<const RigidBodyTree> robot;
+  std::shared_ptr<const RigidBodyTree<double> > robot;
   KinematicsCache<double> robot_kinematics_cache;
   int nq;
 

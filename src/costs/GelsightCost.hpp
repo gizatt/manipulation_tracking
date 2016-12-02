@@ -4,7 +4,7 @@
 #include <stdexcept>
 #include <iostream>
 #include "ManipulationTrackerCost.hpp"
-#include "drake/systems/plants/RigidBodyTree.h"
+#include "drake/multibody/rigid_body_tree.h"
 #include <lcm/lcm-cpp.hpp>
 #include <memory>
 #include <mutex>
@@ -20,7 +20,7 @@
 
 class GelsightCost : public ManipulationTrackerCost {
 public:
-  GelsightCost(std::shared_ptr<RigidBodyTree> robot_, std::shared_ptr<lcm::LCM> lcm_, YAML::Node config);
+  GelsightCost(std::shared_ptr<RigidBodyTree<double> > robot_, std::shared_ptr<lcm::LCM> lcm_, YAML::Node config);
   ~GelsightCost() {};
   bool constructCost(ManipulationTracker * tracker, const Eigen::Matrix<double, Eigen::Dynamic, 1> x_old, Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>& Q, Eigen::Matrix<double, Eigen::Dynamic, 1>& f, double& K);
 
@@ -64,7 +64,7 @@ private:
   bool verbose = false;
 
   std::shared_ptr<lcm::LCM> lcm;
-  std::shared_ptr<RigidBodyTree> robot;
+  std::shared_ptr<RigidBodyTree<double> > robot;
   KinematicsCache<double> robot_kinematics_cache;
   int nq;
 

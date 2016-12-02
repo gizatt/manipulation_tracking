@@ -3,7 +3,7 @@
 
 #include "common/common.hpp"
 
-#include "drake/systems/plants/RigidBodyTree.h"
+#include "drake/multibody/rigid_body_tree.h"
 
 #include <lcm/lcm-cpp.hpp>
 
@@ -93,6 +93,14 @@ void keyboardEventOccurred (const pcl::visualization::KeyboardEvent &event,
   {
     std::cout << "d was pressed => kicking off detection" << std::endl;
     do_object_detection = true;
+  } else if (event.getKeySym () == "w" && event.keyDown ())
+  {
+    shot_dist_thresh_ += 0.05;
+    std::cout << "new shot_dist_thresh: " << shot_dist_thresh_ << std::endl;
+  } else if (event.getKeySym () == "s" && event.keyDown ())
+  {
+    shot_dist_thresh_ -= 0.05;
+    std::cout << "new shot_dist_thresh: " << shot_dist_thresh_ << std::endl;
   }
 }
 
@@ -321,6 +329,9 @@ int main(int argc, char** argv) {
     ne_model.setRadiusSearch (0.03);
     // Compute the features
     ne_model.compute (*model_normals);
+
+    if (config["normals"])
+      pcl::io::savePCDFile(config["normals"].as<string>(), *model_normals);
   }
   int num_pts = model->size();
   int num_normals = model_normals->size();
@@ -329,6 +340,17 @@ int main(int argc, char** argv) {
   }
   printf("Loaded %d points and normals for object.\n", num_pts);
 
+/*
+  printf("Duplicating all points and normals to get normals in both directions\n");
+  model->resize(num_pts*2);
+  model_normals->resize(num_pts*2);
+  for (int k=0; k<num_pts; k++){
+    model->at(2*k) = model->at(k);
+    model_normals->at(2*k) = model_normals->at(k);
+  }
+  num_pts = model->size();
+  num_normals = model_normals->size();
+*/
 
   //
   //  Set up resolution invariance
@@ -407,7 +429,7 @@ int main(int argc, char** argv) {
         //  Compute Normals
         //
         pcl::IntegralImageNormalEstimation<pcl::PointXYZ, pcl::Normal> norm_est;
-        norm_est.setNormalEstimationMethod (norm_est.AVERAGE_3D_GRADIENT);
+        norm_est.setNormalEstimationMethod (norm_est.COVARIANCE_MATRIX);
         norm_est.setMaxDepthChangeFactor(0.02f);
         norm_est.setNormalSmoothingSize(10.0f);
         norm_est.setInputCloud(scene);
@@ -453,6 +475,7 @@ int main(int argc, char** argv) {
           uniform_sampling.compute (scene_keypoints_out);
           for (auto k=scene_keypoints_out.begin(); k!=scene_keypoints_out.end(); k++){
             scene_keypoints->push_back(scene_pruned->at(*k));
+            scene_keypoints->push_back(scene_pruned->at(*k));
           }
           std::cout << "Scene total points: " << scene->size () << "; Pruned total points: " << scene_pruned->size() << "; Selected Keypoints: " << scene_keypoints->size () << std::endl;
 
@@ -487,7 +510,7 @@ int main(int argc, char** argv) {
               continue;
             }
             int found_neighs = match_search.nearestKSearch (scene_descriptors->at (i), 1, neigh_indices, neigh_sqr_dists);
-            printf("dist %f, ", neigh_sqr_dists[0]);
+            //printf("dist %f, ", neigh_sqr_dists[0]);
             if(found_neighs == 1 && neigh_sqr_dists[0] < shot_dist_thresh_) //  add match only if the squared descriptor distance is less than 0.25 (SHOT descriptor distances are between 0 and 1 by design)
             {
               pcl::Correspondence corr (neigh_indices[0], static_cast<int> (i), neigh_sqr_dists[0]);

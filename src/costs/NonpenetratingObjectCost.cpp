@@ -10,7 +10,7 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
-#include "drake/systems/plants/joints/RevoluteJoint.h"
+#include "drake/multibody/joints/revolute_joint.h"
 
 using namespace std;
 using namespace Eigen;
@@ -33,8 +33,8 @@ void eigen2cv( const Eigen::Matrix<_Tp, _rows, _cols, _options, _maxRows, _maxCo
     }
 }
 
-NonpenetratingObjectCost::NonpenetratingObjectCost(std::shared_ptr<RigidBodyTree> robot_, std::vector<int> robot_correspondences_,
-        std::shared_ptr<RigidBodyTree> robot_object_, std::vector<int> robot_object_correspondences_, std::shared_ptr<lcm::LCM> lcm_, YAML::Node config) :
+NonpenetratingObjectCost::NonpenetratingObjectCost(std::shared_ptr<RigidBodyTree<double> > robot_, std::vector<int> robot_correspondences_,
+        std::shared_ptr<RigidBodyTree<double> > robot_object_, std::vector<int> robot_object_correspondences_, std::shared_ptr<lcm::LCM> lcm_, YAML::Node config) :
     lcm(lcm_),
     robot(robot_),
     robot_kinematics_cache(robot->bodies),
