@@ -263,16 +263,17 @@ int main(int argc, char** argv) {
   Aeq(k, kOffyy) = 2.0;
   beq(k, 0) = 1.0;
   k++;
-  prog.AddLinearEqualityConstraint(Aeq, beq, {flatten_MxN(R), B});
+//  prog.AddLinearEqualityConstraint(Aeq, beq, {flatten_MxN(R), B});
 
 
   // Now constrain xx + yy + zz + ww = 1
-  prog.AddLinearEqualityConstraint(MatrixXd::Ones(1, 4), MatrixXd::Ones(1, 1), 
-    {B.block<1,1>(0,0),B.block<1,1>(4,0),B.block<1,1>(7,0),B.block<1,1>(9,0)});
+//  prog.AddLinearEqualityConstraint(MatrixXd::Ones(1, 4), MatrixXd::Ones(1, 1), 
+//    {B.block<1,1>(0,0),B.block<1,1>(4,0),B.block<1,1>(7,0),B.block<1,1>(9,0)});
 
 
   // Finally, constrain each of the bilinear product pairs with their core quaternion variables
   k=0;
+  printf("Starting nmccormick adding with %lu vars\n", prog.num_vars());
   for (int i=0; i<4; i++){
     for (int j=i; j<4; j++){
       // spawn new region selection variables
@@ -290,6 +291,7 @@ int main(int argc, char** argv) {
                              -1.0, // yL
                              1.0,  // yH
                              4, 4); // M_x, M_y 
+      printf("Just added mccormick %s, now have %lu vars\n", corename.c_str(), prog.num_vars());
       k++;
     }
   }
