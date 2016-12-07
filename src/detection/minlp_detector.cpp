@@ -53,8 +53,9 @@ long timer_end(struct timespec start_time){
 DecisionVariableMatrixX flatten_3xN( const DecisionVariableMatrixX& x ){
   assert(x.rows() == 3);
   DecisionVariableMatrixX ret(3*x.cols(), 1);
-  for (int i=0; i<x.cols(); i++){
-    ret.block<3, 1>(i*3, 0) = x.block<3,1>(0, i);
+  for (int i=0; i<x.rows(); i++){ // for each row, paste that row, in order,
+                                  // as elems in the new column vector
+    ret.block(i*x.cols(), 0, x.cols(), 1) = x.block(i, 0, 1, x.cols()).transpose();
   }
   return ret;
 }
@@ -136,7 +137,7 @@ int main(int argc, char** argv) {
   // Randomly transform scene point cloud
   Eigen::Affine3f scene_model_tf = Eigen::Affine3f::Identity();
   // Define a translation of 2.5 meters on the x axis.
-  //scene_model_tf.translation() << randrange(-0.5, 0.5), randrange(-0.5, 0.5), randrange(-0.5, 0.5);
+  scene_model_tf.translation() << randrange(-0.5, 0.5), randrange(-0.5, 0.5), randrange(-0.5, 0.5);
   // The same rotation matrix as before; theta radians arround Z axis
   //scene_model_tf.rotate (Eigen::AngleAxisf (randrange(-1.57, 1.57), Eigen::Vector3f::UnitZ()));
 
@@ -218,7 +219,6 @@ int main(int argc, char** argv) {
   //          C_i^T]
   // B = [s_i^T   1  -M^T]
   // giving us our quadratic cost
-  // This is gonna be huge!
 
   MathematicalProgram prog;
 
@@ -226,24 +226,24 @@ int main(int argc, char** argv) {
   auto R = prog.AddContinuousVariables(3, 3, "r");
   auto T = prog.AddContinuousVariables(3, 1, "t");
 
+  // constrain rotations to SO(3) -- i.e.
+  // R.' R = I, and det(R) = +1
+  
 
   // constrain T to identity for now
-  prog.AddLinearConstraint(Eigen::MatrixXd::Identity(3, 3),
-    Eigen::VectorXd::Zero(3), Eigen::VectorXd::Zero(3), 
-    {T});
+  //prog.AddLinearConstraint(Eigen::MatrixXd::Identity(3, 3),
+  //  Eigen::VectorXd::Zero(3), Eigen::VectorXd::Zero(3), 
+  //  {T});
 
-  // constrain R to identity for now
-  // using block instead of direct access to convince compiler that we can actually
-  // build a variable list from individual elements
-  // I'm sure there's a cleaner way but this is really for debugging...
-  prog.AddLinearConstraint(Eigen::MatrixXd::Identity(3, 3),
+  // constrain rotations to identity
+  /*prog.AddLinearConstraint(Eigen::MatrixXd::Identity(3, 3),
     Eigen::VectorXd::Ones(3), Eigen::VectorXd::Ones(3), 
     {R.block<1,1>(0,0), R.block<1,1>(1,1), R.block<1,1>(2,2)});
   prog.AddLinearConstraint(Eigen::MatrixXd::Identity(6,6),
     Eigen::VectorXd::Zero(6), Eigen::VectorXd::Zero(6), 
     {R.block<1,1>(0,1), R.block<1,1>(0,2), R.block<1,1>(1,0),
      R.block<1,1>(1,2), R.block<1,1>(2,0), R.block<1,1>(2,1)});
-
+  */
   // Every scene (tactile) point should correspond to at most 1 model point
   Eigen::MatrixXd C1 = Eigen::MatrixXd::Ones(1, model_pts->size());
   for (size_t k=0; k<scene_pts_tf->size(); k++){
@@ -259,10 +259,10 @@ int main(int argc, char** argv) {
 
   // for debugging, I'm adding a dummy var constrained to zero to 
   // fill out the diagonals of C_i
+  // this may be unnecessary.
   auto C_dummy = prog.AddContinuousVariables(1, "c_dummy_zero");
   prog.AddLinearConstraint(Eigen::MatrixXd::Ones(1, 1), Eigen::MatrixXd::Zero(1, 1), Eigen::MatrixXd::Zero(1, 1), {C_dummy});
 
-  printf("THIS FIRST PART IS SKETCHY...\n");
   for (int i=0; i<scene_pts_tf->size(); i++){
     auto C_i = DecisionVariableMatrixX(3, 3*model_pts->size());
     for (int j=0; j<model_pts->size(); j++){
