@@ -51,8 +51,9 @@ long timer_end(struct timespec start_time){
 }
 
 // TODO: replace with reshape?
-DecisionVariableMatrixX flatten_MxN( const DecisionVariableMatrixX& x ){
-  DecisionVariableMatrixX ret(x.rows()*x.cols(), 1);
+template <typename Arg>
+Arg flatten_MxN( const Arg& x ){
+  Arg ret(x.rows()*x.cols(), 1);
   for (int i=0; i<x.rows(); i++){ // for each row, paste that row, in order,
                                   // as elems in the new column vector
     ret.block(i*x.cols(), 0, x.cols(), 1) = x.block(i, 0, 1, x.cols()).transpose();

@@ -2,6 +2,8 @@
 #include <iostream>
 
 #include "drake/solvers/mathematical_program.h"
+#include "drake/solvers/gurobi_solver.h"
+#include "drake/solvers/mosek_solver.h"
 #include "drake/common/eigen_matrix_compare.h"
 #include "drake/common/eigen_types.h"
 
@@ -46,12 +48,16 @@ int main(int argc, char** argv) {
   MathematicalProgram prog;
 
   auto R = prog.AddContinuousVariables(3, 3, "r");
+  prog.AddBoundingBoxConstraint(-VectorXd::Ones(9), VectorXd::Ones(9), {flatten_MxN(R)});
 
   // Add core quaternion variables, ordered w x y z
   auto Q = prog.AddContinuousVariables(4, 1, "q");
+  prog.AddBoundingBoxConstraint(-VectorXd::Ones(4), VectorXd::Ones(4), {Q});
 
   // Add variables for bilinear quaternion element products
   auto B = prog.AddContinuousVariables(10, 1, "b");
+  prog.AddBoundingBoxConstraint(-VectorXd::Ones(10), VectorXd::Ones(10), {B});
+
 
   // Constrain elements of rotation element by bilinear quaternion values
   // This constrains the 9 elements of the rotation matrix against the 
@@ -75,11 +81,13 @@ int main(int argc, char** argv) {
   const int kOffyz = kNumRotVars + 8;
   const int kOffzz = kNumRotVars + 9;
   // Todo: I know you can do this formulaicaijasafcally...
-  // R00 = 1 - 2 y^2 - 2 z^2 -> R00 + 2yy + 2zz = 1
+  // R00 = w^2 + x^2 - y^2 - z^2
   Aeq(k, 0) = 1.0;
-  Aeq(k, kOffyy) = 2.0;
-  Aeq(k, kOffzz) = 2.0;
-  beq(k, 0) = 1.0;
+  Aeq(k, kOffww) = -1.0;
+  Aeq(k, kOffxx) = -1.0;
+  Aeq(k, kOffyy) = 1.0;
+  Aeq(k, kOffzz) = 1.0;
+  beq(k, 0) = 0.0;
   k++;
   // R01 = 2xy + 2wz -> R01 - 2xy - 2wz = 0
   Aeq(k, 3) = 1.0;
@@ -99,11 +107,13 @@ int main(int argc, char** argv) {
   Aeq(k, kOffwz) = 2;
   beq(k, 0) = 0.0;
   k++;
-  // R11 = 1 - 2xx - 2zz -> R11 + 2xx + 2zz = 1
+  // R11 = w^2 - x^2 + y^2 - z^2
   Aeq(k, 4) = 1.0;
-  Aeq(k, kOffxx) = 2.0;
-  Aeq(k, kOffzz) = 2.0;
-  beq(k, 0) = 1.0;
+  Aeq(k, kOffww) = -1.0;
+  Aeq(k, kOffxx) = 1.0;
+  Aeq(k, kOffyy) = -1.0;
+  Aeq(k, kOffzz) = 1.0;
+  beq(k, 0) = 0.0;
   k++;
   // R12 = 2yz + 2wx -> r12 - 2yz - 2wx = 0
   Aeq(k, 7) = 1.0;
@@ -123,11 +133,13 @@ int main(int argc, char** argv) {
   Aeq(k, kOffwx) = 2.0;
   beq(k, 0) = 0.0;
   k++;
-  // R22 = 1 - 2xx - 2yy -> r22 + 2xx + 2yy = 1
+  // R22 = w^2 - x^2 - y^2 + z^2
   Aeq(k, 8) = 1.0;
-  Aeq(k, kOffxx) = 2.0;
-  Aeq(k, kOffyy) = 2.0;
-  beq(k, 0) = 1.0;
+  Aeq(k, kOffww) = -1.0;
+  Aeq(k, kOffxx) = 1.0;
+  Aeq(k, kOffyy) = 1.0;
+  Aeq(k, kOffzz) = -1.0;
+  beq(k, 0) = 0.0;
   k++;
   prog.AddLinearEqualityConstraint(Aeq, beq, {flatten_MxN(R), B});
 
@@ -171,8 +183,25 @@ int main(int argc, char** argv) {
   printf("Target rot mat:\n \t(-0.666667 | 0.133333 | 0.733333\n\t0.666667 | -1/3 | 0.666667\n\t1/3 | 0.933333 | 0.133333)\n");
   prog.AddQuadraticErrorCost(MatrixXd::Identity(4, 4), desired_val, {Q});
 
+  
+  GurobiSolver gurobi_solver;
+  MosekSolver mosek_solver;
+
+  prog.SetSolverOption("GUROBI", "OutputFlag", 1);
+  prog.SetSolverOption("GUROBI", "LogToConsole", 0);
+  prog.SetSolverOption("GUROBI", "LogFile", "loggg.gur");
+  prog.SetSolverOption("GUROBI", "DisplayInterval", 1);
+//  prog.SetSolverOption("GUROBI", "MIPGap", 1E-12);
+//  prog.SetSolverOption("GUROBI", "Heuristics", 0.25);
+//  prog.SetSolverOption("GUROBI", "FeasRelaxBigM", 1E9);
+//  prog.SetSolverOption("GUROBI", "Cutoff", 50.0);
+// isn't doing anything... not invoking this tool right?
+//  prog.SetSolverOption("GUROBI", "TuneJobs", 8);
+//  prog.SetSolverOption("GUROBI", "TuneResults", 3);
+
+
   double now = getUnixTime();
-  auto out = prog.Solve();
+  auto out = gurobi_solver.Solve(prog);
   string problem_string = "3drotapprox";
   double elapsed = getUnixTime() - now;
  
