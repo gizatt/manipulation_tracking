@@ -15,7 +15,12 @@ pods_use_pkg_config_packages(miqp_point_model_detector lcm bot2-core bot2-lcmgl-
 target_link_libraries(miqp_point_model_detector ObjectScan drakeRBM drakeOptimization drakeJoints drakeXMLUtil drakeCommon yaml-cpp ${PCL_LIBRARIES} z ${OpenCV_LIBS} pthread)
 pods_install_executables(miqp_point_model_detector)
 
+add_executable(miqp_mesh_model_detector miqp_mesh_model_detector.cpp)
+pods_use_pkg_config_packages(miqp_mesh_model_detector lcm bot2-core bot2-lcmgl-client bot2-frames bot2-param-client kinect-utils drake-convex-hull drake-shapes eigen3 kinect-utils)
+target_link_libraries(miqp_mesh_model_detector ObjectScan drakeRBM drakeOptimization drakeJoints drakeXMLUtil drakeCommon yaml-cpp ${PCL_LIBRARIES} z ${OpenCV_LIBS} pthread)
+pods_install_executables(miqp_mesh_model_detector)
+
 add_executable(test3DRotationApprox test3DRotationApprox.cpp)
 pods_use_pkg_config_packages(test3DRotationApprox lcm bot2-core bot2-lcmgl-client bot2-frames bot2-param-client kinect-utils drake-convex-hull eigen3 kinect-utils)
-target_link_libraries(test3DRotationApprox ObjectScan drakeRBM drakeOptimization drakeJoints drakeXMLUtil drakeCommon yaml-cpp ${PCL_LIBRARIES} z ${OpenCV_LIBS} pthread)
+target_link_libraries(test3DRotationApprox ObjectScan drakeRBM drakeOptimization drakeJoints drakeXMLUtil drakeCommon drakeShapes yaml-cpp ${PCL_LIBRARIES} z ${OpenCV_LIBS} pthread)
 pods_install_executables(test3DRotationApprox)
