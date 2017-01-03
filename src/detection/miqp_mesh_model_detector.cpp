@@ -34,7 +34,17 @@ using namespace drake::solvers;
 typedef pcl::PointXYZ PointType;
 typedef pcl::Normal NormalType;
 
-MatrixXd boundingBox2FaceSel(MatrixXd bb_pts){
+MatrixXd boundingBox2FaceSel(Matrix3Xd bb_pts){
+
+  // Get average per axis, which we'll use to distinguish
+  // the postive vs negative face on each axis
+  Vector3d avg;
+  avg.setZero();
+  for (int k=0; k<bb_pts.cols(); k++){
+    avg += bb_pts.col(k);
+  }
+  avg /= (double)bb_pts.cols();
+
   // order in:
   // cx << -1, 1, 1, -1, -1, 1, 1, -1;
   // cy << 1, 1, 1, 1, -1, -1, -1, -1;
@@ -47,7 +57,7 @@ MatrixXd boundingBox2FaceSel(MatrixXd bb_pts){
   for (int xyz=0; xyz<3; xyz+=1){
     for (int tar=-1; tar<=1; tar+=2){
       for (int i=0; i<8; i++){
-        if (bb_pts(xyz, i)*(double)tar >= 0){
+        if ((bb_pts(xyz, i)-avg(xyz))*(double)tar >= 0){
           F(k, i) = 1.0;
         }
       }
@@ -163,7 +173,7 @@ int main(int argc, char** argv) {
   avg_scene_pt /= (double)(scene_pts->size());
 
   Eigen::Affine3f scene_centering_tf = Eigen::Affine3f::Identity();
-  scene_centering_tf.translation() = avg_scene_pt.cast<float>();
+  //scene_centering_tf.translation() = avg_scene_pt.cast<float>();
   pcl::transformPointCloud (*scene_pts, *scene_pts_tf, scene_centering_tf);
 
   // Randomly transform model point cloud
@@ -175,12 +185,7 @@ int main(int argc, char** argv) {
   pcl::PointCloud<PointType>::Ptr model_pts_tf (new pcl::PointCloud<PointType> ());
   pcl::transformPointCloud (*model_pts, *model_pts_tf, scene_model_tf);
 
-
   printf("Selected %ld model pts and %ld scene pts\n", model_pts->size(), scene_pts_tf->size());
-  printf("Ground truth TF: ");
-  cout << -scene_model_tf.translation().transpose() << endl;
-  cout << scene_model_tf.matrix().block<3,3>(0,0).inverse() << endl;
-  printf("*******\n");
 
   pcl::visualization::PCLVisualizer viewer ("Point Collection");
 
@@ -189,22 +194,21 @@ int main(int argc, char** argv) {
   viewer.setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "model pts_tf");
 
   pcl::visualization::PointCloudColorHandlerCustom<PointType> scene_color_handler (scene_pts_tf, 255, 255, 128);
-  viewer.addPointCloud<PointType>(scene_pts_tf, scene_color_handler, "scene pts"); 
-  viewer.setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2, "scene pts");
+  viewer.addPointCloud<PointType>(scene_pts_tf, scene_color_handler, "scene pts tf"); 
+  viewer.setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2, "scene pts tf");
 
   // Do meshing conversions and setup
   Matrix3Xd vertices;
   robot.get_body(1).get_visual_elements()[0].getGeometry().getPoints(vertices);
+  vertices = scene_model_tf.cast<double>() * vertices;
   // Generate face selection matrix F
   MatrixXd F = boundingBox2FaceSel(vertices);
   // Draw the model mesh
   for (int i=0; i<F.rows(); i++){
     pcl::PointCloud<PointType>::Ptr face_pts (new pcl::PointCloud<PointType> ());
-    printf("Mesh face %d:\n", i);
     for (int j=0; j<F.cols(); j++){
       if (F(i, j) > 0){
-        cout << "\t" << vertices.col(j).transpose() << endl;
-        VectorXd pt = scene_model_tf.cast<double>() * vertices.col(j);
+        VectorXd pt = vertices.col(j);
         face_pts->push_back(PointType(pt[0], pt[1], pt[2]));
       }
     } 
@@ -214,14 +218,38 @@ int main(int argc, char** argv) {
   }
 
 
-  // Solve rigid body transform problem with correspondences
+  // We want to solve
+  //  \min \sum_{i \in N_s} ||R s_i + T - C_i V||^2
+  // R being a 3x3 rotation matrix, T being a 3x1 translation, 
+  // C_i being a collection of affine correspondence variables
+  // relating scene point i to some model point, and V being
+  // the set of model vertices
+  // V = {3*N_v, 1} matrix appending all model vertices
+  // C_i = {3 x 3*N_v} matrix with structure
+  //  [ c_{i, 1} * I(3) ... ... ... c_{i, N_m} * I(3) ]
+  // 
+  // To get things in the right order, we instead minimize
+  // \min \sum_{i \in N_s} ||s_i^T R^T + T^T - M^T C_i^T||^2
+  // Because || B * x ||^2 = x^T B^T B x
+  // and x = [R^T
+  //          T^T
+  //          C_i^T]
+  // B = [s_i^T   1  -V^T]
+  // giving us our quadratic cost
+
   MathematicalProgram prog;
 
-  auto T = prog.AddContinuousVariables(3, 1, "t");
+  // Each row is a set of affine coefficients relating the scene point to a combination
+  // of vertices on a single face of the model
+  auto C = prog.AddContinuousVariables(scene_pts_tf->size(), vertices.cols(), "C");
+  // Binary variable selects which face is being corresponded to
+  auto f = prog.AddBinaryVariables(scene_pts_tf->size(), F.rows(),"f");
+
+  auto T = prog.AddContinuousVariables(3, 1, "T");
   // And add bounding box constraints on appropriate variables
   prog.AddBoundingBoxConstraint(-100*VectorXd::Ones(3), 100*VectorXd::Ones(3), {flatten_MxN(T)});
 
-  auto R = prog.AddContinuousVariables(3, 3, "r");
+  auto R = prog.AddContinuousVariables(3, 3, "R");
   prog.AddBoundingBoxConstraint(-VectorXd::Ones(9), VectorXd::Ones(9), {flatten_MxN(R)});
 
 
@@ -229,7 +257,6 @@ int main(int argc, char** argv) {
   //prog.AddLinearConstraint(Eigen::MatrixXd::Identity(3, 3),
   //  Eigen::VectorXd::Zero(3), Eigen::VectorXd::Zero(3), 
   //  {T});
-
 
   bool free_rot = false;
   if (free_rot){
@@ -243,6 +270,109 @@ int main(int argc, char** argv) {
       }
     }
   }
+
+  // Constrain each row of C to sum to 1, to make them proper
+  // affine coefficients
+  Eigen::MatrixXd C1 = Eigen::MatrixXd::Ones(1, C.cols());
+  for (size_t k=0; k<C.rows(); k++){
+    prog.AddLinearEqualityConstraint(C1, 1, {C.row(k).transpose()});
+  }
+
+  // Constrain each row of f to sum to 1, to force selection of exactly
+  // one face to correspond to
+  Eigen::MatrixXd f1 = Eigen::MatrixXd::Ones(1, f.cols());
+  for (size_t k=0; k<f.rows(); k++){
+    prog.AddLinearEqualityConstraint(f1, 1, {f.row(k).transpose()});
+  }
+
+  // Force all elems of C nonnegative
+  for (int i=0; i<C.rows(); i++){
+    for (int j=0; j<C.cols(); j++){
+      prog.AddBoundingBoxConstraint(0.0, 1.0, C(i, j));
+    }
+  }
+
+  // Force elems of C to be zero unless their corresponding vertex is a member
+  // of an active face
+  // That is,
+  //   C_{i, j} <= F_{:, j}^T * f_{i, :}^T
+  // or reorganized
+  // [0] <= [F_{:, j}^T -1] [f_{i, :}^T C_{i, j}]
+  //         
+  for (int i=0; i<C.rows(); i++){
+    for (int j=0; j<C.cols(); j++){
+      MatrixXd A(1, F.rows() + 1);
+      A.block(0, 0, 1, F.rows()) = F.col(j).transpose();
+      A(0, F.rows()) = -1.0;
+
+      prog.AddLinearConstraint(A, 0.0, std::numeric_limits<double>::infinity(), {f.row(i).transpose(), C.block<1,1>(i,j)});
+    }
+  }
+
+  // flatten should be able to replace this but I'm having strange compile bugs
+  // I don't want to fight through yet
+  Eigen::VectorXd V = VectorXd(3*vertices.cols());
+  for (int j=0; j<vertices.cols(); j++){
+    V.block<3, 1>(3*j, 0) = vertices.col(j);
+  }
+
+  // I'm adding a dummy var constrained to zero to 
+  // fill out the diagonals of C_i.
+  auto C_dummy = prog.AddContinuousVariables(1, "c_dummy_zero");
+  prog.AddLinearEqualityConstraint(Eigen::MatrixXd::Ones(1, 1), Eigen::MatrixXd::Zero(1, 1), {C_dummy});
+  auto B = Eigen::RowVectorXd(1, 3+1+3*vertices.cols());    
+  B.block<1, 1>(0, 3) = MatrixXd::Ones(1, 1); // T bias term
+  B.block(0, 4, 1, vertices.cols()*3) = -1.0 * V.transpose();
+  printf("c\n");
+
+  printf("Starting to add correspondence costs... ");
+  for (int i=0; i<scene_pts_tf->size(); i++){
+    printf("=");
+
+    //printf("Starting row cost %d...\n", i);
+    double start_cost = getUnixTime();
+
+    auto C_i = DecisionVariableMatrixX(3, 3*vertices.cols());
+  
+    for (int j=0; j<vertices.cols(); j++){
+      C_i(1, 3*j) = C_dummy(0,0);
+      C_i(2, 3*j) = C_dummy(0,0);
+      C_i(0, 3*j+1) = C_dummy(0,0);
+      C_i(2, 3*j+1) = C_dummy(0,0);
+      C_i(0, 3*j+2) = C_dummy(0,0);
+      C_i(1, 3*j+2) = C_dummy(0,0);
+
+      C_i(0, 3*j) = C(i, j);
+      C_i(1, 3*j+1) = C(i, j);
+      C_i(2, 3*j+2) = C(i, j);
+    }
+    // B, containing the scene and model points and a translation bias term, is used in all three
+    // cost terms (for the x, y, z components of the final error) 
+    auto s_xyz = Eigen::Vector3d(scene_pts_tf->at(i).x, scene_pts_tf->at(i).y, scene_pts_tf->at(i).z);
+    B.block<1, 3>(0, 0) = s_xyz.transpose(); // Multiples R
+
+    auto BtB = B.transpose() * B;
+
+    // Quadratic cost and Quadratic Error Cost would do the same thing here, with x0 = b = zeros()
+    // But quadratic error cost is hundreds of times slower, I think because it forces more matrix multiplies
+    // with these big matrices!
+    prog.AddQuadraticCost(BtB, Eigen::VectorXd::Zero(3+1+3*vertices.cols()), 
+      {R.block<1, 3>(0, 0).transpose(), 
+       T.block<1,1>(0,0),
+       C_i.block(0,0,1,3*vertices.cols()).transpose()});
+    prog.AddQuadraticCost(BtB, Eigen::VectorXd::Zero(3+1+3*vertices.cols()), 
+      {R.block<1, 3>(1, 0).transpose(), 
+       T.block<1,1>(1,0),
+       C_i.block(1,0,1,3*vertices.cols()).transpose()});
+    prog.AddQuadraticCost(BtB, Eigen::VectorXd::Zero(3+1+3*vertices.cols()), 
+      {R.block<1, 3>(2, 0).transpose(), 
+       T.block<1,1>(2,0),
+       C_i.block(2,0,1,3*vertices.cols()).transpose()});
+
+    //printf("\tElapsed %fs after setting up cost\n", getUnixTime() - start_cost);
+  }
+
+
 
   double now = getUnixTime();
 
@@ -266,7 +396,14 @@ int main(int argc, char** argv) {
   string problem_string = "rigidtf";
   double elapsed = getUnixTime() - now;
 
-  //prog.PrintSolution();
+  //prog.PrintSolution();o
+
+  printf("*******\n");
+  printf("Ground truth TF: ");
+  cout << scene_model_tf.translation().transpose() << endl;
+  cout << scene_model_tf.matrix().block<3,3>(0,0) << endl;
+  printf("*******\n");
+
 
   printf("Transform:\n");
   printf("\tTranslation: %f, %f, %f\n", T(0, 0).value(), T(1, 0).value(), T(2, 0).value());
@@ -274,11 +411,48 @@ int main(int argc, char** argv) {
   printf("\t\t%f, %f, %f\n", R(0, 0).value(), R(0, 1).value(), R(0, 2).value());
   printf("\t\t%f, %f, %f\n", R(1, 0).value(), R(1, 1).value(), R(1, 2).value());
   printf("\t\t%f, %f, %f\n", R(2, 0).value(), R(2, 1).value(), R(2, 2).value());
+  printf("*******\n");
+
+  Eigen::Affine3f est_tf = Eigen::Affine3f::Identity();
+  est_tf.translation() << T(0, 0).value(), T(1, 0).value(), T(2, 0).value();
+  est_tf.matrix().block<3,3>(0,0) << 
+   R(0, 0).value(), R(0, 1).value(), R(0, 2).value(),
+   R(1, 0).value(), R(1, 1).value(), R(1, 2).value(),
+   R(2, 0).value(), R(2, 1).value(), R(2, 2).value();
+
+  pcl::PointCloud<PointType>::Ptr scene_pts_tf_est (new pcl::PointCloud<PointType> ());
+  pcl::transformPointCloud (*scene_pts_tf, *scene_pts_tf_est, est_tf);
+
+
 
   printf("Code %d, problem %s solved for %lu scene, %lu model solved in: %f\n", out, problem_string.c_str(), scene_pts_tf->size(), model_pts_tf->size(), elapsed);
 
-  while (!viewer.wasStopped ())
+
+  for (int k_s=0; k_s<scene_pts_tf->size(); k_s++){
+    for (int k_f=0; k_f<f.cols(); k_f++){
+      if (f(k_s, k_f).value() >= 0.5){
+        printf("Corresp s%d->f%d\n", k_s, k_f);
+        std::stringstream ss_line;
+        ss_line << "raw_correspondence_line" << k_f << "-" << k_s;
+
+        viewer.addLine<PointType, PointType> (scene_pts_tf_est->at(k_s), scene_pts_tf->at(k_s), 255, 0, 255, ss_line.str ());
+      }
+    }
+  }
+
+  // and add ground truth
+  for (int k_s=0; k_s<scene_pts_tf->size(); k_s++){
+    int k = correspondences_gt[k_s];
+    std::stringstream ss_line;
+    ss_line << "gt_correspondence_line" << k << "-" << k_s;
+    viewer.addLine<PointType, PointType> (model_pts_tf->at(k), scene_pts_tf->at(k_s), 0, 255, 0, ss_line.str ());
+  }
+
+
+
+  while (!viewer.wasStopped ()){
     viewer.spinOnce ();
+  }
 
   return 0;
 }
