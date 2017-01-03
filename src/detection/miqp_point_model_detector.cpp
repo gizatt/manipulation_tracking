@@ -298,6 +298,7 @@ int main(int argc, char** argv) {
 
     //printf("\tElapsed %fs after setting up cost\n", getUnixTime() - start_cost);
   }
+  printf("\n");
 
   double now = getUnixTime();
 
