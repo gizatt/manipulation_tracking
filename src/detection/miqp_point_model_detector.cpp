@@ -204,7 +204,7 @@ int main(int argc, char** argv) {
   //  {T});
 
 
-  bool free_rot = true;
+  bool free_rot = false;
   if (free_rot){
     addMcCormickQuaternionConstraint(prog, R, 4, 4);
   } else {
