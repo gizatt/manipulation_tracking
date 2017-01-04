@@ -87,6 +87,28 @@ vector< vector<Vector3d> > boundingBox2QuadMesh(MatrixXd bb_pts){
   return out;
 }
 
+
+bool pending_redraw = true;
+bool draw_all_mode = true;
+int target_corresp_id = 0;
+int max_corresp_id = 0;
+void keyboardEventOccurred (const pcl::visualization::KeyboardEvent &event,
+                            void* viewer_void)
+{
+  pcl::visualization::PCLVisualizer *viewer = static_cast<pcl::visualization::PCLVisualizer *> (viewer_void);
+  if (event.getKeySym () == "z" && event.keyDown ())
+  { 
+    draw_all_mode = !draw_all_mode;
+  }
+  else if (event.getKeySym() == "Right" && event.keyDown()) {
+    target_corresp_id = (target_corresp_id + 1) % max_corresp_id;
+  }
+  else if (event.getKeySym() == "Left" && event.keyDown()) {
+    target_corresp_id = (target_corresp_id - 1 + max_corresp_id) % max_corresp_id;
+  }
+  pending_redraw = true;
+}
+
 int main(int argc, char** argv) {
   srand(getUnixTime());
 
@@ -187,35 +209,12 @@ int main(int argc, char** argv) {
 
   printf("Selected %ld model pts and %ld scene pts\n", model_pts->size(), scene_pts_tf->size());
 
-  pcl::visualization::PCLVisualizer viewer ("Point Collection");
-
-  pcl::visualization::PointCloudColorHandlerCustom<PointType> model_color_handler (model_pts_tf, 128, 255, 255);
-  viewer.addPointCloud<PointType>(model_pts_tf, model_color_handler, "model pts_tf"); 
-  viewer.setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "model pts_tf");
-
-  pcl::visualization::PointCloudColorHandlerCustom<PointType> scene_color_handler (scene_pts_tf, 255, 255, 128);
-  viewer.addPointCloud<PointType>(scene_pts_tf, scene_color_handler, "scene pts tf"); 
-  viewer.setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2, "scene pts tf");
-
   // Do meshing conversions and setup
   Matrix3Xd vertices;
   robot.get_body(1).get_visual_elements()[0].getGeometry().getPoints(vertices);
   vertices = scene_model_tf.cast<double>() * vertices;
   // Generate face selection matrix F
   MatrixXd F = boundingBox2FaceSel(vertices);
-  // Draw the model mesh
-  for (int i=0; i<F.rows(); i++){
-    pcl::PointCloud<PointType>::Ptr face_pts (new pcl::PointCloud<PointType> ());
-    for (int j=0; j<F.cols(); j++){
-      if (F(i, j) > 0){
-        VectorXd pt = vertices.col(j);
-        face_pts->push_back(PointType(pt[0], pt[1], pt[2]));
-      }
-    } 
-    char strname[100];
-    sprintf(strname, "polygon%d", i);
-    viewer.addPolygon<PointType>(face_pts, 0.2, 0.2, 1.0, string(strname));
-  }
 
 
   // We want to solve
@@ -258,7 +257,7 @@ int main(int argc, char** argv) {
   //  Eigen::VectorXd::Zero(3), Eigen::VectorXd::Zero(3), 
   //  {T});
 
-  bool free_rot = false;
+  bool free_rot = true;
   if (free_rot){
     addMcCormickQuaternionConstraint(prog, R, 4, 4);
   } else {
@@ -423,34 +422,104 @@ int main(int argc, char** argv) {
   pcl::PointCloud<PointType>::Ptr scene_pts_tf_est (new pcl::PointCloud<PointType> ());
   pcl::transformPointCloud (*scene_pts_tf, *scene_pts_tf_est, est_tf);
 
-
-
   printf("Code %d, problem %s solved for %lu scene, %lu model solved in: %f\n", out, problem_string.c_str(), scene_pts_tf->size(), model_pts_tf->size(), elapsed);
 
 
-  for (int k_s=0; k_s<scene_pts_tf->size(); k_s++){
-    for (int k_f=0; k_f<f.cols(); k_f++){
-      if (f(k_s, k_f).value() >= 0.5){
-        printf("Corresp s%d->f%d\n", k_s, k_f);
-        std::stringstream ss_line;
-        ss_line << "raw_correspondence_line" << k_f << "-" << k_s;
 
-        viewer.addLine<PointType, PointType> (scene_pts_tf_est->at(k_s), scene_pts_tf->at(k_s), 255, 0, 255, ss_line.str ());
-      }
-    }
-  }
+  // Viewer main loop
+  // Pressing left-right arrow keys allows viewing of individual point-face correspondences
+  // Pressing "z" toggles viewing everything at once or doing individual-correspondence viewing
+  // Pressing up-down arrow keys scrolls through different optimal solutions (TODO(gizatt) make this happen)
 
-  // and add ground truth
-  for (int k_s=0; k_s<scene_pts_tf->size(); k_s++){
-    int k = correspondences_gt[k_s];
-    std::stringstream ss_line;
-    ss_line << "gt_correspondence_line" << k << "-" << k_s;
-    viewer.addLine<PointType, PointType> (model_pts_tf->at(k), scene_pts_tf->at(k_s), 0, 255, 0, ss_line.str ());
-  }
+  pcl::visualization::PCLVisualizer viewer ("Point Collection");
+  viewer.setShowFPS(false);
+  pcl::visualization::PointCloudColorHandlerCustom<PointType> model_color_handler (model_pts_tf, 128, 255, 255);
+  pcl::visualization::PointCloudColorHandlerCustom<PointType> scene_color_handler (scene_pts_tf, 255, 255, 128);
+  viewer.registerKeyboardCallback (keyboardEventOccurred, (void*)&viewer);
 
-
+  max_corresp_id = scene_pts_tf->size();
+  pending_redraw = true;
 
   while (!viewer.wasStopped ()){
+    if (pending_redraw){
+      viewer.removeAllPointClouds();
+      viewer.removeAllShapes();
+
+      viewer.addPointCloud<PointType>(model_pts_tf, model_color_handler, "model pts_tf"); 
+      viewer.setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "model pts_tf");
+      viewer.addPointCloud<PointType>(scene_pts_tf, scene_color_handler, "scene pts tf"); 
+      viewer.setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2, "scene pts tf");
+ 
+      if (draw_all_mode){
+        // Draw all correspondneces as lines
+        for (int k_s=0; k_s<scene_pts_tf->size(); k_s++){
+          for (int k_f=0; k_f<f.cols(); k_f++){
+            if (f(k_s, k_f).value() >= 0.5){
+              std::stringstream ss_line;
+              ss_line << "raw_correspondence_line" << k_f << "-" << k_s;
+              viewer.addLine<PointType, PointType> (scene_pts_tf_est->at(k_s), scene_pts_tf->at(k_s), 255, 0, 255, ss_line.str ());
+            }
+          }
+        }
+        // and add all ground truth
+        for (int k_s=0; k_s<scene_pts_tf->size(); k_s++){
+          int k = correspondences_gt[k_s];
+          std::stringstream ss_line;
+          ss_line << "gt_correspondence_line" << k << "-" << k_s;
+          viewer.addLine<PointType, PointType> (model_pts_tf->at(k), scene_pts_tf->at(k_s), 0, 255, 0, ss_line.str ());
+        }
+      } else {
+        // Draw only desired correspondence
+        for (int k_f=0; k_f<f.cols(); k_f++){
+          if (f(target_corresp_id, k_f).value() >= 0.5){
+            std::stringstream ss_line;
+            ss_line << "raw_correspondence_line" << k_f << "-" << target_corresp_id;
+            viewer.addLine<PointType, PointType> (scene_pts_tf_est->at(target_corresp_id), scene_pts_tf->at(target_corresp_id), 255, 0, 255, ss_line.str ());
+          }
+        }
+        // And desired ground truth
+        int k = correspondences_gt[target_corresp_id];
+        std::stringstream ss_line;
+        ss_line << "gt_correspondence_line" << k << "-" << target_corresp_id;
+        viewer.addLine<PointType, PointType> (model_pts_tf->at(k), scene_pts_tf->at(target_corresp_id), 0, 255, 0, ss_line.str ());
+        // Re-draw the corresponded vertices larger
+        for (int k_v=0; k_v<vertices.cols(); k_v++){
+          if (C(target_corresp_id, k_v).value() >= 0.0){
+            std::stringstream ss_sphere;
+            ss_sphere << "vertex_sphere" << k_v;
+            viewer.addSphere<PointType>(PointType(vertices(0, k_v), vertices(1, k_v), vertices(2, k_v)), C(target_corresp_id, k_v).value()/100.0, 
+              255,0,255, ss_sphere.str());
+          }
+        }
+
+      }
+
+      // Always draw the model mesh
+      for (int i=0; i<F.rows(); i++){
+        pcl::PointCloud<PointType>::Ptr face_pts (new pcl::PointCloud<PointType> ());
+        for (int j=0; j<F.cols(); j++){
+          if (F(i, j) > 0){
+            VectorXd pt = vertices.col(j);
+            face_pts->push_back(PointType(pt[0], pt[1], pt[2]));
+          }
+        } 
+        char strname[100];
+        sprintf(strname, "polygon%d", i);
+        viewer.addPolygon<PointType>(face_pts, 0.2, 0.2, 1.0, string(strname));
+      }
+
+      // Always draw info
+      std::stringstream ss_info;
+      ss_info << "MIQP Scene Point to Model Mesh Correspondences" << endl
+              << "Solution Objective: " << "todo" << endl
+              << "Drawing mode [Z]: " << draw_all_mode << endl
+              << "Drawing correspondence [Left/Right Keys]: " << target_corresp_id << endl;
+      viewer.addText  ( ss_info.str(), 10, 10, "optim_info_str");
+      
+
+      pending_redraw = false;
+    }
+
     viewer.spinOnce ();
   }
 
