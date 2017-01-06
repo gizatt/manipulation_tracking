@@ -5,9 +5,11 @@
 #include <iostream>
 
 #include "drake/multibody/rigid_body_tree.h"
+#include "drake/multibody/parsers/urdf_parser.h"
 #include "drake/solvers/mathematical_program.h"
 #include "drake/solvers/gurobi_solver.h"
 #include "drake/solvers/mosek_solver.h"
+#include "drake/solvers/rotation.h"
 #include "drake/common/eigen_matrix_compare.h"
 #include "drake/common/eigen_types.h"
 
@@ -30,6 +32,7 @@
 using namespace std;
 using namespace Eigen;
 using namespace drake::solvers;
+using namespace drake::parsers::urdf;
 
 typedef pcl::PointXYZ PointType;
 typedef pcl::Normal NormalType;
@@ -126,15 +129,14 @@ int main(int argc, char** argv) {
   float kSceneNeighborhoodSize = atof(argv[2]);
 
   // Set up robot
+  printf("getting in\n");
   string urdfString = string(argv[3]);
-  RigidBodyTree<double> robot(urdfString);
-  KinematicsCache<double> robot_kinematics_cache(robot.bodies);
+  RigidBodyTree<double> robot;
+  AddModelInstanceFromUrdfFileWithRpyJointToWorld(urdfString, &robot);
   VectorXd q0_robot(robot.get_num_positions());
-  q0_robot.setZero();
-  robot_kinematics_cache.initialize(q0_robot);
-  robot.doKinematics(robot_kinematics_cache);
+  KinematicsCache<double> robot_kinematics_cache = robot.doKinematics(q0_robot);
   printf("Set up robot with %d positions\n", robot.get_num_positions());
-
+  printf("here after kin\n");
   // Render scene point cloud
   pcl::PointCloud<PointType>::Ptr model_pts (new pcl::PointCloud<PointType> ());
   pcl::PointCloud<PointType>::Ptr scene_pts (new pcl::PointCloud<PointType> ());
@@ -202,7 +204,7 @@ int main(int argc, char** argv) {
   Eigen::Affine3f scene_model_tf = Eigen::Affine3f::Identity();
   scene_model_tf.translation() << randrange(-0.5, 0.5), randrange(-0.5, 0.5), randrange(-0.5, 0.5);
   // theta radians arround Z axis
-  scene_model_tf.rotate (Eigen::AngleAxisf (randrange(-1.57, 1.57), Eigen::Vector3f::UnitZ()));
+  scene_model_tf.rotate (Eigen::AngleAxisf (randrange(0, 1.57), Eigen::Vector3f::UnitZ()));
 
   pcl::PointCloud<PointType>::Ptr model_pts_tf (new pcl::PointCloud<PointType> ());
   pcl::transformPointCloud (*model_pts, *model_pts_tf, scene_model_tf);
@@ -240,17 +242,15 @@ int main(int argc, char** argv) {
 
   // Each row is a set of affine coefficients relating the scene point to a combination
   // of vertices on a single face of the model
-  auto C = prog.AddContinuousVariables(scene_pts_tf->size(), vertices.cols(), "C");
+  auto C = prog.NewContinuousVariables(scene_pts_tf->size(), vertices.cols(), "C");
   // Binary variable selects which face is being corresponded to
-  auto f = prog.AddBinaryVariables(scene_pts_tf->size(), F.rows(),"f");
+  auto f = prog.NewBinaryVariables(scene_pts_tf->size(), F.rows(),"f");
 
-  auto T = prog.AddContinuousVariables(3, 1, "T");
+  auto T = prog.NewContinuousVariables(3, 1, "T");
   // And add bounding box constraints on appropriate variables
   prog.AddBoundingBoxConstraint(-100*VectorXd::Ones(3), 100*VectorXd::Ones(3), {flatten_MxN(T)});
 
-  auto R = prog.AddContinuousVariables(3, 3, "R");
-  prog.AddBoundingBoxConstraint(-VectorXd::Ones(9), VectorXd::Ones(9), {flatten_MxN(R)});
-
+  auto R = NewRotationMatrixVars(&prog, "R");
 
   // constrain T to identity for now
   //prog.AddLinearConstraint(Eigen::MatrixXd::Identity(3, 3),
@@ -259,7 +259,9 @@ int main(int argc, char** argv) {
 
   bool free_rot = true;
   if (free_rot){
-    addMcCormickQuaternionConstraint(prog, R, 4, 4);
+    //addMcCormickQuaternionConstraint(prog, R, 4, 4);
+    //AddBoundingBoxConstraintsImpliedByRollPitchYawLimits(&prog, R, kYaw_0_to_PI_2 | kPitch_0_to_PI_2 | kRoll_0_to_PI_2);
+    AddRotationMatrixOctantMilpConstraints(&prog, R, kYaw_0_to_PI_2 | kPitch_0_to_PI_2 | kRoll_0_to_PI_2);
   } else {
     // constrain rotations to ground truth
     // I know I can do this in one constraint with 9 rows, but eigen was giving me trouble
@@ -317,7 +319,7 @@ int main(int argc, char** argv) {
 
   // I'm adding a dummy var constrained to zero to 
   // fill out the diagonals of C_i.
-  auto C_dummy = prog.AddContinuousVariables(1, "c_dummy_zero");
+  auto C_dummy = prog.NewContinuousVariables(1, "c_dummy_zero");
   prog.AddLinearEqualityConstraint(Eigen::MatrixXd::Ones(1, 1), Eigen::MatrixXd::Zero(1, 1), {C_dummy});
   auto B = Eigen::RowVectorXd(1, 3+1+3*vertices.cols());    
   B.block<1, 1>(0, 3) = MatrixXd::Ones(1, 1); // T bias term
@@ -404,20 +406,27 @@ int main(int argc, char** argv) {
   printf("*******\n");
 
 
+  Vector3f Tf = prog.GetSolution(T).cast<float>();
+  Matrix3f Rf = prog.GetSolution(R).cast<float>();
   printf("Transform:\n");
-  printf("\tTranslation: %f, %f, %f\n", T(0, 0).value(), T(1, 0).value(), T(2, 0).value());
+  printf("\tTranslation: %f, %f, %f\n", Tf(0, 0), Tf(1, 0), Tf(2, 0));
   printf("\tRotation:\n");
-  printf("\t\t%f, %f, %f\n", R(0, 0).value(), R(0, 1).value(), R(0, 2).value());
-  printf("\t\t%f, %f, %f\n", R(1, 0).value(), R(1, 1).value(), R(1, 2).value());
-  printf("\t\t%f, %f, %f\n", R(2, 0).value(), R(2, 1).value(), R(2, 2).value());
+  printf("\t\t%f, %f, %f\n", Rf(0, 0), Rf(0, 1), Rf(0, 2));
+  printf("\t\t%f, %f, %f\n", Rf(1, 0), Rf(1, 1), Rf(1, 2));
+  printf("\t\t%f, %f, %f\n", Rf(2, 0), Rf(2, 1), Rf(2, 2));
   printf("*******\n");
 
+  printf("Sanity check rotation: R^T R = \n");
+  MatrixXf RfTRf = Rf.transpose() * Rf;
+  printf("\t\t%f, %f, %f\n", RfTRf(0, 0), RfTRf(0, 1), RfTRf(0, 2));
+  printf("\t\t%f, %f, %f\n", RfTRf(1, 0), RfTRf(1, 1), RfTRf(1, 2));
+  printf("\t\t%f, %f, %f\n", RfTRf(2, 0), RfTRf(2, 1), RfTRf(2, 2));
+  printf("*******\n");
+
+
   Eigen::Affine3f est_tf = Eigen::Affine3f::Identity();
-  est_tf.translation() << T(0, 0).value(), T(1, 0).value(), T(2, 0).value();
-  est_tf.matrix().block<3,3>(0,0) << 
-   R(0, 0).value(), R(0, 1).value(), R(0, 2).value(),
-   R(1, 0).value(), R(1, 1).value(), R(1, 2).value(),
-   R(2, 0).value(), R(2, 1).value(), R(2, 2).value();
+  est_tf.translation() = Tf;
+  est_tf.matrix().block<3,3>(0,0) = Rf;
 
   pcl::PointCloud<PointType>::Ptr scene_pts_tf_est (new pcl::PointCloud<PointType> ());
   pcl::transformPointCloud (*scene_pts_tf, *scene_pts_tf_est, est_tf);
@@ -454,7 +463,7 @@ int main(int argc, char** argv) {
         // Draw all correspondneces as lines
         for (int k_s=0; k_s<scene_pts_tf->size(); k_s++){
           for (int k_f=0; k_f<f.cols(); k_f++){
-            if (f(k_s, k_f).value() >= 0.5){
+            if (prog.GetSolution(f(k_s, k_f)) >= 0.5){
               std::stringstream ss_line;
               ss_line << "raw_correspondence_line" << k_f << "-" << k_s;
               viewer.addLine<PointType, PointType> (scene_pts_tf_est->at(k_s), scene_pts_tf->at(k_s), 255, 0, 255, ss_line.str ());
@@ -471,7 +480,7 @@ int main(int argc, char** argv) {
       } else {
         // Draw only desired correspondence
         for (int k_f=0; k_f<f.cols(); k_f++){
-          if (f(target_corresp_id, k_f).value() >= 0.5){
+          if (prog.GetSolution(f(target_corresp_id, k_f)) >= 0.5){
             std::stringstream ss_line;
             ss_line << "raw_correspondence_line" << k_f << "-" << target_corresp_id;
             viewer.addLine<PointType, PointType> (scene_pts_tf_est->at(target_corresp_id), scene_pts_tf->at(target_corresp_id), 255, 0, 255, ss_line.str ());
@@ -484,10 +493,10 @@ int main(int argc, char** argv) {
         viewer.addLine<PointType, PointType> (model_pts_tf->at(k), scene_pts_tf->at(target_corresp_id), 0, 255, 0, ss_line.str ());
         // Re-draw the corresponded vertices larger
         for (int k_v=0; k_v<vertices.cols(); k_v++){
-          if (C(target_corresp_id, k_v).value() >= 0.0){
+          if (prog.GetSolution(C(target_corresp_id, k_v)) >= 0.0){
             std::stringstream ss_sphere;
             ss_sphere << "vertex_sphere" << k_v;
-            viewer.addSphere<PointType>(PointType(vertices(0, k_v), vertices(1, k_v), vertices(2, k_v)), C(target_corresp_id, k_v).value()/100.0, 
+            viewer.addSphere<PointType>(PointType(vertices(0, k_v), vertices(1, k_v), vertices(2, k_v)), prog.GetSolution(C(target_corresp_id, k_v))/100.0, 
               255,0,255, ss_sphere.str());
           }
         }

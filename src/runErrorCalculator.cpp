@@ -8,6 +8,7 @@
 #include "lcmtypes/bot_core/rigid_transform_t.hpp"
 #include "common/common.hpp"
 #include "drake/multibody/rigid_body_tree.h"
+#include "drake/multibody/parsers/urdf_parser.h"
 #include "drake/math/roll_pitch_yaw.h"
 #include "costs/ManipulationTrackerCost.hpp"
 #include "yaml-cpp/yaml.h"
@@ -20,6 +21,7 @@
 
 using namespace std;
 using namespace Eigen;
+using namespace drake::parsers::urdf;
 
 RigidBodyTree<double> * robot_1;
 RigidBodyTree<double> * robot_2;
@@ -92,8 +94,8 @@ Isometry3d getTransform(VectorXd q_r1, int link_ind_1, Vector3d offset_1, Vector
   Isometry3d transform;
   transform.setIdentity();
 
-  KinematicsCache<double> robot_kinematics_cache_1(robot_1->bodies);
-  KinematicsCache<double> robot_kinematics_cache_2(robot_2->bodies);
+  KinematicsCache<double> robot_kinematics_cache_1(robot_1->get_num_positions(), robot_1->get_num_velocities());
+  KinematicsCache<double> robot_kinematics_cache_2(robot_2->get_num_positions(), robot_2->get_num_velocities());
 
   robot_kinematics_cache_1.initialize(q_r1);
   robot_1->doKinematics(robot_kinematics_cache_1);
@@ -150,7 +152,8 @@ int main(int argc, char** argv) {
     relative_transform.matrix().block<3, 3>(0,0) = Quaterniond(relative_transform_quat[0], relative_transform_quat[1],relative_transform_quat[2], relative_transform_quat[3]).toRotationMatrix();
   }
 
-  robot_1 = new RigidBodyTree<double>(drc_path + config["robot_1"]["urdf"].as<string>(), drake::multibody::joints::kQuaternion);
+  robot_1 = new RigidBodyTree<double>();
+  AddModelInstanceFromUrdfFileToWorld(drc_path + config["robot_1"]["urdf"].as<string>(), drake::multibody::joints::kQuaternion, robot_1);
   string link_1_name = config["robot_1"]["link"].as<string>();
   int link_ind_1 = robot_1->FindBodyIndex(link_1_name);
   Vector3d offset_1;
@@ -162,7 +165,8 @@ int main(int argc, char** argv) {
     offset_1[2] = offset[2];
   }
 
-  robot_2 = new RigidBodyTree<double>(drc_path + config["robot_2"]["urdf"].as<string>(), drake::multibody::joints::kQuaternion);
+  robot_2 = new RigidBodyTree<double>();
+  AddModelInstanceFromUrdfFileToWorld(drc_path + config["robot_2"]["urdf"].as<string>(), drake::multibody::joints::kQuaternion, robot_2);
   string link_2_name = config["robot_2"]["link"].as<string>();
   int link_ind_2 = robot_2->FindBodyIndex(link_2_name);
   Vector3d offset_2;

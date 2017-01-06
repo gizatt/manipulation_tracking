@@ -21,10 +21,12 @@
 #include "GelsightOpenGLSim.hpp"
 #include "unistd.h"
 #include "drake/math/roll_pitch_yaw.h"
+#include "drake/multibody/parsers/urdf_parser.h"
 
 using namespace std;
 using namespace Eigen;
 using namespace drake::math;
+using namespace drake::parsers::urdf;
 
 void publish_gt_state(std::shared_ptr<lcm::LCM> lcm, std::shared_ptr<RigidBodyTree<double>> robot, VectorXd x_robot, string gt_publish_channel){
   // publish GT
@@ -171,12 +173,14 @@ int main(int argc, char** argv) {
 
   // get robot and any supplied initial condition
   string robot_urdf_path = string(drc_path) + config["urdf"].as<string>();
-  shared_ptr<RigidBodyTree<double>> robot(new RigidBodyTree<double>(robot_urdf_path));
+  shared_ptr<RigidBodyTree<double>> robot(new RigidBodyTree<double>());
+  AddModelInstanceFromUrdfFileWithRpyJointToWorld(robot_urdf_path, robot.get());
   VectorXd x0_robot(robot->get_num_positions() + robot->get_num_velocities());
   x0_robot.setZero();
 
   // collision check needs a non-const RBT... so generate another one
-  std::shared_ptr<RigidBodyTree<double>> robot_for_collision_sim(new RigidBodyTree<double>(robot_urdf_path));
+  std::shared_ptr<RigidBodyTree<double>> robot_for_collision_sim(new RigidBodyTree<double>());
+  AddModelInstanceFromUrdfFileWithRpyJointToWorld(robot_urdf_path, robot_for_collision_sim.get());
 
   // (we assemble this early as we need it for finding a good contact position)
   if (!config["gelsight_cost"]){
@@ -184,7 +188,9 @@ int main(int argc, char** argv) {
     exit(-1);
   }
   // gelsight cost needs its own RBT to modify during collision checks
-  std::shared_ptr<GelsightCost> gelsight_cost(new GelsightCost(shared_ptr<RigidBodyTree<double>>(new RigidBodyTree<double>(robot_urdf_path)), lcm, config["gelsight_cost"]));
+  std::shared_ptr<RigidBodyTree<double>> robot_for_gelsight_cost(new RigidBodyTree<double>());
+  AddModelInstanceFromUrdfFileWithRpyJointToWorld(robot_urdf_path, robot_for_gelsight_cost.get());
+  std::shared_ptr<GelsightCost> gelsight_cost(new GelsightCost(robot_for_gelsight_cost, lcm, config["gelsight_cost"]));
 
   if (config["q0"] && config["q0"].Type() == YAML::NodeType::Map){
     for (int i=0; i < robot->get_num_positions(); i++){

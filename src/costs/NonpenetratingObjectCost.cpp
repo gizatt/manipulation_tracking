@@ -37,11 +37,11 @@ NonpenetratingObjectCost::NonpenetratingObjectCost(std::shared_ptr<RigidBodyTree
         std::shared_ptr<RigidBodyTree<double> > robot_object_, std::vector<int> robot_object_correspondences_, std::shared_ptr<lcm::LCM> lcm_, YAML::Node config) :
     lcm(lcm_),
     robot(robot_),
-    robot_kinematics_cache(robot->bodies),
+    robot_kinematics_cache(robot->get_num_positions(), robot->get_num_velocities()),
     nq(robot->get_num_positions()),
     robot_correspondences(robot_correspondences_),
     robot_object(robot_object_),
-    robot_object_kinematics_cache(robot_object->bodies),
+    robot_object_kinematics_cache(robot_object->get_num_positions(), robot_object->get_num_velocities()),
     nq_object(robot_object->get_num_positions()),
     robot_object_correspondences(robot_object_correspondences_)
 {

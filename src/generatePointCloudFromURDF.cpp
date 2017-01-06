@@ -2,6 +2,7 @@
 #include <iostream>
 
 #include "drake/multibody/rigid_body_tree.h"
+#include "drake/multibody/parsers/urdf_parser.h"
 
 #include <lcm/lcm-cpp.hpp>
 
@@ -18,6 +19,7 @@
 
 using namespace std;
 using namespace Eigen;
+using namespace drake::parsers::urdf;
 
 typedef pcl::PointXYZ PointType;
 typedef pcl::Normal NormalType;
@@ -45,8 +47,10 @@ int main(int argc, char** argv) {
   string outStringPts = outStringPrefix + string(".pts.pcd");
   string outStringNormals = outStringPrefix + string(".normals.pcd");
 
-  RigidBodyTree<double> robot(urdfString);
-  KinematicsCache<double> robot_kinematics_cache(robot.bodies);
+  RigidBodyTree<double> robot;
+  AddModelInstanceFromUrdfFileWithRpyJointToWorld(urdfString, &robot);
+
+  KinematicsCache<double> robot_kinematics_cache(robot.get_num_positions(), robot.get_num_velocities());
   VectorXd q0_robot(robot.get_num_positions());
   q0_robot.setZero();
   robot_kinematics_cache.initialize(q0_robot);

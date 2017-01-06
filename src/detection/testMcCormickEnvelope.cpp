@@ -27,7 +27,7 @@ using namespace drake::solvers;
 void testMcCormickApproxForward(double xmin, double xmax, double ymin, double ymax,
   int M_x, int M_y, double query_x, double query_y){
   MathematicalProgram prog;
-  auto vars = prog.AddContinuousVariables(3, 1, {"xy", "x", "y"});
+  auto vars = prog.NewContinuousVariables(3, 1, {"xy", "x", "y"});
   add_McCormick_envelope(prog, vars(0, 0), vars(1, 0), vars(2, 0), string("mccorm"),
                          xmin, xmax,
                          ymin, ymax,
@@ -39,7 +39,7 @@ void testMcCormickApproxForward(double xmin, double xmax, double ymin, double ym
   string problem_string = "testmccormenv";
   double elapsed = getUnixTime() - now;
   printf("FWD: RET %02d, VARS %05lu, [%02.2f,%02.2f]/%02dx[%02.2f,%02.2f]/%02d->Query %02.2fx%02.2f->z=%02.2f\n",
-    out, prog.num_vars(), xmin, xmax, M_x, ymin, ymax, M_y, query_x, query_y, vars(0,0).value());
+    out, prog.num_vars(), xmin, xmax, M_x, ymin, ymax, M_y, query_x, query_y, prog.GetSolution(vars(0,0)));
 /*
   printf("Sol: *********\n");
   prog.PrintSolution();

@@ -51,9 +51,9 @@ long timer_end(struct timespec start_time){
 }
 
 // TODO: replace with reshape?
-template <typename Arg>
-Arg flatten_MxN( const Arg& x ){
-  Arg ret(x.rows()*x.cols(), 1);
+template <typename Derived, int rows, int cols>
+Matrix<Derived, -1, -1> flatten_MxN( const Matrix<Derived, rows, cols> & x ){
+  Matrix<Derived, -1, -1> ret(x.rows()*x.cols(), 1);
   for (int i=0; i<x.rows(); i++){ // for each row, paste that row, in order,
                                   // as elems in the new column vector
     ret.block(i*x.cols(), 0, x.cols(), 1) = x.block(i, 0, 1, x.cols()).transpose();
@@ -62,9 +62,9 @@ Arg flatten_MxN( const Arg& x ){
 }
 
 void add_McCormick_envelope(MathematicalProgram& prog, 
-                              DecisionVariableScalar& w,
-                              DecisionVariableScalar& x, 
-                              DecisionVariableScalar& y, 
+                              drake::symbolic::Variable& w,
+                              drake::symbolic::Variable& x, 
+                              drake::symbolic::Variable& y, 
                               string corename,
                               double xL, 
                               double xH, 
@@ -80,13 +80,13 @@ void add_McCormick_envelope(MathematicalProgram& prog,
   const double kStepSizeX =  (xH - xL) / (double)M_x;
   const double kStepSizeY =  (yH - yL) / (double)M_y;
 
-  auto z_uv = prog.AddBinaryVariables(M_x, M_y, (corename + "_z").c_str());
+  auto z_uv = prog.NewBinaryVariables(M_x, M_y, (corename + "_z").c_str());
   // and constrain that we can be in one at a time
   prog.AddLinearEqualityConstraint(MatrixXd::Ones(1, M_x*M_y), MatrixXd::Ones(1, 1), {flatten_MxN(z_uv)});
 
   // Create indicator variables xhat and yhat for each subsection
-  auto x_hat = prog.AddContinuousVariables(M_x, M_y, (corename + string("_xhat")).c_str());
-  auto y_hat = prog.AddContinuousVariables(M_x, M_y, (corename + string("_yhat")).c_str());
+  auto x_hat = prog.NewContinuousVariables(M_x, M_y, (corename + string("_xhat")).c_str());
+  auto y_hat = prog.NewContinuousVariables(M_x, M_y, (corename + string("_yhat")).c_str());
   // They must sum to their respective variable...
   MatrixXd A_sumconstr = MatrixXd::Ones(1, 1+M_x*M_y);
   A_sumconstr(0, 0) = -1;

@@ -13,5 +13,5 @@ pods_install_headers(ObjectScan.hpp DESTINATION perception_manipulation_tracker)
 
 add_executable(runObjectScanner runObjectScanner.cpp)
 pods_use_pkg_config_packages(runObjectScanner lcm bot2-core bot2-lcmgl-client bot2-frames bot2-param-client kinect-utils drake-convex-hull eigen3 kinect-utils)
-target_link_libraries(runObjectScanner ObjectScan drakeRBM drakeJoints drakeXMLUtil drakeCommon yaml-cpp ${PCL_LIBRARIES} z ${OpenCV_LIBS} pthread)
+target_link_libraries(runObjectScanner ObjectScan drakeRBM drakeJoints drakeCommon yaml-cpp ${PCL_LIBRARIES} z ${OpenCV_LIBS} pthread)
 pods_install_executables(runObjectScanner)

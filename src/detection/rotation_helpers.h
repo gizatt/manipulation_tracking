@@ -27,20 +27,19 @@ using namespace drake::solvers;
 typedef pcl::PointXYZ PointType;
 typedef pcl::Normal NormalType;
 
-    
+template <typename Derived>    
 void addMcCormickQuaternionConstraint(MathematicalProgram& prog, 
-                              DecisionVariableMatrixX& R,
+                              const Derived R,
                               int M_x,
                               int M_y){
     // constrain rotations to SO(3) -- i.e.
     // R.' R = I, and det(R) = +1
-    // ****************** TODO, MOVE THIS TO ROTATION CONSTRAINT CLASS
     // Add core quaternion variables, ordered w x y z
-    auto Q = prog.AddContinuousVariables(4, 1, "q");
+    auto Q = prog.NewContinuousVariables(4, 1, "q");
     prog.AddBoundingBoxConstraint(-VectorXd::Ones(4), VectorXd::Ones(4), {Q});
 
     // Add variables for bilinear quaternion element products
-    auto B = prog.AddContinuousVariables(10, 1, "b");
+    auto B = prog.NewContinuousVariables(10, 1, "b");
     prog.AddBoundingBoxConstraint(-VectorXd::Ones(10), VectorXd::Ones(10), {B});   
 
     // Constrain elements of rotation element by bilinear quaternion values

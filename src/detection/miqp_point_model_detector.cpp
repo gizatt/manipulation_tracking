@@ -20,6 +20,7 @@
 #include "drake/solvers/mosek_solver.h"
 #include "drake/common/eigen_matrix_compare.h"
 #include "drake/common/eigen_types.h"
+#include "drake/multibody/parsers/urdf_parser.h"
 
 #include <lcm/lcm-cpp.hpp>
 
@@ -40,6 +41,7 @@
 using namespace std;
 using namespace Eigen;
 using namespace drake::solvers;
+using namespace drake::parsers::urdf;
 
 typedef pcl::PointXYZ PointType;
 typedef pcl::Normal NormalType;
@@ -60,10 +62,11 @@ int main(int argc, char** argv) {
   int kNumRays = atoi(argv[1]);
   float kSceneNeighborhoodSize = atof(argv[2]);
 
-  // Set up robot
+// Set up robot
   string urdfString = string(argv[3]);
-  RigidBodyTree<double> robot(urdfString);
-  KinematicsCache<double> robot_kinematics_cache(robot.bodies);
+  RigidBodyTree<double> robot;
+  AddModelInstanceFromUrdfFileWithRpyJointToWorld(urdfString, &robot);
+  KinematicsCache<double> robot_kinematics_cache(robot.get_num_positions(), robot.get_num_velocities());
   VectorXd q0_robot(robot.get_num_positions());
   q0_robot.setZero();
   robot_kinematics_cache.initialize(q0_robot);
@@ -184,17 +187,17 @@ int main(int argc, char** argv) {
 
   MathematicalProgram prog;
 
-  auto C = prog.AddBinaryVariables(scene_pts_tf->size(), model_pts_tf->size(), "c");
+  auto C = prog.NewBinaryVariables(scene_pts_tf->size(), model_pts_tf->size(), "c");
   /*prog.AddBoundingBoxConstraint(VectorXd::Zero(scene_pts_tf->size()*model_pts_tf->size()),
                                 VectorXd::Ones(scene_pts_tf->size()*model_pts_tf->size()),
                                 {flatten_MxN(C)});*/
 
-  auto T = prog.AddContinuousVariables(3, 1, "t");
+  auto T = prog.NewContinuousVariables(3, 1, "t");
   // And add bounding box constraints on appropriate variables
   prog.AddBoundingBoxConstraint(-100*VectorXd::Ones(3), 100*VectorXd::Ones(3), {flatten_MxN(T)});
 
 
-  auto R = prog.AddContinuousVariables(3, 3, "r");
+  auto R = prog.NewContinuousVariables(3, 3, "r");
   prog.AddBoundingBoxConstraint(-VectorXd::Ones(9), VectorXd::Ones(9), {flatten_MxN(R)});
 
 
@@ -239,7 +242,7 @@ int main(int argc, char** argv) {
   // I'm adding a dummy var constrained to zero to 
   // fill out the diagonals of C_i. Without this, I converge to
   // strange solutions...
-  auto C_dummy = prog.AddContinuousVariables(1, "c_dummy_zero");
+  auto C_dummy = prog.NewContinuousVariables(1, "c_dummy_zero");
   prog.AddLinearEqualityConstraint(Eigen::MatrixXd::Ones(1, 1), Eigen::MatrixXd::Zero(1, 1), {C_dummy});
   auto B = Eigen::RowVectorXd(1, 3+1+3*model_pts_tf->size());    
   B.block<1, 1>(0, 3) = MatrixXd::Ones(1, 1); // T bias term
@@ -324,17 +327,20 @@ int main(int argc, char** argv) {
 
   //prog.PrintSolution();
 
+  Vector3f Tf = prog.GetSolution(T).cast<float>();
+  Matrix3f Rf = prog.GetSolution(R).cast<float>();
   printf("Transform:\n");
-  printf("\tTranslation: %f, %f, %f\n", T(0, 0).value(), T(1, 0).value(), T(2, 0).value());
+  printf("\tTranslation: %f, %f, %f\n", Tf(0, 0), Tf(1, 0), Tf(2, 0));
   printf("\tRotation:\n");
-  printf("\t\t%f, %f, %f\n", R(0, 0).value(), R(0, 1).value(), R(0, 2).value());
-  printf("\t\t%f, %f, %f\n", R(1, 0).value(), R(1, 1).value(), R(1, 2).value());
-  printf("\t\t%f, %f, %f\n", R(2, 0).value(), R(2, 1).value(), R(2, 2).value());
+  printf("\t\t%f, %f, %f\n", Rf(0, 0), Rf(0, 1), Rf(0, 2));
+  printf("\t\t%f, %f, %f\n", Rf(1, 0), Rf(1, 1), Rf(1, 2));
+  printf("\t\t%f, %f, %f\n", Rf(2, 0), Rf(2, 1), Rf(2, 2));
+  printf("*******\n");
 
 
   for (int k_s=0; k_s<scene_pts_tf->size(); k_s++){
     for (int k_m=0; k_m<model_pts_tf->size(); k_m++){
-      if (C(k_s, k_m).value() >= 0.5){
+      if (prog.GetSolution(C(k_s, k_m)) >= 0.5){
         printf("Corresp s%d->m%d at dist %f\n", k_s, k_m, pointDistance(scene_pts_tf->at(k_s), model_pts_tf->at(k_m)));
         std::stringstream ss_line;
         ss_line << "raw_correspondence_line" << k_m << "-" << k_s;

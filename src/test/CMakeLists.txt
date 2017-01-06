@@ -6,7 +6,8 @@ pods_use_pkg_config_packages(test_2D_sdf eigen3)
 pods_install_executables(test_2D_sdf)
 
 add_executable(testGelsightCost testGelsightCost.cpp)
-target_link_libraries(testGelsightCost stdc++ pthread GL GLU glut GLEW ManipulationTracker RobotStateCost GelsightCost JointStateCost KinectFrameCost AttachedApriltagCost DynamicsCost OptotrakMarkerCost NonpenetratingObjectCost GelsightOpenGLSim yaml-cpp bot2-core bot2-frames bot2-param-client drakeRBM drakeJoints drakeCollision drakeXMLUtil drakeCommon)
+pods_use_pkg_config_packages(testGelsightCost drake-multibody-parsers)
+target_link_libraries(testGelsightCost stdc++ pthread GL GLU glut GLEW ManipulationTracker RobotStateCost GelsightCost JointStateCost KinectFrameCost AttachedApriltagCost DynamicsCost OptotrakMarkerCost NonpenetratingObjectCost GelsightOpenGLSim yaml-cpp bot2-core bot2-frames bot2-param-client drakeRBM drakeJoints drakeCollision drakeCommon)
 pods_install_executables(testGelsightCost)
 
 add_executable(testGelsightSim gelsight_sim.cpp)

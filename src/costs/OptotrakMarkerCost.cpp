@@ -21,7 +21,7 @@ Matrix3d calcS(double x, double y, double z){
 
 OptotrakMarkerCost::OptotrakMarkerCost(std::shared_ptr<const RigidBodyTree<double> > robot_, std::shared_ptr<lcm::LCM> lcm_, YAML::Node config) :
     robot(robot_),
-    robot_kinematics_cache(robot->bodies),
+    robot_kinematics_cache(robot->get_num_positions(), robot->get_num_velocities()),
     lcm(lcm_),
     nq(robot->get_num_positions())
 {

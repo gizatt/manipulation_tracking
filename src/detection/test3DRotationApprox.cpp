@@ -47,15 +47,15 @@ int main(int argc, char** argv) {
   // assignment of points in model to points in scene
   MathematicalProgram prog;
 
-  auto R = prog.AddContinuousVariables(3, 3, "r");
+  auto R = prog.NewContinuousVariables(3, 3, "r");
   prog.AddBoundingBoxConstraint(-VectorXd::Ones(9), VectorXd::Ones(9), {flatten_MxN(R)});
 
   // Add core quaternion variables, ordered w x y z
-  auto Q = prog.AddContinuousVariables(4, 1, "q");
+  auto Q = prog.NewContinuousVariables(4, 1, "q");
   prog.AddBoundingBoxConstraint(-VectorXd::Ones(4), VectorXd::Ones(4), {Q});
 
   // Add variables for bilinear quaternion element products
-  auto B = prog.AddContinuousVariables(10, 1, "b");
+  auto B = prog.NewContinuousVariables(10, 1, "b");
   prog.AddBoundingBoxConstraint(-VectorXd::Ones(10), VectorXd::Ones(10), {B});
 
 
@@ -206,15 +206,15 @@ int main(int argc, char** argv) {
   double elapsed = getUnixTime() - now;
  
   printf("\tOptimized rotation:\n");
-  printf("\t\t%f, %f, %f\n", R(0, 0).value(), R(0, 1).value(), R(0, 2).value());
-  printf("\t\t%f, %f, %f\n", R(1, 0).value(), R(1, 1).value(), R(1, 2).value());
-  printf("\t\t%f, %f, %f\n", R(2, 0).value(), R(2, 1).value(), R(2, 2).value());
-  printf("\tOptimized quaternion:\n\t%f, %f, %f, %f\n", Q(0, 0).value(), Q(1, 0).value(), Q(2, 0).value(), Q(3, 0).value());
+  printf("\t\t%f, %f, %f\n", prog.GetSolution(R(0, 0)), prog.GetSolution(R(0, 1)), prog.GetSolution(R(0, 2)));
+  printf("\t\t%f, %f, %f\n", prog.GetSolution(R(1, 0)), prog.GetSolution(R(1, 1)), prog.GetSolution(R(1, 2)));
+  printf("\t\t%f, %f, %f\n", prog.GetSolution(R(2, 0)), prog.GetSolution(R(2, 1)), prog.GetSolution(R(2, 2)));
+  printf("\tOptimized quaternion:\n\t%f, %f, %f, %f\n", prog.GetSolution(Q(0, 0)), prog.GetSolution(Q(1, 0)), prog.GetSolution(Q(2, 0)), prog.GetSolution(Q(3, 0)));
   printf("\tOptimized quaternion bilinear products:\n");
   k = 0;
   for (int i=0; i<4; i++){
     for (int j=i; j<4; j++){
-      printf("\t\t%c%c:%f\n", qnames[i], qnames[j], B(k).value());
+      printf("\t\t%c%c:%f\n", qnames[i], qnames[j], prog.GetSolution(B(k)));
       k++;
     }
   }
