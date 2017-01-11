@@ -52,7 +52,7 @@ MatrixXd boundingBox2FaceSel(Matrix3Xd bb_pts){
   // cx << -1, 1, 1, -1, -1, 1, 1, -1;
   // cy << 1, 1, 1, 1, -1, -1, -1, -1;
   // cz << 1, 1, -1, -1, -1, -1, 1, 1;
-  MatrixXd F(6, bb_pts.size());
+  MatrixXd F(6, bb_pts.cols());
   F.setZero();
 
   vector<vector<Vector3d>> out;
