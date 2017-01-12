@@ -66,11 +66,9 @@ int main(int argc, char** argv) {
   string urdfString = string(argv[3]);
   RigidBodyTree<double> robot;
   AddModelInstanceFromUrdfFileWithRpyJointToWorld(urdfString, &robot);
-  KinematicsCache<double> robot_kinematics_cache(robot.get_num_positions(), robot.get_num_velocities());
   VectorXd q0_robot(robot.get_num_positions());
   q0_robot.setZero();
-  robot_kinematics_cache.initialize(q0_robot);
-  robot.doKinematics(robot_kinematics_cache);
+  KinematicsCache<double> robot_kinematics_cache = robot.doKinematics(q0_robot);
   printf("Set up robot with %d positions\n", robot.get_num_positions());
 
   // Render scene point cloud

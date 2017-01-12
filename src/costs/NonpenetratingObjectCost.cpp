@@ -37,11 +37,9 @@ NonpenetratingObjectCost::NonpenetratingObjectCost(std::shared_ptr<RigidBodyTree
         std::shared_ptr<RigidBodyTree<double> > robot_object_, std::vector<int> robot_object_correspondences_, std::shared_ptr<lcm::LCM> lcm_, YAML::Node config) :
     lcm(lcm_),
     robot(robot_),
-    robot_kinematics_cache(robot->get_num_positions(), robot->get_num_velocities()),
     nq(robot->get_num_positions()),
     robot_correspondences(robot_correspondences_),
     robot_object(robot_object_),
-    robot_object_kinematics_cache(robot_object->get_num_positions(), robot_object->get_num_velocities()),
     nq_object(robot_object->get_num_positions()),
     robot_object_correspondences(robot_object_correspondences_)
 {
@@ -89,8 +87,7 @@ NonpenetratingObjectCost::NonpenetratingObjectCost(std::shared_ptr<RigidBodyTree
 
   VectorXd q_object_old(robot_object->get_num_positions());
   q_object_old *= 0;
-  robot_object_kinematics_cache.initialize(q_object_old);
-  robot_object->doKinematics(robot_object_kinematics_cache);
+  auto robot_object_kinematics_cache = robot->doKinematics(q_object_old);
 
     // Use raycasting on robot_object to get a smattering of points on object surface
   surface_pts.resize(3, num_surface_pts);
@@ -203,14 +200,12 @@ bool NonpenetratingObjectCost::constructCost(ManipulationTracker * tracker, cons
   VectorXd q_old(robot->get_num_positions());
   for (int i=0; i<robot_correspondences.size(); i++)
     q_old(i) = x_old(robot_correspondences[i]);
-  robot_kinematics_cache.initialize(q_old);
-  robot->doKinematics(robot_kinematics_cache);
+  auto robot_kinematics_cache = robot->doKinematics(q_old);
 
   VectorXd q_object_old(robot_object->get_num_positions());
   for (int i=0; i<robot_object_correspondences.size(); i++)
     q_object_old(i) = x_old(robot_object_correspondences[i]);
-  robot_object_kinematics_cache.initialize(q_object_old);
-  robot_object->doKinematics(robot_object_kinematics_cache);
+  auto robot_object_kinematics_cache = robot->doKinematics(q_object_old);
   
 
   Matrix3Xd global_surface_pts = robot_object->transformPoints(robot_object_kinematics_cache, surface_pts, robot_object_id, 0);  

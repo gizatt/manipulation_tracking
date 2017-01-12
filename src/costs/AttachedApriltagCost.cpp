@@ -13,7 +13,6 @@ using namespace drake::math;
 
 AttachedApriltagCost::AttachedApriltagCost(std::shared_ptr<const RigidBodyTree<double> > robot_, std::shared_ptr<lcm::LCM> lcm_, YAML::Node config) :
     robot(robot_),
-    robot_kinematics_cache(robot->get_num_positions(), robot->get_num_velocities()),
     lcm(lcm_),
     nq(robot->get_num_positions())
 {
@@ -143,8 +142,7 @@ bool AttachedApriltagCost::constructCost(ManipulationTracker * tracker, const Ei
   double BODY_TRANSFORM_WEIGHT = std::isinf(transform_var) ? 0.0 : 1. / (2. * transform_var * transform_var);
 
   VectorXd q_old = x_old.block(0, 0, robot->get_num_positions(), 1);
-  robot_kinematics_cache.initialize(q_old);
-  robot->doKinematics(robot_kinematics_cache);
+  auto robot_kinematics_cache = robot->doKinematics(q_old);
 
   // get transform from camera to world frame
   Eigen::Isometry3d kinect2world;

@@ -163,13 +163,13 @@ ManipulationTracker::ManipulationTracker(std::shared_ptr<const RigidBodyTree<dou
     robot_(robot),
     lcm_(lcm),
     verbose_(verbose),
-    robot_kinematics_cache_(robot->get_num_positions(), robot->get_num_velocities())
+    robot_kinematics_cache_(robot->doKinematics(x0_robot))
 {
   if (robot_->get_num_positions() + robot_->get_num_velocities() != x0_robot.rows()){
     printf("Expected initial condition with %d rows, got %ld rows.\n", robot_->get_num_positions() + robot_->get_num_velocities(), x0_robot.rows());
     exit(0);
   }
- 
+
   // spawn initial decision variables from robot state
   x_.resize(x0_robot.rows());
   x_.setZero();

@@ -34,7 +34,6 @@ void eigen2cv( const Eigen::Matrix<_Tp, _rows, _cols, _options, _maxRows, _maxCo
 
 GelsightCost::GelsightCost(std::shared_ptr<RigidBodyTree<double> > robot_, std::shared_ptr<lcm::LCM> lcm_, YAML::Node config) :
     robot(robot_),
-    robot_kinematics_cache(robot->get_num_positions(), robot->get_num_velocities()),
     lcm(lcm_),
     nq(robot->get_num_positions())
 {
@@ -121,8 +120,7 @@ bool GelsightCost::constructCost(ManipulationTracker * tracker, const Eigen::Mat
   }
   else {
     VectorXd q_old = x_old.block(0, 0, robot->get_num_positions(), 1);
-    robot_kinematics_cache.initialize(q_old);
-    robot->doKinematics(robot_kinematics_cache);
+    auto robot_kinematics_cache = robot->doKinematics(q_old);
 
     cv::Mat image_disp;
     Eigen::MatrixXd gelsight_image;

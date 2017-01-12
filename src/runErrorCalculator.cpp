@@ -94,13 +94,8 @@ Isometry3d getTransform(VectorXd q_r1, int link_ind_1, Vector3d offset_1, Vector
   Isometry3d transform;
   transform.setIdentity();
 
-  KinematicsCache<double> robot_kinematics_cache_1(robot_1->get_num_positions(), robot_1->get_num_velocities());
-  KinematicsCache<double> robot_kinematics_cache_2(robot_2->get_num_positions(), robot_2->get_num_velocities());
-
-  robot_kinematics_cache_1.initialize(q_r1);
-  robot_1->doKinematics(robot_kinematics_cache_1);
-  robot_kinematics_cache_2.initialize(q_r2);
-  robot_2->doKinematics(robot_kinematics_cache_2);
+  KinematicsCache<double> robot_kinematics_cache_1 = robot_1->doKinematics(q_r1);
+  KinematicsCache<double> robot_kinematics_cache_2 = robot_2->doKinematics(q_r2);
 
   Isometry3d tf_offset_1;
   tf_offset_1.setIdentity();

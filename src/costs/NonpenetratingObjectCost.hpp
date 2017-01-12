@@ -54,12 +54,10 @@ private:
   int object_state_index = 0;
 
   std::shared_ptr<RigidBodyTree<double> > robot;
-  KinematicsCache<double> robot_kinematics_cache;
   int nq;
   std::vector<int> robot_correspondences;
 
   std::shared_ptr<RigidBodyTree<double> > robot_object;
-  KinematicsCache<double> robot_object_kinematics_cache;
   int nq_object;
   std::vector<int> robot_object_correspondences;
 

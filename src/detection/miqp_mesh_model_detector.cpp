@@ -9,7 +9,7 @@
 #include "drake/solvers/mathematical_program.h"
 #include "drake/solvers/gurobi_solver.h"
 #include "drake/solvers/mosek_solver.h"
-#include "drake/solvers/rotation.h"
+#include "drake/solvers/rotation_constraint.h"
 #include "drake/common/eigen_matrix_compare.h"
 #include "drake/common/eigen_types.h"
 
@@ -261,7 +261,7 @@ int main(int argc, char** argv) {
   if (free_rot){
     //addMcCormickQuaternionConstraint(prog, R, 4, 4);
     //AddBoundingBoxConstraintsImpliedByRollPitchYawLimits(&prog, R, kYaw_0_to_PI_2 | kPitch_0_to_PI_2 | kRoll_0_to_PI_2);
-    AddRotationMatrixOctantMilpConstraints(&prog, R, kYaw_0_to_PI_2 | kPitch_0_to_PI_2 | kRoll_0_to_PI_2);
+    AddRotationMatrixMcCormickEnvelopeMilpConstraints(&prog, R);
   } else {
     // constrain rotations to ground truth
     // I know I can do this in one constraint with 9 rows, but eigen was giving me trouble

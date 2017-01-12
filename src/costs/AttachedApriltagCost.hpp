@@ -65,7 +65,6 @@ private:
   
   std::shared_ptr<lcm::LCM> lcm;
   std::shared_ptr<const RigidBodyTree<double> > robot;
-  KinematicsCache<double> robot_kinematics_cache;
   int nq;
 
   std::mutex detectionsMutex;

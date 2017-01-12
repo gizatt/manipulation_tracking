@@ -79,7 +79,6 @@ private:
 
   std::shared_ptr<lcm::LCM> lcm;
   std::shared_ptr<RigidBodyTree<double>> robot;
-  KinematicsCache<double> robot_kinematics_cache;
   int nq;
 
   bot_lcmgl_t* lcmgl_lidar_ = NULL;
