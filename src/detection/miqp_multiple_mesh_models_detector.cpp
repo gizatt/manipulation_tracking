@@ -185,8 +185,15 @@ void keyboardEventOccurred (const pcl::visualization::KeyboardEvent &event,
 int main(int argc, char** argv) {
   srand(getUnixTime());
 
-  if (argc != 4){
-    printf("Use: miqp_multiple_mesh_models_detector <numrays> <neighborhood size> <urdf>\n");
+  if (argc != 5){
+    printf("Use: miqp_multiple_mesh_models_detector <numrays> <neighborhood size> <freerot> <urdf>\n");
+    printf("\tFree rot options:\n");
+    printf("\t\t0: Constrained to ground truth\n");
+    printf("\t\t1: Unconstrained rotation matrix vars\n");
+    printf("\t\t2: Columnwise and row-wise L1-norm >= 1\n");
+    printf("\t\t3: McCormick quaternion\n");
+    printf("\t\t4: McCormick rotmat\n");
+    printf("\t\t5  Conservative rpy limits\n");
     exit(-1);
   }
 
@@ -197,9 +204,10 @@ int main(int argc, char** argv) {
 
   int kNumRays = atoi(argv[1]);
   float kSceneNeighborhoodSize = atof(argv[2]);
+  int free_rot = atoi(argv[3]);
 
   // Set up robot
-  string yamlString = string(argv[3]);
+  string yamlString = string(argv[4]);
   YAML::Node modelsNode = YAML::LoadFile(yamlString);
 
   std::vector<Model> models;
@@ -282,12 +290,7 @@ int main(int argc, char** argv) {
   auto phi = prog.NewContinuousVariables(scene_pts->size(), 1, "phi");
   
   // And slacks to store term-wise absolute value terms for L-1 norm calculation
-  std::vector<DecisionVariableMatrixX> alpha_by_object;
-  for (int i=0; i<models.size(); i++){
-    char name_postfix[100];
-    sprintf(name_postfix, "_%s_%d", models[i].name.c_str(), i);
-    alpha_by_object.push_back(prog.NewContinuousVariables(3, scene_pts->size(), string("alpha") + string(name_postfix)));
-  }
+  auto alpha = prog.NewContinuousVariables(3, scene_pts->size(), "alpha");
 
   // Each row is a set of affine coefficients relating the scene point to a combination
   // of vertices on a single face of the model
@@ -299,7 +302,6 @@ int main(int argc, char** argv) {
     DecisionVariableVectorX T;
     DecisionVariableMatrixX R;
   };
-  bool free_rot = false;
   std::vector<TransformationVars> transform_by_object;
   for (int i=0; i<models.size(); i++){
     TransformationVars new_tr;
@@ -309,10 +311,31 @@ int main(int argc, char** argv) {
     prog.AddBoundingBoxConstraint(-100*VectorXd::Ones(3), 100*VectorXd::Ones(3), {new_tr.T});
     new_tr.R = NewRotationMatrixVars(&prog, string("R") + string(name_postfix));
 
-    if (free_rot){
-      //addMcCormickQuaternionConstraint(prog, new_tr.R, 4, 4);
-      //AddBoundingBoxConstraintsImpliedByRollPitchYawLimits(&prog, new_tr.R, kYaw_0_to_PI_2 | kPitch_0_to_PI_2 | kRoll_0_to_PI_2);
-      AddRotationMatrixMcCormickEnvelopeMilpConstraints(&prog, new_tr.R);
+    if (free_rot > 0){
+      switch (free_rot){
+        case 1:
+          break;
+        case 2:
+          // Columnwise and row-wise L1-norm >=1 constraints
+          for (int k=0; k<3; k++){
+            prog.AddLinearConstraint(Vector3d::Ones().transpose(), 1.0, std::numeric_limits<double>::infinity(), {new_tr.R.row(k).transpose()});
+            prog.AddLinearConstraint(Vector3d::Ones().transpose(), 1.0, std::numeric_limits<double>::infinity(), {new_tr.R.col(k)});
+          }
+          break;
+        case 3:
+          addMcCormickQuaternionConstraint(prog, new_tr.R, 4, 4);
+          break;
+        case 4:
+          AddRotationMatrixMcCormickEnvelopeMilpConstraints(&prog, new_tr.R);
+          break;
+        case 5:
+          AddBoundingBoxConstraintsImpliedByRollPitchYawLimits(&prog, new_tr.R, kYaw_0_to_PI_2 | kPitch_0_to_PI_2 | kRoll_0_to_PI_2);
+          break;
+        default:
+          printf("invalid free_rot option!\n");
+          exit(-1);
+          break;
+      }
     } else {
       // constrain rotations to ground truth
       // I know I can do this in one constraint with 9 rows, but eigen was giving me trouble
@@ -329,18 +352,14 @@ int main(int argc, char** argv) {
 
   // Optimization pushes on slacks to make them tight (make them do their job)
   prog.AddLinearCost(1.0 * VectorXd::Ones(scene_pts->size()), {phi});
-  for (int l=0; l<models.size(); l++){
-    for (int k=0; k<3; k++){
-      prog.AddLinearCost(1.0 * VectorXd::Ones(alpha_by_object[l].cols()), {alpha_by_object[l].row(k)});
-    }
+  for (int k=0; k<3; k++){
+    prog.AddLinearCost(1.0 * VectorXd::Ones(alpha.cols()), {alpha.row(k)});
   }
 
   // Constrain slacks nonnegative, to help the estimation of lower bound in relaxation  
   prog.AddBoundingBoxConstraint(0.0, std::numeric_limits<double>::infinity(), {phi});
-  for (int l=0; l<models.size(); l++){
-    for (int k=0; k<3; k++){
-      prog.AddBoundingBoxConstraint(0.0, std::numeric_limits<double>::infinity(), {alpha_by_object[l].row(k)});
-    }
+  for (int k=0; k<3; k++){
+    prog.AddBoundingBoxConstraint(0.0, std::numeric_limits<double>::infinity(), {alpha.row(k)});
   }
 
 
@@ -386,32 +405,34 @@ int main(int argc, char** argv) {
   // fill out the diagonals of C_i.
   auto C_dummy = prog.NewContinuousVariables(1, "c_dummy_zero");
   prog.AddLinearEqualityConstraint(Eigen::MatrixXd::Ones(1, 1), Eigen::MatrixXd::Zero(1, 1), {C_dummy});
+
   // Helper variable to produce linear constraint
-  // alpha_{i, l} +/- (R_l * s_i + T - M C_{i, :}^T) >= 0.0
-  auto AlphaConstrPos = Eigen::RowVectorXd(1, 1+3+1+vertices.cols());    
+  // alpha_{i, l} +/- (R_l * s_i + T - M C_{i, :}^T) - Big * B_l * f_i >= -Big
+  auto AlphaConstrPos = Eigen::RowVectorXd(1, 1+3+1+vertices.cols() + B.cols());    
   AlphaConstrPos.block<1, 1>(0, 0) = MatrixXd::Ones(1, 1); // multiplies alpha_{i, l} elem
   AlphaConstrPos.block<1, 1>(0, 4) = -1.0 * MatrixXd::Ones(1, 1); // T bias term
-  auto AlphaConstrNeg = Eigen::RowVectorXd(1, 1+3+1+vertices.cols());    
+  auto AlphaConstrNeg = Eigen::RowVectorXd(1, 1+3+1+vertices.cols() + B.cols());    
   AlphaConstrNeg.block<1, 1>(0, 0) = MatrixXd::Ones(1, 1); // multiplies alpha_{i, l} elem
   AlphaConstrNeg.block<1, 1>(0, 4) = MatrixXd::Ones(1, 1); // T bias term
 
   printf("Starting to add correspondence costs... ");
   for (int l=0; l<models.size(); l++){
+    AlphaConstrPos.block(0, 5+vertices.cols(), 1, B.cols()) = -kBigNumber*B.row(l); // multiplies f_i
+    AlphaConstrNeg.block(0, 5+vertices.cols(), 1, B.cols()) = -kBigNumber*B.row(l); // multiplies f_i
+
     for (int i=0; i<scene_pts->size(); i++){
       printf("=");
 
       // constrain L-1 distance slack based on correspondences
-      // phi_i >= 1^T alpha_{i, l} - Big * (1 - B_l * f_i)
-      // -> Big >= -phi_i + 1 * alpha_{i, l} + Big * B_l * f_i
-      RowVectorXd PhiConstr(1 + 3 + B.cols());
+      // phi_i >= 1^T alpha_{i}
+      // phi_i - 1&T alpha_{i} >= 0
+      RowVectorXd PhiConstr(1 + 3);
       PhiConstr.setZero();
-      PhiConstr(0, 0) = -1.0; // multiplies phi
-      PhiConstr.block<1,3>(0,1) = RowVector3d::Ones(); // multiplies alpha
-      PhiConstr.block(0,4, 1,B.cols()) = kBigNumber*B.row(l); // multiplies f_i
-      prog.AddLinearConstraint(PhiConstr, -std::numeric_limits<double>::infinity(), kBigNumber,
+      PhiConstr(0, 0) = 1.0; // multiplies phi
+      PhiConstr.block<1,3>(0,1) = -RowVector3d::Ones(); // multiplies alpha
+      prog.AddLinearConstraint(PhiConstr, 0, std::numeric_limits<double>::infinity(),
       {phi.block<1,1>(i, 0),
-       alpha_by_object[l].col(i),
-       f.row(i).transpose()});
+       alpha.col(i)});
 
 
       // Alphaconstr, containing the scene and model points and a translation bias term, is used the constraints
@@ -421,46 +442,51 @@ int main(int argc, char** argv) {
       AlphaConstrNeg.block<1, 3>(0, 1) = s_xyz.transpose(); // Multiples R
 
       AlphaConstrPos.block(0, 5, 1, vertices.cols()) = 1.0 * vertices.row(0); // multiplies the selection vars
-      prog.AddLinearConstraint(AlphaConstrPos, 0, std::numeric_limits<double>::infinity(),
-        {alpha_by_object[l].block<1,1>(0, i),
+      prog.AddLinearConstraint(AlphaConstrPos, -kBigNumber, std::numeric_limits<double>::infinity(),
+        {alpha.block<1,1>(0, i),
          transform_by_object[l].R.block<1, 3>(0, 0).transpose(), 
          transform_by_object[l].T.block<1,1>(0,0),
-         C.row(i).transpose()});
+         C.row(i).transpose(),
+         f.row(i).transpose()});
 
       AlphaConstrPos.block(0, 5, 1, vertices.cols()) = 1.0 * vertices.row(1); // multiplies the selection vars
-      prog.AddLinearConstraint(AlphaConstrPos, 0, std::numeric_limits<double>::infinity(),
-        {alpha_by_object[l].block<1,1>(1, i),
+      prog.AddLinearConstraint(AlphaConstrPos, -kBigNumber, std::numeric_limits<double>::infinity(),
+        {alpha.block<1,1>(1, i),
          transform_by_object[l].R.block<1, 3>(1, 0).transpose(), 
          transform_by_object[l].T.block<1,1>(1,0),
-         C.row(i).transpose()});
+         C.row(i).transpose(),
+         f.row(i).transpose()});
 
       AlphaConstrPos.block(0, 5, 1, vertices.cols()) = 1.0 * vertices.row(2); // multiplies the selection vars
-      prog.AddLinearConstraint(AlphaConstrPos, 0, std::numeric_limits<double>::infinity(),
-        {alpha_by_object[l].block<1,1>(2, i),
+      prog.AddLinearConstraint(AlphaConstrPos, -kBigNumber, std::numeric_limits<double>::infinity(),
+        {alpha.block<1,1>(2, i),
          transform_by_object[l].R.block<1, 3>(2, 0).transpose(), 
          transform_by_object[l].T.block<1,1>(2,0),
-         C.row(i).transpose()});
+         C.row(i).transpose(),
+         f.row(i).transpose()});
 
       AlphaConstrNeg.block(0, 5, 1, vertices.cols()) = -1.0 * vertices.row(0); // multiplies the selection vars
-      prog.AddLinearConstraint(AlphaConstrNeg, 0, std::numeric_limits<double>::infinity(),
-        {alpha_by_object[l].block<1,1>(0, i),
+      prog.AddLinearConstraint(AlphaConstrNeg, -kBigNumber, std::numeric_limits<double>::infinity(),
+        {alpha.block<1,1>(0, i),
          transform_by_object[l].R.block<1, 3>(0, 0).transpose(), 
          transform_by_object[l].T.block<1,1>(0,0),
-         C.row(i).transpose()});
+         C.row(i).transpose(),
+         f.row(i).transpose()});
       AlphaConstrNeg.block(0, 5, 1, vertices.cols()) = -1.0 * vertices.row(1); // multiplies the selection vars
-      prog.AddLinearConstraint(AlphaConstrNeg, 0, std::numeric_limits<double>::infinity(),
-        {alpha_by_object[l].block<1,1>(1, i),
+      prog.AddLinearConstraint(AlphaConstrNeg, -kBigNumber, std::numeric_limits<double>::infinity(),
+        {alpha.block<1,1>(1, i),
          transform_by_object[l].R.block<1, 3>(1, 0).transpose(), 
          transform_by_object[l].T.block<1,1>(1,0),
-         C.row(i).transpose()});
+         C.row(i).transpose(),
+         f.row(i).transpose()});
       AlphaConstrNeg.block(0, 5, 1, vertices.cols()) = -1.0 * vertices.row(2); // multiplies the selection vars
-      prog.AddLinearConstraint(AlphaConstrNeg, 0, std::numeric_limits<double>::infinity(),
-        {alpha_by_object[l].block<1,1>(2, i),
+      prog.AddLinearConstraint(AlphaConstrNeg, -kBigNumber, std::numeric_limits<double>::infinity(),
+        {alpha.block<1,1>(2, i),
          transform_by_object[l].R.block<1, 3>(2, 0).transpose(), 
          transform_by_object[l].T.block<1,1>(2,0),
-         C.row(i).transpose()});
+         C.row(i).transpose(),
+         f.row(i).transpose()});
     }
-
   }
   printf("\n");
 
@@ -473,7 +499,7 @@ int main(int argc, char** argv) {
   prog.SetSolverOption("GUROBI", "LogToConsole", 1);
   prog.SetSolverOption("GUROBI", "LogFile", "loggg.gur");
   prog.SetSolverOption("GUROBI", "DisplayInterval", 5);
-  prog.SetSolverOption("GUROBI", "TimeLimit", 1200.0);
+  prog.SetSolverOption("GUROBI", "TimeLimit", 300.0);
 //  prog.SetSolverOption("GUROBI", "MIPGap", 1E-12);
 //  prog.SetSolverOption("GUROBI", "Heuristics", 0.25);
 //  prog.SetSolverOption("GUROBI", "FeasRelaxBigM", 1E6);
