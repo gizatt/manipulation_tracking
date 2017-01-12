@@ -10,19 +10,39 @@ models:
       rght: ["top", "fwd", "bkr"]
       rear: ["top", "bkr", "bkl"]
       bttm: ["fwd", "bkl", "bkr"]
-    scene_tf: [0.5, 0, 0, 0, 0, 0]
+    scene_tf: [0.5, 0, 0, 0, 0, 0.2]
     model_tf: [0.0, 0, 0., 0, 0.0, 0.0]
 
-  - name: "AsymmetricPyramid_mirrored"
+  - name: "TriangularPrism"
     vertices:
-      top: [0.0, 0.0, 0.1] # top
-      fwd: [0.2, 0.0, 0.0] # forward
-      bkl: [-0.1, 0.1, 0.0] # back-left
-      bkr: [-0.1, -0.01, 0.0] # back-right
+      px: [0.1, 0.0, 0.0] 
+      nx: [-0.1, 0.0, 0.0] 
+      py: [0.0, 0.1, 0.0] 
+      ny: [0.0, -0.1, 0.0] 
+      pz: [0.0, 0.0, 0.1]
+      nz: [0.0, 0.0, -0.1] 
     faces: # clockwise from outside
-      left: ["top", "bkl", "fwd"]
-      rght: ["top", "fwd", "bkr"]
-      rear: ["top", "bkr", "bkl"]
-      bttm: ["fwd", "bkl", "bkr"]
+      pxpynz: ["px", "nz", "py"]
+      pxpypz: ["px", "py", "pz"]
+      nxpynz: ["nx", "pz", "py"]
+      nxpypz: ["nx", "py", "nz"]
+      nxnynz: ["nx", "nz", "ny"]
+      nxnypz: ["nx", "ny", "pz"]
+      pxnynz: ["px", "ny", "nz"]
+      pxnypz: ["nx", "pz", "ny"]
     scene_tf: [0.7, 0, 0.2, 0, 0.5, 0.5]
-    model_tf: [0.0, 0, 0.2, 0, 0.0, 0.0]
+    model_tf: [0.0, 0, 0.3, 0, 0.0, 0.0]
+
+ # - name: "AsymmetricPyramid_mirrored"
+ #   vertices:
+ #     top: [0.0, 0.0, 0.1] # top
+ #     fwd: [0.2, 0.0, 0.0] # forward
+ #     bkl: [-0.1, 0.1, 0.0] # back-left
+ #     bkr: [-0.1, -0.01, 0.0] # back-right
+ #   faces: # clockwise from outside
+ #     left: ["top", "bkl", "fwd"]
+ #     rght: ["top", "fwd", "bkr"]
+ #     rear: ["top", "bkr", "bkl"]
+ #     bttm: ["fwd", "bkl", "bkr"]
+ #   scene_tf: [0.7, 0, 0.2, 0, 0.5, 0.5]
+ #   model_tf: [0.0, 0, 0.2, 0, 0.0, 0.0]

@@ -257,9 +257,11 @@ int main(int argc, char** argv) {
   B.setZero();
   F.setZero();
   int verts_start = 0;
+  int faces_start = 0;
   int face_ind = 0;
   for (int i=0; i<models.size(); i++){
     int num_verts = models[i].vertices.cols();
+    int num_faces = models[i].faces.size();
     vertices.block(0, verts_start, 3, models[i].vertices.cols()) = models[i].model_transform * models[i].vertices;
     // Generate sub-block of face selection matrix F
     for (auto iter=models[i].faces.begin(); iter!=models[i].faces.end(); iter++){
@@ -269,8 +271,9 @@ int main(int argc, char** argv) {
       face_ind++;
     }
     // Generate sub-block of object-to-face selection matrix B
-    B.block(i, verts_start, 1, num_verts) = VectorXd::Ones(num_verts).transpose();
+    B.block(i, faces_start, 1, num_faces) = VectorXd::Ones(num_faces).transpose();
     verts_start += num_verts;
+    faces_start += num_faces;
   }
 
   cout << "*******************" << endl;
@@ -513,7 +516,7 @@ int main(int argc, char** argv) {
   string problem_string = "rigidtf";
   double elapsed = getUnixTime() - now;
 
-  prog.PrintSolution();
+  //prog.PrintSolution();
 
   MatrixXd f_est= prog.GetSolution(f);
   MatrixXd C_est = prog.GetSolution(C);
