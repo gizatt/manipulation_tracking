@@ -9,7 +9,7 @@
 #include "drake/solvers/mathematical_program.h"
 #include "drake/solvers/gurobi_solver.h"
 #include "drake/solvers/mosek_solver.h"
-#include "drake/solvers/rotation.h"
+#include "drake/solvers/rotation_constraint.h"
 #include "drake/common/eigen_matrix_compare.h"
 #include "drake/common/eigen_types.h"
 
@@ -92,6 +92,74 @@ vector< vector<Vector3d> > boundingBox2QuadMesh(MatrixXd bb_pts){
   return out;
 }
 
+struct Model {
+  std::string name;
+  Eigen::Affine3d scene_transform;
+  Eigen::Affine3d model_transform;
+  Eigen::Matrix3Xd vertices;
+  std::vector< std::vector<int> > faces; // each face is a list of vertex indices, clockwise around the face
+};
+Model load_model_from_yaml_node(YAML::Node model_node){
+  Model m;
+  m.name = model_node["name"].as<string>();
+  printf("Loading model %s...\n", m.name.c_str());
+  int num_verts = model_node["vertices"].size();
+  printf("\twith %d verts\n", num_verts);
+  m.vertices.resize(3, num_verts);
+  std::map<string, int> vertex_name_to_index;
+  int k=0;
+  for (auto iter = model_node["vertices"].begin(); iter != model_node["vertices"].end(); iter++){
+    string name = iter->first.as<string>();
+    vertex_name_to_index[name] = k;
+    auto pt = iter->second.as<vector<double>>();
+    for (int i=0; i<3; i++)
+      m.vertices(i, k) = pt[i];
+    k++;
+  }
+
+  printf("\twith %ld faces\n", model_node["faces"].size());
+  for (auto iter = model_node["faces"].begin(); iter != model_node["faces"].end(); iter++){
+    auto face_str = iter->second.as<vector<string>>();
+    vector<int> face_int;
+    for (int i=0; i<face_str.size(); i++){
+      face_int.push_back(vertex_name_to_index[face_str[i]]);
+    }
+    m.faces.push_back(face_int);
+  }
+
+  vector<double> scene_tf = model_node["scene_tf"].as<vector<double>>();
+  m.scene_transform.setIdentity();
+  m.scene_transform.translation() = Vector3d(scene_tf[0], scene_tf[1], scene_tf[2]);
+  // todo: ordering, or really just move to quat
+  m.scene_transform.rotate (Eigen::AngleAxisd (scene_tf[5], Eigen::Vector3d::UnitZ()));
+  m.scene_transform.rotate (Eigen::AngleAxisd (scene_tf[4], Eigen::Vector3d::UnitY()));
+  m.scene_transform.rotate (Eigen::AngleAxisd (scene_tf[3], Eigen::Vector3d::UnitX()));
+
+  vector<double> model_tf = model_node["model_tf"].as<vector<double>>();
+  m.model_transform.setIdentity();
+  m.model_transform.translation() = Vector3d(model_tf[0], model_tf[1], model_tf[2]);
+  // todo: ordering, or really just move to quat
+  m.model_transform.rotate (Eigen::AngleAxisd (model_tf[5], Eigen::Vector3d::UnitZ()));
+  m.model_transform.rotate (Eigen::AngleAxisd (model_tf[4], Eigen::Vector3d::UnitY()));
+  m.model_transform.rotate (Eigen::AngleAxisd (model_tf[3], Eigen::Vector3d::UnitX()));
+
+  return m;
+}
+Eigen::Matrix3Xd sample_from_surface_of_model(Model m, int N){
+  Matrix3Xd out(3, N);
+  for (int i=0; i<N; i++){
+    int face = rand() % m.faces.size(); // assume < RAND_MAX faces...
+    double w0 = randrange(0., 1.0);
+    double w1 = randrange(0., 1.0);
+    double w2 = randrange(0., 1.0);
+    double tot = w0 + w1 + w2;
+    w0 /= tot; w1 /= tot; w2 /= tot;
+    out.col(i) = w0*m.vertices.col(m.faces[face][0]) +  
+                 w1*m.vertices.col(m.faces[face][1]) + 
+                 w2*m.vertices.col(m.faces[face][2]);
+  }
+  return out;
+}
 
 bool pending_redraw = true;
 bool draw_all_mode = true;
@@ -129,149 +197,114 @@ int main(int argc, char** argv) {
 
   int kNumRays = atoi(argv[1]);
   float kSceneNeighborhoodSize = atof(argv[2]);
-  int kNumSampleRays = 1000;
 
   // Set up robot
-  string urdfString = string(argv[3]);
-  
-  RigidBodyTree<double> robot;
+  string yamlString = string(argv[3]);
+  YAML::Node modelsNode = YAML::LoadFile(yamlString);
 
-  // Add 2 of that robot
-  AddModelInstanceFromUrdfFileWithRpyJointToWorld(urdfString, &robot);
-  AddModelInstanceFromUrdfFileWithRpyJointToWorld(urdfString, &robot);
+  std::vector<Model> models;
 
-  VectorXd q0_robot(robot.get_num_positions());
-  q0_robot << 0, 0, 0, 0, 0, 0,
-              0.2, 0.0, 0.0, 0, 0, 0.2;
+  printf("Loaded\n");
+  for (auto iter=modelsNode["models"].begin(); iter != modelsNode["models"].end(); iter++){
+    models.push_back(load_model_from_yaml_node(*iter));
+  }
+  printf("Parsed models\n");
 
-  KinematicsCache<double> robot_kinematics_cache = robot.doKinematics(q0_robot);
-  printf("Set up robot with %d positions\n", robot.get_num_positions());
-
-  // Render scene point cloud
-  pcl::PointCloud<PointType>::Ptr model_pts (new pcl::PointCloud<PointType> ());
+  // Render scene cloud by sampling surface of objects
   pcl::PointCloud<PointType>::Ptr scene_pts (new pcl::PointCloud<PointType> ());
-  pcl::PointCloud<NormalType>::Ptr model_normals (new pcl::PointCloud<NormalType> ());
-  pcl::PointCloud<NormalType>::Ptr scene_normals (new pcl::PointCloud<NormalType> ());
+  pcl::PointCloud<PointType>::Ptr actual_model_pts (new pcl::PointCloud<PointType> ());
+  map<int, int> correspondences_gt;
 
-  while (model_pts->size() < kNumRays){
-    Matrix3Xd origins(3, kNumSampleRays);
-    Matrix3Xd endpoints(3, kNumSampleRays);
-    VectorXd distances(kNumSampleRays);
-    Matrix3Xd normals(3, kNumSampleRays);
-    for (int k=0; k<kNumSampleRays; k++){
-      origins(0, k) = 1.0;
-      origins(1, k) = 1.0;
-      origins(2, k) = 1.0;
-
-      endpoints(0, k) = origins(0, k) + randrange(-10., 10.);
-      endpoints(1, k) = origins(1, k) + randrange(-10., 10.);
-      endpoints(2, k) = origins(2, k) + randrange(-10., 10.);
-    }
-    vector<int> collision_body(kNumSampleRays);
-    robot.collisionRaycast(robot_kinematics_cache, origins, endpoints, distances, normals, collision_body, false);
-
-    // Generate model point cloud -- tons of points on surface of the model
-    for (int k=0; k<kNumSampleRays && model_pts->size() < kNumRays; k++){
-      if (distances(k) >= 0 && collision_body[k] > 0){
-        Vector3d dir = endpoints.block<3, 1>(0, k) - origins.block<3,1>(0, k);
-        dir /= dir.norm();
-        Vector3d pt = origins.block<3,1>(0, k) + dir * distances(k);
-        model_pts->push_back(PointType( pt(0), pt(1), pt(2)));
-        model_normals->push_back(NormalType( normals(0, k), normals(1, k), normals(2, k)));
-      }
-    }
-  }
-  if (model_pts->size() == 0){
-    printf("No points generated for model! Aborting.\n");
-    return -1;
-  }
-
-  // Generate "scene" point cloud by picking a random point, and taking
-  // all points within a neighborhood of it.
-  scene_pts->push_back(model_pts->at(0));
-  scene_normals->push_back(model_normals->at(0));
-  vector<int> correspondences_gt;
-  correspondences_gt.push_back(0);
-  for (int k=1; k<model_pts->size(); k++){
-    if (pointDistance(scene_pts->at(0), model_pts->at(k)) < kSceneNeighborhoodSize){
-      scene_pts->push_back(model_pts->at(k));
-      scene_normals->push_back(model_normals->at(k));
-      correspondences_gt.push_back(k);
+  int k=0;
+  for (auto iter = models.begin(); iter != models.end(); iter++){
+    auto samples_model_frame = iter->model_transform * sample_from_surface_of_model(*iter, kNumRays / models.size());
+    auto samples_scene_frame = iter->scene_transform * iter->model_transform.inverse() * samples_model_frame;
+    for (int i=0; i<samples_scene_frame.cols(); i++){
+      scene_pts->push_back(PointType( samples_scene_frame(0, i), samples_scene_frame(1, i), samples_scene_frame(2, i)));
+      // overkill doing this right now, as the scene = simpletf * model in same order. but down the road may get
+      // more imaginative with this
+      actual_model_pts->push_back(PointType( samples_model_frame(0, i), samples_model_frame(1, i), samples_model_frame(2, i)));
+      correspondences_gt[k] = k;
+      k++;
     }
   }
 
-  // Center scene point cloud
-  pcl::PointCloud<PointType>::Ptr scene_pts_tf (new pcl::PointCloud<PointType> ());
-  Vector3d avg_scene_pt = Vector3d::Zero();
-  for (int k=0; k<scene_pts->size(); k++){
-    avg_scene_pt += Vector3d(scene_pts->at(k).x, scene_pts->at(k).y, scene_pts->at(k).z);
+  printf("Running with %d scene pts\n", (int)scene_pts->size());
+
+
+  // Do meshing conversions and setup -- models vertices all stored
+  // at origin for now, overlapping each other
+  // calculate total # of vertices
+  int total_num_verts = 0;
+  int total_num_faces = 0;
+  for (int i=0; i<models.size(); i++){
+    total_num_verts += models[i].vertices.cols();
+    total_num_faces += models[i].faces.size();
   }
-  avg_scene_pt /= (double)(scene_pts->size());
 
-  Eigen::Affine3f scene_centering_tf = Eigen::Affine3f::Identity();
-  //scene_centering_tf.translation() = avg_scene_pt.cast<float>();
-  pcl::transformPointCloud (*scene_pts, *scene_pts_tf, scene_centering_tf);
-
-  // Translate model off to the side to make vis easier
-  Eigen::Affine3f scene_model_tf = Eigen::Affine3f::Identity();
-  scene_model_tf.translation() << 0.5, 0.5, 0.5;
-  // theta radians arround Z axis
-  scene_model_tf.rotate (Eigen::AngleAxisf (0.3, Eigen::Vector3f::UnitZ()));
-
-  pcl::PointCloud<PointType>::Ptr model_pts_tf (new pcl::PointCloud<PointType> ());
-  pcl::transformPointCloud (*model_pts, *model_pts_tf, scene_model_tf);
-
-  printf("Selected %ld model pts and %ld scene pts\n", model_pts->size(), scene_pts_tf->size());
-
-  // Do meshing conversions and setup
-  Matrix3Xd vertices(3, 8*(robot.get_num_bodies()-1));
-  MatrixXd F((robot.get_num_bodies()-1)*6, (robot.get_num_bodies()-1)*8);
-  MatrixXd B((robot.get_num_bodies()-1), F.rows());
+  Matrix3Xd vertices(3, total_num_verts);
+  MatrixXd F(total_num_faces, total_num_verts);
+  MatrixXd B(models.size(), total_num_faces);
   vertices.setZero();
   B.setZero();
   F.setZero();
-  for (int i=1; i<robot.get_num_bodies(); i++){
-    Matrix3Xd vertices_temp;
-    robot.get_body(i).get_visual_elements()[0].getGeometry().getPoints(vertices_temp);
-    vertices.block<3, 8>(0, (i-1)*8) = scene_model_tf.cast<double>() * robot.transformPoints(robot_kinematics_cache, vertices_temp, i, 0);
+  int verts_start = 0;
+  int face_ind = 0;
+  for (int i=0; i<models.size(); i++){
+    int num_verts = models[i].vertices.cols();
+    vertices.block(0, verts_start, 3, models[i].vertices.cols()) = models[i].model_transform * models[i].vertices;
     // Generate sub-block of face selection matrix F
-    F.block((i-1)*6, (i-1)*8, 6, 8) = boundingBox2FaceSel(vertices_temp);
+    for (auto iter=models[i].faces.begin(); iter!=models[i].faces.end(); iter++){
+      F(face_ind, verts_start+iter->at(0)) = 1.;
+      F(face_ind, verts_start+iter->at(1)) = 1.;
+      F(face_ind, verts_start+iter->at(2)) = 1.;
+      face_ind++;
+    }
     // Generate sub-block of object-to-face selection matrix B
-    B.block<1, 6>(i-1, 6*(i-1)) = VectorXd::Ones(6).transpose();
+    B.block(i, verts_start, 1, num_verts) = VectorXd::Ones(num_verts).transpose();
+    verts_start += num_verts;
   }
+
+  cout << "*******************" << endl;
+  cout << "*******************" << endl;
+  cout << "verts: " << endl << vertices << endl;
+  cout << "*******************" << endl;
+  cout << "F: " << endl << F << endl;
+  cout << "*******************" << endl;
+  cout << "B: " << endl << B << endl;
+  cout << "*******************" << endl;
 
   // See https://www.sharelatex.com/project/5850590c38884b7c6f6aedd1
   // for problem formulation
-
   MathematicalProgram prog;
 
   // Allocate slacks to choose minimum L-1 norm over objects
-  auto phi = prog.NewContinuousVariables(scene_pts_tf->size(), 1, "phi");
+  auto phi = prog.NewContinuousVariables(scene_pts->size(), 1, "phi");
   
   // And slacks to store term-wise absolute value terms for L-1 norm calculation
   std::vector<DecisionVariableMatrixX> alpha_by_object;
-  for (int i=1; i<robot.get_num_bodies(); i++){
+  for (int i=0; i<models.size(); i++){
     char name_postfix[100];
-    sprintf(name_postfix, "_%s_%d", robot.getBodyOrFrameName(i).c_str(), i);
-    alpha_by_object.push_back(prog.NewContinuousVariables(3, scene_pts_tf->size(), string("alpha") + string(name_postfix)));
+    sprintf(name_postfix, "_%s_%d", models[i].name.c_str(), i);
+    alpha_by_object.push_back(prog.NewContinuousVariables(3, scene_pts->size(), string("alpha") + string(name_postfix)));
   }
 
   // Each row is a set of affine coefficients relating the scene point to a combination
   // of vertices on a single face of the model
-  auto C = prog.NewContinuousVariables(scene_pts_tf->size(), vertices.cols(), "C");
+  auto C = prog.NewContinuousVariables(scene_pts->size(), vertices.cols(), "C");
   // Binary variable selects which face is being corresponded to
-  auto f = prog.NewBinaryVariables(scene_pts_tf->size(), F.rows(),"f");
+  auto f = prog.NewBinaryVariables(scene_pts->size(), F.rows(),"f");
 
   struct TransformationVars {
     DecisionVariableVectorX T;
     DecisionVariableMatrixX R;
   };
-  bool free_rot = true;
+  bool free_rot = false;
   std::vector<TransformationVars> transform_by_object;
-  for (int i=0; i<robot.get_num_bodies()-1; i++){
+  for (int i=0; i<models.size(); i++){
     TransformationVars new_tr;
     char name_postfix[100];
-    sprintf(name_postfix, "_%s_%d", robot.getBodyOrFrameName(i).c_str(), i);
+    sprintf(name_postfix, "_%s_%d", models[i].name.c_str(), i);
     new_tr.T = prog.NewContinuousVariables(3, string("T")+string(name_postfix));
     prog.AddBoundingBoxConstraint(-100*VectorXd::Ones(3), 100*VectorXd::Ones(3), {new_tr.T});
     new_tr.R = NewRotationMatrixVars(&prog, string("R") + string(name_postfix));
@@ -279,11 +312,11 @@ int main(int argc, char** argv) {
     if (free_rot){
       //addMcCormickQuaternionConstraint(prog, new_tr.R, 4, 4);
       //AddBoundingBoxConstraintsImpliedByRollPitchYawLimits(&prog, new_tr.R, kYaw_0_to_PI_2 | kPitch_0_to_PI_2 | kRoll_0_to_PI_2);
-      AddRotationMatrixOctantMilpConstraints(&prog, new_tr.R);
+      AddRotationMatrixMcCormickEnvelopeMilpConstraints(&prog, new_tr.R);
     } else {
       // constrain rotations to ground truth
       // I know I can do this in one constraint with 9 rows, but eigen was giving me trouble
-      auto ground_truth_tf = scene_model_tf * robot.relativeTransform(robot_kinematics_cache, 0, i).cast<float>();
+      auto ground_truth_tf = models[i].scene_transform.inverse().cast<float>() * models[i].model_transform.cast<float>();
       for (int i=0; i<3; i++){
         for (int j=0; j<3; j++){
           prog.AddLinearEqualityConstraint(Eigen::MatrixXd::Identity(1, 1), ground_truth_tf.rotation()(i, j), {new_tr.R.block<1,1>(i, j)});
@@ -295,8 +328,8 @@ int main(int argc, char** argv) {
   }
 
   // Optimization pushes on slacks to make them tight (make them do their job)
-  prog.AddLinearCost(1.0 * VectorXd::Ones(scene_pts_tf->size()), {phi});
-  for (int l=0; l<robot.get_num_bodies()-1; l++){
+  prog.AddLinearCost(1.0 * VectorXd::Ones(scene_pts->size()), {phi});
+  for (int l=0; l<models.size(); l++){
     for (int k=0; k<3; k++){
       prog.AddLinearCost(1.0 * VectorXd::Ones(alpha_by_object[l].cols()), {alpha_by_object[l].row(k)});
     }
@@ -304,7 +337,7 @@ int main(int argc, char** argv) {
 
   // Constrain slacks nonnegative, to help the estimation of lower bound in relaxation  
   prog.AddBoundingBoxConstraint(0.0, std::numeric_limits<double>::infinity(), {phi});
-  for (int l=0; l<robot.get_num_bodies()-1; l++){
+  for (int l=0; l<models.size(); l++){
     for (int k=0; k<3; k++){
       prog.AddBoundingBoxConstraint(0.0, std::numeric_limits<double>::infinity(), {alpha_by_object[l].row(k)});
     }
@@ -363,8 +396,8 @@ int main(int argc, char** argv) {
   AlphaConstrNeg.block<1, 1>(0, 4) = MatrixXd::Ones(1, 1); // T bias term
 
   printf("Starting to add correspondence costs... ");
-  for (int l=0; l<robot.get_num_bodies()-1; l++){
-    for (int i=0; i<scene_pts_tf->size(); i++){
+  for (int l=0; l<models.size(); l++){
+    for (int i=0; i<scene_pts->size(); i++){
       printf("=");
 
       // constrain L-1 distance slack based on correspondences
@@ -383,7 +416,7 @@ int main(int argc, char** argv) {
 
       // Alphaconstr, containing the scene and model points and a translation bias term, is used the constraints
       // on the three elems of alpha_{i, l}
-      auto s_xyz = Eigen::Vector3d(scene_pts_tf->at(i).x, scene_pts_tf->at(i).y, scene_pts_tf->at(i).z);
+      auto s_xyz = Eigen::Vector3d(scene_pts->at(i).x, scene_pts->at(i).y, scene_pts->at(i).z);
       AlphaConstrPos.block<1, 3>(0, 1) = -s_xyz.transpose(); // Multiples R
       AlphaConstrNeg.block<1, 3>(0, 1) = s_xyz.transpose(); // Multiples R
 
@@ -454,7 +487,7 @@ int main(int argc, char** argv) {
   string problem_string = "rigidtf";
   double elapsed = getUnixTime() - now;
 
-  //prog.PrintSolution();
+  prog.PrintSolution();
 
   MatrixXd f_est= prog.GetSolution(f);
   MatrixXd C_est = prog.GetSolution(C);
@@ -480,20 +513,21 @@ int main(int argc, char** argv) {
 
   std::vector<ObjectDetection> detections;
 
-  for (int i=1; i<robot.get_num_bodies(); i++){
+  for (int i=0; i<models.size(); i++){
     ObjectDetection detection;
     detection.obj_ind = i;
 
     printf("************************************************\n");
-    printf("Concerning robot %d (%s):\n", i, robot.getBodyOrFrameName(i).c_str());
+    printf("Concerning model %d (%s):\n", i, models[i].name.c_str());
     printf("------------------------------------------------\n");
     printf("Ground truth TF: ");
-    auto ground_truth_tf = scene_model_tf * robot.relativeTransform(robot_kinematics_cache, 0, i).cast<float>();
+    auto ground_truth_tf = models[i].scene_transform.inverse().cast<float>() 
+                          * models[i].model_transform.cast<float>();
     cout << ground_truth_tf.translation().transpose() << endl;
     cout << ground_truth_tf.matrix().block<3,3>(0,0) << endl;
     printf("------------------------------------------------\n");
-    Vector3f Tf = prog.GetSolution(transform_by_object[i-1].T).cast<float>();
-    Matrix3f Rf = prog.GetSolution(transform_by_object[i-1].R).cast<float>();
+    Vector3f Tf = prog.GetSolution(transform_by_object[i].T).cast<float>();
+    Matrix3f Rf = prog.GetSolution(transform_by_object[i].R).cast<float>();
     printf("Transform:\n");
     printf("\tTranslation: %f, %f, %f\n", Tf(0, 0), Tf(1, 0), Tf(2, 0));
     printf("\tRotation:\n");
@@ -518,10 +552,10 @@ int main(int argc, char** argv) {
       for (int face_j=0; face_j<f_est.cols(); face_j++){
         // if this face is assigned, and this face is a member of this object,
         // then display this point
-        if (f_est(scene_i, face_j) > 0.5 && B(i-1, face_j) > 0.5){
+        if (f_est(scene_i, face_j) > 0.5 && B(i, face_j) > 0.5){
           PointCorrespondence new_corresp;
-          new_corresp.scene_pt = scene_pts_tf->at(scene_i);
-          new_corresp.model_pt = transformPoint(scene_pts_tf->at(scene_i), detection.est_tf);
+          new_corresp.scene_pt = scene_pts->at(scene_i);
+          new_corresp.model_pt = transformPoint(scene_pts->at(scene_i), detection.est_tf);
           new_corresp.scene_ind = scene_i;
           new_corresp.face_ind = face_j;
           for (int k_v=0; k_v<vertices.cols(); k_v++){
@@ -537,7 +571,7 @@ int main(int argc, char** argv) {
     }
     detections.push_back(detection);
   }
-  printf("Code %d, problem %s solved for %lu scene, %lu model solved in: %f\n", out, problem_string.c_str(), scene_pts_tf->size(), model_pts_tf->size(), elapsed);
+  printf("Code %d, problem %s solved for %lu scene solved in: %f\n", out, problem_string.c_str(), scene_pts->size(), elapsed);
 
 
   // Viewer main loop
@@ -547,11 +581,11 @@ int main(int argc, char** argv) {
 
   pcl::visualization::PCLVisualizer viewer ("Point Collection");
   viewer.setShowFPS(false);
-  pcl::visualization::PointCloudColorHandlerCustom<PointType> model_color_handler (model_pts_tf, 128, 255, 255);
-  pcl::visualization::PointCloudColorHandlerCustom<PointType> scene_color_handler (scene_pts_tf, 255, 255, 128);
+  pcl::visualization::PointCloudColorHandlerCustom<PointType> scene_color_handler (scene_pts, 255, 255, 128);
+  pcl::visualization::PointCloudColorHandlerCustom<PointType> model_color_handler (actual_model_pts, 255, 255, 128);
   viewer.registerKeyboardCallback (keyboardEventOccurred, (void*)&viewer);
 
-  max_corresp_id = scene_pts_tf->size();
+  max_corresp_id = scene_pts->size();
   pending_redraw = true;
 
   while (!viewer.wasStopped ()){
@@ -559,10 +593,10 @@ int main(int argc, char** argv) {
       viewer.removeAllPointClouds();
       viewer.removeAllShapes();
 
-      viewer.addPointCloud<PointType>(model_pts_tf, model_color_handler, "model pts_tf"); 
-      viewer.setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "model pts_tf");
-      viewer.addPointCloud<PointType>(scene_pts_tf, scene_color_handler, "scene pts tf"); 
-      viewer.setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2, "scene pts tf");
+      viewer.addPointCloud<PointType>(scene_pts, scene_color_handler, "scene pts"); 
+      viewer.setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2, "scene pts");
+      viewer.addPointCloud<PointType>(actual_model_pts, model_color_handler, "model pts gt"); 
+      viewer.setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2, "model pts gt");
  
       if (draw_all_mode){
         // Draw all correspondneces as lines
@@ -575,11 +609,11 @@ int main(int argc, char** argv) {
         }
 
         // and add all ground truth
-        for (int k_s=0; k_s<scene_pts_tf->size(); k_s++){
-          int k = correspondences_gt[k_s];
+        for (int k_s=0; k_s<scene_pts->size(); k_s++){
           std::stringstream ss_line;
+          int k = correspondences_gt[k_s];
           ss_line << "gt_correspondence_line" << k << "-" << k_s;
-          viewer.addLine<PointType, PointType> (model_pts_tf->at(k), scene_pts_tf->at(k_s), 0, 255, 0, ss_line.str ());
+          viewer.addLine<PointType, PointType> (actual_model_pts->at(k), scene_pts->at(k_s), 0, 255, 0, ss_line.str ());
         }
       } else {
         // Draw only desired correspondence
@@ -597,7 +631,7 @@ int main(int argc, char** argv) {
         int k = correspondences_gt[target_corresp_id];
         std::stringstream ss_line;
         ss_line << "gt_correspondence_line" << k << "-" << target_corresp_id;
-        viewer.addLine<PointType, PointType> (model_pts_tf->at(k), scene_pts_tf->at(target_corresp_id), 0, 255, 0, ss_line.str ());
+        viewer.addLine<PointType, PointType> (actual_model_pts->at(k), scene_pts->at(target_corresp_id), 0, 255, 0, ss_line.str ());
         // Re-draw the corresponded vertices larger
         for (int k_v=0; k_v<vertices.cols(); k_v++){
           if (prog.GetSolution(C(target_corresp_id, k_v)) >= 0.0){
@@ -610,18 +644,29 @@ int main(int argc, char** argv) {
 
       }
 
-      // Always draw the model mesh
-      for (int i=0; i<F.rows(); i++){
-        pcl::PointCloud<PointType>::Ptr face_pts (new pcl::PointCloud<PointType> ());
-        for (int j=0; j<F.cols(); j++){
-          if (F(i, j) > 0){
-            VectorXd pt = vertices.col(j);
-            face_pts->push_back(PointType(pt[0], pt[1], pt[2]));
-          }
-        } 
-        char strname[100];
-        sprintf(strname, "polygon%d", i);
-        viewer.addPolygon<PointType>(face_pts, 0.2, 0.2, 1.0, string(strname));
+      // Always draw the transformed and untransformed models
+      for (int i=0; i<models.size(); i++){
+        auto verts = models[i].vertices;
+        for (int j=0; j<models[i].faces.size(); j++){
+          pcl::PointCloud<PointType>::Ptr face_pts (new pcl::PointCloud<PointType> ());
+          for (int k=0; k<3; k++){
+            face_pts->push_back(
+              PointType( verts(0, models[i].faces[j][k]),
+                         verts(1, models[i].faces[j][k]),
+                         verts(2, models[i].faces[j][k]) ));
+          } 
+          char strname[100];
+          // model pts
+          sprintf(strname, "polygon%d_%d", i, j);
+          transformPointCloud(*face_pts, *face_pts, models[i].model_transform.cast<float>());
+          viewer.addPolygon<PointType>(face_pts, 0.5, 0.5, 1.0, string(strname));
+          transformPointCloud(*face_pts, *face_pts, models[i].model_transform.inverse().cast<float>());
+
+          // scene pts
+          sprintf(strname, "polygon%d_%d_tf", i, j);
+          transformPointCloud(*face_pts, *face_pts, models[i].scene_transform.cast<float>());
+          viewer.addPolygon<PointType>(face_pts, 0.5, 1.0, 0.5, string(strname));
+        }
       }
 
       // Always draw info

@@ -1,0 +1,28 @@
+models:
+  - name: "AsymmetricPyramid"
+    vertices:
+      top: [0.0, 0.0, 0.1] # top
+      fwd: [0.2, 0.0, 0.0] # forward
+      bkl: [-0.1, 0.01, 0.0] # back-left
+      bkr: [-0.1, -0.1, 0.0] # back-right
+    faces: # clockwise from outside
+      left: ["top", "bkl", "fwd"]
+      rght: ["top", "fwd", "bkr"]
+      rear: ["top", "bkr", "bkl"]
+      bttm: ["fwd", "bkl", "bkr"]
+    scene_tf: [0.5, 0, 0, 0, 0, 0]
+    model_tf: [0.0, 0, 0., 0, 0.0, 0.0]
+
+  - name: "AsymmetricPyramid_mirrored"
+    vertices:
+      top: [0.0, 0.0, 0.1] # top
+      fwd: [0.2, 0.0, 0.0] # forward
+      bkl: [-0.1, 0.1, 0.0] # back-left
+      bkr: [-0.1, -0.01, 0.0] # back-right
+    faces: # clockwise from outside
+      left: ["top", "bkl", "fwd"]
+      rght: ["top", "fwd", "bkr"]
+      rear: ["top", "bkr", "bkl"]
+      bttm: ["fwd", "bkl", "bkr"]
+    scene_tf: [0.7, 0, 0.2, 0, 0.0, 0.0]
+    model_tf: [0.0, 0, 0.2, 0, 0.0, 0.0]
