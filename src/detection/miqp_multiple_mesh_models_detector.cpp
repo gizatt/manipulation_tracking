@@ -176,6 +176,9 @@ Eigen::Matrix3Xd sample_from_surface_of_model(Model m, int N){
 
 bool pending_redraw = true;
 bool draw_all_mode = true;
+bool reextract_solution = true;
+int target_sol = 0;
+int max_num_sols = 1;
 int target_corresp_id = 0;
 int max_corresp_id = 0;
 void keyboardEventOccurred (const pcl::visualization::KeyboardEvent &event,
@@ -192,6 +195,14 @@ void keyboardEventOccurred (const pcl::visualization::KeyboardEvent &event,
   else if (event.getKeySym() == "Left" && event.keyDown()) {
     target_corresp_id = (target_corresp_id - 1 + max_corresp_id) % max_corresp_id;
   }
+  else if (event.getKeySym() == "Up" && event.keyDown()) {
+    target_sol = (target_sol - 1 + max_num_sols) % max_num_sols;
+    reextract_solution = true;
+  }
+  else if (event.getKeySym() == "Down" && event.keyDown()) {
+    target_sol = (target_sol - 1 + max_num_sols) % max_num_sols;
+    reextract_solution = true;
+  }
   pending_redraw = true;
 }
 
@@ -200,7 +211,6 @@ int main(int argc, char** argv) {
 
   int optNumRays = 10;
   int optRotationConstraint = 4;
-  double optMaxRuntime = -1;
   int optSceneSamplingMode = 0;
 
   if (argc != 2){
@@ -222,9 +232,6 @@ int main(int argc, char** argv) {
 
   if (modelsNode["options"]["rotation_constraint"])
     optRotationConstraint = modelsNode["options"]["rotation_constraint"].as<int>();
-
-  if (modelsNode["options"]["max_runtime"])
-    optMaxRuntime = modelsNode["options"]["max_runtime"].as<int>();
 
   if (modelsNode["options"]["scene_sampling_mode"])
     optSceneSamplingMode = modelsNode["options"]["scene_sampling_mode"].as<int>();
@@ -525,26 +532,38 @@ int main(int argc, char** argv) {
   prog.SetSolverOption("GUROBI", "LogToConsole", 1);
   prog.SetSolverOption("GUROBI", "LogFile", "loggg.gur");
   prog.SetSolverOption("GUROBI", "DisplayInterval", 5);
-  if (optMaxRuntime > 0)
-    prog.SetSolverOption("GUROBI", "TimeLimit", optMaxRuntime);
-//  prog.SetSolverOption("GUROBI", "MIPGap", 1E-12);
-//  prog.SetSolverOption("GUROBI", "Heuristics", 0.25);
-//  prog.SetSolverOption("GUROBI", "FeasRelaxBigM", 1E6);
+
+  if (modelsNode["options"]["gurobi_int_options"]){
+    for (auto iter = modelsNode["options"]["gurobi_int_options"].begin();
+         iter != modelsNode["options"]["gurobi_int_options"].end();
+         iter++){
+      prog.SetSolverOption("GUROBI", iter->first.as<string>(), iter->second.as<int>());
+    }
+  }
+  if (modelsNode["options"]["gurobi_float_options"]){
+    for (auto iter = modelsNode["options"]["gurobi_float_options"].begin();
+         iter != modelsNode["options"]["gurobi_float_options"].end();
+         iter++){
+      prog.SetSolverOption("GUROBI", iter->first.as<string>(), iter->second.as<float>());
+    }
+  }
+
 //  prog.SetSolverOption("GUROBI", "Cutoff", 50.0);
 // isn't doing anything... not invoking this tool right?
 //  prog.SetSolverOption("GUROBI", "TuneJobs", 8);
 //  prog.SetSolverOption("GUROBI", "TuneResults", 3);
+  //prog.SetSolverOption("GUROBI", )
 
+  if (modelsNode["options"]["gurobi_int_options"]["PoolSolutions"])
+    max_num_sols = modelsNode["options"]["gurobi_int_options"]["PoolSolutions"].as<int>();
 
   auto out = gurobi_solver.Solve(prog);
   string problem_string = "rigidtf";
   double elapsed = getUnixTime() - now;
 
   //prog.PrintSolution();
-
-  MatrixXd f_est= prog.GetSolution(f);
-  MatrixXd C_est = prog.GetSolution(C);
-
+  printf("Code %d, problem %s solved for %lu scene solved in: %f\n", out, problem_string.c_str(), scene_pts->size(), elapsed);
+  
   // Extract into a set of correspondences
   struct PointCorrespondence {
     PointType scene_pt;
@@ -564,68 +583,6 @@ int main(int argc, char** argv) {
     int obj_ind;
   };
 
-  std::vector<ObjectDetection> detections;
-
-  for (int i=0; i<models.size(); i++){
-    ObjectDetection detection;
-    detection.obj_ind = i;
-
-    printf("************************************************\n");
-    printf("Concerning model %d (%s):\n", i, models[i].name.c_str());
-    printf("------------------------------------------------\n");
-    printf("Ground truth TF: ");
-    auto ground_truth_tf = models[i].scene_transform.inverse().cast<float>() 
-                          * models[i].model_transform.cast<float>();
-    cout << ground_truth_tf.translation().transpose() << endl;
-    cout << ground_truth_tf.matrix().block<3,3>(0,0) << endl;
-    printf("------------------------------------------------\n");
-    Vector3f Tf = prog.GetSolution(transform_by_object[i].T).cast<float>();
-    Matrix3f Rf = prog.GetSolution(transform_by_object[i].R).cast<float>();
-    printf("Transform:\n");
-    printf("\tTranslation: %f, %f, %f\n", Tf(0, 0), Tf(1, 0), Tf(2, 0));
-    printf("\tRotation:\n");
-    printf("\t\t%f, %f, %f\n", Rf(0, 0), Rf(0, 1), Rf(0, 2));
-    printf("\t\t%f, %f, %f\n", Rf(1, 0), Rf(1, 1), Rf(1, 2));
-    printf("\t\t%f, %f, %f\n", Rf(2, 0), Rf(2, 1), Rf(2, 2));
-    printf("------------------------------------------------\n");
-    printf("Sanity check rotation: R^T R = \n");
-    MatrixXf RfTRf = Rf.transpose() * Rf;
-    printf("\t\t%f, %f, %f\n", RfTRf(0, 0), RfTRf(0, 1), RfTRf(0, 2));
-    printf("\t\t%f, %f, %f\n", RfTRf(1, 0), RfTRf(1, 1), RfTRf(1, 2));
-    printf("\t\t%f, %f, %f\n", RfTRf(2, 0), RfTRf(2, 1), RfTRf(2, 2));
-    printf("------------------------------------------------\n");
-    printf("************************************************\n");
-
-
-    detection.est_tf.setIdentity();
-    detection.est_tf.translation() = Tf;
-    detection.est_tf.matrix().block<3,3>(0,0) = Rf;
-
-    for (int scene_i=0; scene_i<f_est.rows(); scene_i++){
-      for (int face_j=0; face_j<f_est.cols(); face_j++){
-        // if this face is assigned, and this face is a member of this object,
-        // then display this point
-        if (f_est(scene_i, face_j) > 0.5 && B(i, face_j) > 0.5){
-          PointCorrespondence new_corresp;
-          new_corresp.scene_pt = scene_pts->at(scene_i);
-          new_corresp.model_pt = transformPoint(scene_pts->at(scene_i), detection.est_tf);
-          new_corresp.scene_ind = scene_i;
-          new_corresp.face_ind = face_j;
-          for (int k_v=0; k_v<vertices.cols(); k_v++){
-            if (C_est(scene_i, k_v) >= 0.0){
-              new_corresp.model_verts.push_back( PointType(vertices(0, k_v), vertices(1, k_v), vertices(2, k_v)) );
-              new_corresp.vert_weights.push_back( C_est(target_corresp_id, k_v) );
-              new_corresp.vert_inds.push_back(k_v);
-            }
-          }
-          detection.correspondences.push_back(new_corresp);
-        }
-      }
-    }
-    detections.push_back(detection);
-  }
-  printf("Code %d, problem %s solved for %lu scene solved in: %f\n", out, problem_string.c_str(), scene_pts->size(), elapsed);
-
 
   // Viewer main loop
   // Pressing left-right arrow keys allows viewing of individual point-face correspondences
@@ -641,7 +598,79 @@ int main(int argc, char** argv) {
   max_corresp_id = scene_pts->size();
   pending_redraw = true;
 
+
+  std::vector<ObjectDetection> detections;
+  MatrixXd f_est;
+  MatrixXd C_est;
+  reextract_solution = true;
+
   while (!viewer.wasStopped ()){
+    if (reextract_solution){
+      detections.clear();
+
+      f_est= prog.GetSolution(f, target_sol);
+      C_est = prog.GetSolution(C, target_sol);
+
+      for (int i=0; i<models.size(); i++){
+        ObjectDetection detection;
+        detection.obj_ind = i;
+
+        printf("************************************************\n");
+        printf("Concerning model %d (%s):\n", i, models[i].name.c_str());
+        printf("------------------------------------------------\n");
+        printf("Ground truth TF: ");
+        auto ground_truth_tf = models[i].scene_transform.inverse().cast<float>() 
+                              * models[i].model_transform.cast<float>();
+        cout << ground_truth_tf.translation().transpose() << endl;
+        cout << ground_truth_tf.matrix().block<3,3>(0,0) << endl;
+        printf("------------------------------------------------\n");
+        Vector3f Tf = prog.GetSolution(transform_by_object[i].T, target_sol).cast<float>();
+        Matrix3f Rf = prog.GetSolution(transform_by_object[i].R, target_sol).cast<float>();
+        printf("Transform:\n");
+        printf("\tTranslation: %f, %f, %f\n", Tf(0, 0), Tf(1, 0), Tf(2, 0));
+        printf("\tRotation:\n");
+        printf("\t\t%f, %f, %f\n", Rf(0, 0), Rf(0, 1), Rf(0, 2));
+        printf("\t\t%f, %f, %f\n", Rf(1, 0), Rf(1, 1), Rf(1, 2));
+        printf("\t\t%f, %f, %f\n", Rf(2, 0), Rf(2, 1), Rf(2, 2));
+        printf("------------------------------------------------\n");
+        printf("Sanity check rotation: R^T R = \n");
+        MatrixXf RfTRf = Rf.transpose() * Rf;
+        printf("\t\t%f, %f, %f\n", RfTRf(0, 0), RfTRf(0, 1), RfTRf(0, 2));
+        printf("\t\t%f, %f, %f\n", RfTRf(1, 0), RfTRf(1, 1), RfTRf(1, 2));
+        printf("\t\t%f, %f, %f\n", RfTRf(2, 0), RfTRf(2, 1), RfTRf(2, 2));
+        printf("------------------------------------------------\n");
+        printf("************************************************\n");
+
+
+        detection.est_tf.setIdentity();
+        detection.est_tf.translation() = Tf;
+        detection.est_tf.matrix().block<3,3>(0,0) = Rf;
+
+        for (int scene_i=0; scene_i<f_est.rows(); scene_i++){
+          for (int face_j=0; face_j<f_est.cols(); face_j++){
+            // if this face is assigned, and this face is a member of this object,
+            // then display this point
+            if (f_est(scene_i, face_j) > 0.5 && B(i, face_j) > 0.5){
+              PointCorrespondence new_corresp;
+              new_corresp.scene_pt = scene_pts->at(scene_i);
+              new_corresp.model_pt = transformPoint(scene_pts->at(scene_i), detection.est_tf);
+              new_corresp.scene_ind = scene_i;
+              new_corresp.face_ind = face_j;
+              for (int k_v=0; k_v<vertices.cols(); k_v++){
+                if (C_est(scene_i, k_v) >= 0.0){
+                  new_corresp.model_verts.push_back( PointType(vertices(0, k_v), vertices(1, k_v), vertices(2, k_v)) );
+                  new_corresp.vert_weights.push_back( C_est(target_corresp_id, k_v) );
+                  new_corresp.vert_inds.push_back(k_v);
+                }
+              }
+              detection.correspondences.push_back(new_corresp);
+            }
+          }
+        }
+        detections.push_back(detection);
+      }
+    }
+
     if (pending_redraw){
       viewer.removeAllPointClouds();
       viewer.removeAllShapes();
@@ -687,10 +716,10 @@ int main(int argc, char** argv) {
         viewer.addLine<PointType, PointType> (actual_model_pts->at(k), scene_pts->at(target_corresp_id), 0, 255, 0, ss_line.str ());
         // Re-draw the corresponded vertices larger
         for (int k_v=0; k_v<vertices.cols(); k_v++){
-          if (prog.GetSolution(C(target_corresp_id, k_v)) >= 0.0){
+          if (prog.GetSolution(C(target_corresp_id, k_v), target_sol) >= 0.0){
             std::stringstream ss_sphere;
             ss_sphere << "vertex_sphere" << k_v;
-            viewer.addSphere<PointType>(PointType(vertices(0, k_v), vertices(1, k_v), vertices(2, k_v)), prog.GetSolution(C(target_corresp_id, k_v))/100.0, 
+            viewer.addSphere<PointType>(PointType(vertices(0, k_v), vertices(1, k_v), vertices(2, k_v)), prog.GetSolution(C(target_corresp_id, k_v), target_sol)/100.0, 
               255,0,255, ss_sphere.str());
           }
         }

@@ -2,7 +2,7 @@ options:
     # Scene sampling mode 0 = center of each face
     # scene sampling mode 1 = num_rays surface points randomly
     scene_sampling_mode: 0
-    num_rays: 10 # if using random scene point sampling, sample this many points
+    num_rays: 5 # if using random scene point sampling, sample this many points
     # options of rot constraints:
     # 0: constrained to ground truth
     # 1: unconstrained
@@ -11,7 +11,18 @@ options:
     # 4: McCormick directly on rotmat
     # 5: Conservative RPY limits
     rotation_constraint: 4
-    max_runtime: 100 # seconds, -1 = infinite
+
+    gurobi_int_options:
+        #MIPFocus: 1
+        PoolSearchMode: 1
+        PoolSolutions: 10
+
+    gurobi_float_options:
+        TimeLimit: 1
+        FeasRelaxBigM: 100
+        MIPGap: 1E-3
+        #Heuristics: 0.05
+ 
 models:
   - name: "AsymmetricPyramid"
     vertices:
