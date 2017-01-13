@@ -1,6 +1,7 @@
 /*
  */
 
+#include <string>
 #include <stdexcept>
 #include <iostream>
 
@@ -145,6 +146,18 @@ Model load_model_from_yaml_node(YAML::Node model_node){
 
   return m;
 }
+Eigen::Matrix3Xd get_face_midpoints(Model m){
+  Matrix3Xd out(3, m.faces.size());
+  for (int i=0; i<m.faces.size(); i++){
+    double w0 = 0.3333;
+    double w1 = 0.3333;
+    double w2 = 0.3333;
+    out.col(i) = w0*m.vertices.col(m.faces[i][0]) +  
+                 w1*m.vertices.col(m.faces[i][1]) + 
+                 w2*m.vertices.col(m.faces[i][2]);
+  }
+  return out;
+}
 Eigen::Matrix3Xd sample_from_surface_of_model(Model m, int N){
   Matrix3Xd out(3, N);
   for (int i=0; i<N; i++){
@@ -185,15 +198,13 @@ void keyboardEventOccurred (const pcl::visualization::KeyboardEvent &event,
 int main(int argc, char** argv) {
   srand(getUnixTime());
 
-  if (argc != 5){
-    printf("Use: miqp_multiple_mesh_models_detector <numrays> <neighborhood size> <freerot> <urdf>\n");
-    printf("\tFree rot options:\n");
-    printf("\t\t0: Constrained to ground truth\n");
-    printf("\t\t1: Unconstrained rotation matrix vars\n");
-    printf("\t\t2: Columnwise and row-wise L1-norm >= 1\n");
-    printf("\t\t3: McCormick quaternion\n");
-    printf("\t\t4: McCormick rotmat\n");
-    printf("\t\t5  Conservative rpy limits\n");
+  int optNumRays = 10;
+  int optRotationConstraint = 4;
+  double optMaxRuntime = -1;
+  int optSceneSamplingMode = 0;
+
+  if (argc != 2){
+    printf("Use: miqp_multiple_mesh_models_detector <config file>\n");
     exit(-1);
   }
 
@@ -202,13 +213,22 @@ int main(int argc, char** argv) {
     throw std::runtime_error("LCM is not good");
   }
 
-  int kNumRays = atoi(argv[1]);
-  float kSceneNeighborhoodSize = atof(argv[2]);
-  int free_rot = atoi(argv[3]);
-
   // Set up robot
-  string yamlString = string(argv[4]);
+  string yamlString = string(argv[1]);
   YAML::Node modelsNode = YAML::LoadFile(yamlString);
+
+  if (modelsNode["options"]["num_rays"])
+    optNumRays = modelsNode["options"]["num_rays"].as<int>();
+
+  if (modelsNode["options"]["rotation_constraint"])
+    optRotationConstraint = modelsNode["options"]["rotation_constraint"].as<int>();
+
+  if (modelsNode["options"]["max_runtime"])
+    optMaxRuntime = modelsNode["options"]["max_runtime"].as<int>();
+
+  if (modelsNode["options"]["scene_sampling_mode"])
+    optSceneSamplingMode = modelsNode["options"]["scene_sampling_mode"].as<int>();
+
 
   std::vector<Model> models;
 
@@ -225,8 +245,20 @@ int main(int argc, char** argv) {
 
   int k=0;
   for (auto iter = models.begin(); iter != models.end(); iter++){
-    auto samples_model_frame = iter->model_transform * sample_from_surface_of_model(*iter, kNumRays / models.size());
-    auto samples_scene_frame = iter->scene_transform * iter->model_transform.inverse() * samples_model_frame;
+    Matrix3Xd scene_samples;
+    switch (optSceneSamplingMode){
+      case 0:
+        scene_samples = get_face_midpoints(*iter);
+        break;
+      case 1:
+        scene_samples = sample_from_surface_of_model(*iter, optNumRays / models.size());
+        break;
+      default:
+        printf("Bad scene sampling mode! %d\n", optSceneSamplingMode);
+        exit(-1);
+    }
+    auto samples_model_frame = iter->model_transform * scene_samples;
+    auto samples_scene_frame = iter->scene_transform * scene_samples;
     for (int i=0; i<samples_scene_frame.cols(); i++){
       scene_pts->push_back(PointType( samples_scene_frame(0, i), samples_scene_frame(1, i), samples_scene_frame(2, i)));
       // overkill doing this right now, as the scene = simpletf * model in same order. but down the road may get
@@ -276,15 +308,6 @@ int main(int argc, char** argv) {
     faces_start += num_faces;
   }
 
-  cout << "*******************" << endl;
-  cout << "*******************" << endl;
-  cout << "verts: " << endl << vertices << endl;
-  cout << "*******************" << endl;
-  cout << "F: " << endl << F << endl;
-  cout << "*******************" << endl;
-  cout << "B: " << endl << B << endl;
-  cout << "*******************" << endl;
-
   // See https://www.sharelatex.com/project/5850590c38884b7c6f6aedd1
   // for problem formulation
   MathematicalProgram prog;
@@ -314,8 +337,8 @@ int main(int argc, char** argv) {
     prog.AddBoundingBoxConstraint(-100*VectorXd::Ones(3), 100*VectorXd::Ones(3), {new_tr.T});
     new_tr.R = NewRotationMatrixVars(&prog, string("R") + string(name_postfix));
 
-    if (free_rot > 0){
-      switch (free_rot){
+    if (optRotationConstraint > 0){
+      switch (optRotationConstraint){
         case 1:
           break;
         case 2:
@@ -335,7 +358,7 @@ int main(int argc, char** argv) {
           AddBoundingBoxConstraintsImpliedByRollPitchYawLimits(&prog, new_tr.R, kYaw_0_to_PI_2 | kPitch_0_to_PI_2 | kRoll_0_to_PI_2);
           break;
         default:
-          printf("invalid free_rot option!\n");
+          printf("invalid optRotationConstraint option!\n");
           exit(-1);
           break;
       }
@@ -502,7 +525,8 @@ int main(int argc, char** argv) {
   prog.SetSolverOption("GUROBI", "LogToConsole", 1);
   prog.SetSolverOption("GUROBI", "LogFile", "loggg.gur");
   prog.SetSolverOption("GUROBI", "DisplayInterval", 5);
-  prog.SetSolverOption("GUROBI", "TimeLimit", 300.0);
+  if (optMaxRuntime > 0)
+    prog.SetSolverOption("GUROBI", "TimeLimit", optMaxRuntime);
 //  prog.SetSolverOption("GUROBI", "MIPGap", 1E-12);
 //  prog.SetSolverOption("GUROBI", "Heuristics", 0.25);
 //  prog.SetSolverOption("GUROBI", "FeasRelaxBigM", 1E6);

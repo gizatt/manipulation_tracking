@@ -1,3 +1,17 @@
+options:
+    # Scene sampling mode 0 = center of each face
+    # scene sampling mode 1 = num_rays surface points randomly
+    scene_sampling_mode: 0
+    num_rays: 10 # if using random scene point sampling, sample this many points
+    # options of rot constraints:
+    # 0: constrained to ground truth
+    # 1: unconstrained
+    # 2: columnwise and row-wise L1-norm >= 1
+    # 3: McCormick quaternion
+    # 4: McCormick directly on rotmat
+    # 5: Conservative RPY limits
+    rotation_constraint: 4
+    max_runtime: 100 # seconds, -1 = infinite
 models:
   - name: "AsymmetricPyramid"
     vertices:
@@ -20,7 +34,7 @@ models:
       py: [0.0, 0.1, 0.0] 
       ny: [0.0, -0.1, 0.0] 
       pz: [0.0, 0.0, 0.1]
-      nz: [0.0, 0.0, -0.1] 
+      nz: [0.0, 0.0, -0.05] 
     faces: # clockwise from outside
       pxpynz: ["px", "nz", "py"]
       pxpypz: ["px", "py", "pz"]
