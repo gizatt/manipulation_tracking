@@ -196,7 +196,7 @@ void keyboardEventOccurred (const pcl::visualization::KeyboardEvent &event,
     target_corresp_id = (target_corresp_id - 1 + max_corresp_id) % max_corresp_id;
   }
   else if (event.getKeySym() == "Up" && event.keyDown()) {
-    target_sol = (target_sol - 1 + max_num_sols) % max_num_sols;
+    target_sol = (target_sol + 1) % max_num_sols;
     reextract_solution = true;
   }
   else if (event.getKeySym() == "Down" && event.keyDown()) {
@@ -669,6 +669,7 @@ int main(int argc, char** argv) {
         }
         detections.push_back(detection);
       }
+      reextract_solution = false;
     }
 
     if (pending_redraw){
@@ -756,7 +757,8 @@ int main(int argc, char** argv) {
       ss_info << "MIQP Scene Point to Model Mesh Correspondences" << endl
               << "Solution Objective: " << "todo" << endl
               << "Drawing mode [Z]: " << draw_all_mode << endl
-              << "Drawing correspondence [Left/Right Keys]: " << target_corresp_id << endl;
+              << "Drawing correspondence [Left/Right Keys]: " << target_corresp_id << endl
+              << "Drawing solution [Up/Down Keys]: " << target_sol << endl;
       viewer.addText  ( ss_info.str(), 10, 10, "optim_info_str");
       
 
