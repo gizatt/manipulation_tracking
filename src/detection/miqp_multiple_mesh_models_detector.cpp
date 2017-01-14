@@ -554,12 +554,11 @@ int main(int argc, char** argv) {
 //  prog.SetSolverOption("GUROBI", "TuneResults", 3);
   //prog.SetSolverOption("GUROBI", )
 
-  if (modelsNode["options"]["gurobi_int_options"]["PoolSolutions"])
-    max_num_sols = modelsNode["options"]["gurobi_int_options"]["PoolSolutions"].as<int>();
-
   auto out = gurobi_solver.Solve(prog);
   string problem_string = "rigidtf";
   double elapsed = getUnixTime() - now;
+
+  max_num_sols = prog.get_num_solutions();
 
   //prog.PrintSolution();
   printf("Code %d, problem %s solved for %lu scene solved in: %f\n", out, problem_string.c_str(), scene_pts->size(), elapsed);
@@ -603,6 +602,7 @@ int main(int argc, char** argv) {
   MatrixXd f_est;
   MatrixXd C_est;
   reextract_solution = true;
+  double objective;
 
   while (!viewer.wasStopped ()){
     if (reextract_solution){
@@ -670,6 +670,8 @@ int main(int argc, char** argv) {
         detections.push_back(detection);
       }
       reextract_solution = false;
+
+      objective = prog.GetSolution(phi).sum() + prog.GetSolution(alpha).sum();
     }
 
     if (pending_redraw){
@@ -755,7 +757,7 @@ int main(int argc, char** argv) {
       // Always draw info
       std::stringstream ss_info;
       ss_info << "MIQP Scene Point to Model Mesh Correspondences" << endl
-              << "Solution Objective: " << "todo" << endl
+              << "Solution Objective: " << objective << endl
               << "Drawing mode [Z]: " << draw_all_mode << endl
               << "Drawing correspondence [Left/Right Keys]: " << target_corresp_id << endl
               << "Drawing solution [Up/Down Keys]: " << target_sol << endl;
