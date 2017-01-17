@@ -175,7 +175,7 @@ Eigen::Matrix3Xd sample_from_surface_of_model(Model m, int N){
 }
 
 bool pending_redraw = true;
-bool draw_all_mode = true;
+int draw_mode = 0;
 bool reextract_solution = true;
 int target_sol = 0;
 int max_num_sols = 1;
@@ -187,7 +187,7 @@ void keyboardEventOccurred (const pcl::visualization::KeyboardEvent &event,
   pcl::visualization::PCLVisualizer *viewer = static_cast<pcl::visualization::PCLVisualizer *> (viewer_void);
   if (event.getKeySym () == "z" && event.keyDown ())
   { 
-    draw_all_mode = !draw_all_mode;
+    draw_mode = (draw_mode + 1) % 3;
   }
   else if (event.getKeySym() == "Right" && event.keyDown()) {
     target_corresp_id = (target_corresp_id + 1) % max_corresp_id;
@@ -211,7 +211,9 @@ int main(int argc, char** argv) {
 
   int optNumRays = 10;
   int optRotationConstraint = 4;
+  int optRotationConstraintNumFaces = 2;
   int optSceneSamplingMode = 0;
+
 
   if (argc != 2){
     printf("Use: miqp_multiple_mesh_models_detector <config file>\n");
@@ -232,6 +234,8 @@ int main(int argc, char** argv) {
 
   if (modelsNode["options"]["rotation_constraint"])
     optRotationConstraint = modelsNode["options"]["rotation_constraint"].as<int>();
+  if (modelsNode["options"]["rotation_constraint_num_faces"])
+    optRotationConstraintNumFaces = modelsNode["options"]["rotation_constraint_num_faces"].as<int>();
 
   if (modelsNode["options"]["scene_sampling_mode"])
     optSceneSamplingMode = modelsNode["options"]["scene_sampling_mode"].as<int>();
@@ -356,10 +360,10 @@ int main(int argc, char** argv) {
           }
           break;
         case 3:
-          addMcCormickQuaternionConstraint(prog, new_tr.R, 4, 4);
+          addMcCormickQuaternionConstraint(prog, new_tr.R, optRotationConstraintNumFaces, optRotationConstraintNumFaces);
           break;
         case 4:
-          AddRotationMatrixMcCormickEnvelopeMilpConstraints(&prog, new_tr.R);
+          AddRotationMatrixMcCormickEnvelopeMilpConstraints(&prog, new_tr.R, optRotationConstraintNumFaces);
           break;
         case 5:
           AddBoundingBoxConstraintsImpliedByRollPitchYawLimits(&prog, new_tr.R, kYaw_0_to_PI_2 | kPitch_0_to_PI_2 | kRoll_0_to_PI_2);
@@ -683,7 +687,7 @@ int main(int argc, char** argv) {
       viewer.addPointCloud<PointType>(actual_model_pts, model_color_handler, "model pts gt"); 
       viewer.setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2, "model pts gt");
  
-      if (draw_all_mode){
+      if (draw_mode == 0){
         // Draw all correspondneces as lines
         for (auto det = detections.begin(); det != detections.end(); det++){
           for (auto corr = det->correspondences.begin(); corr != det->correspondences.end(); corr++){
@@ -700,7 +704,7 @@ int main(int argc, char** argv) {
           ss_line << "gt_correspondence_line" << k << "-" << k_s;
           viewer.addLine<PointType, PointType> (actual_model_pts->at(k), scene_pts->at(k_s), 0, 255, 0, ss_line.str ());
         }
-      } else {
+      } else if (draw_mode == 1) {
         // Draw only desired correspondence
         for (auto det = detections.begin(); det != detections.end(); det++){
           for (auto corr = det->correspondences.begin(); corr != det->correspondences.end(); corr++){
@@ -726,8 +730,11 @@ int main(int argc, char** argv) {
               255,0,255, ss_sphere.str());
           }
         }
-
+      } else if (draw_mode == 2) { 
+        // Draw only the estimated transformed model, which is handled below
       }
+
+
 
       // Always draw the transformed and untransformed models
       for (int i=0; i<models.size(); i++){
@@ -741,15 +748,28 @@ int main(int argc, char** argv) {
                          verts(2, models[i].faces[j][k]) ));
           } 
           char strname[100];
-          // model pts
-          sprintf(strname, "polygon%d_%d", i, j);
-          transformPointCloud(*face_pts, *face_pts, models[i].model_transform.cast<float>());
-          viewer.addPolygon<PointType>(face_pts, 0.5, 0.5, 1.0, string(strname));
-          transformPointCloud(*face_pts, *face_pts, models[i].model_transform.inverse().cast<float>());
 
+          if (draw_mode == 2){
+            // model pts
+            for (int k=0; k<detections.size(); k++){
+              if (detections[k].obj_ind == i){
+                sprintf(strname, "polygon%d_%d_%d", i, j, k);
+                transformPointCloud(*face_pts, *face_pts, models[i].scene_transform.cast<float>());
+                transformPointCloud(*face_pts, *face_pts, detections[k].est_tf.cast<float>());
+                viewer.addPolygon<PointType>(face_pts, 0.5, 0.5, 1.0, string(strname));
+                transformPointCloud(*face_pts, *face_pts, detections[k].est_tf.inverse().cast<float>());
+                transformPointCloud(*face_pts, *face_pts, models[i].scene_transform.inverse().cast<float>());
+              }            
+            }
+          } else {
+            sprintf(strname, "polygon%d_%d", i, j);
+            transformPointCloud(*face_pts, *face_pts, models[i].scene_transform.cast<float>());
+            viewer.addPolygon<PointType>(face_pts, 0.5, 0.5, 1.0, string(strname));
+            transformPointCloud(*face_pts, *face_pts, models[i].scene_transform.inverse().cast<float>());
+          }
           // scene pts
           sprintf(strname, "polygon%d_%d_tf", i, j);
-          transformPointCloud(*face_pts, *face_pts, models[i].scene_transform.cast<float>());
+          transformPointCloud(*face_pts, *face_pts, models[i].model_transform.cast<float>());
           viewer.addPolygon<PointType>(face_pts, 0.5, 1.0, 0.5, string(strname));
         }
       }
@@ -758,7 +778,7 @@ int main(int argc, char** argv) {
       std::stringstream ss_info;
       ss_info << "MIQP Scene Point to Model Mesh Correspondences" << endl
               << "Solution Objective: " << objective << endl
-              << "Drawing mode [Z]: " << draw_all_mode << endl
+              << "Drawing mode [Z]: " << draw_mode  << endl
               << "Drawing correspondence [Left/Right Keys]: " << target_corresp_id << endl
               << "Drawing solution [Up/Down Keys]: " << target_sol << endl;
       viewer.addText  ( ss_info.str(), 10, 10, "optim_info_str");
