@@ -95,6 +95,7 @@ vector< vector<Vector3d> > boundingBox2QuadMesh(MatrixXd bb_pts){
 
 struct Model {
   std::string name;
+  bool matchable = true;
   Eigen::Affine3d scene_transform;
   Eigen::Affine3d model_transform;
   Eigen::Matrix3Xd vertices;
@@ -213,7 +214,11 @@ int main(int argc, char** argv) {
   int optRotationConstraint = 4;
   int optRotationConstraintNumFaces = 2;
   int optSceneSamplingMode = 0;
-
+  bool optAllowOutliers = true;
+  double optPhiMax = 0.1;
+  double optSampleDistance = 10.0;
+  int optSampleModel = -1;
+  vector<int> optModelSet;
 
   if (argc != 2){
     printf("Use: miqp_multiple_mesh_models_detector <config file>\n");
@@ -236,9 +241,18 @@ int main(int argc, char** argv) {
     optRotationConstraint = modelsNode["options"]["rotation_constraint"].as<int>();
   if (modelsNode["options"]["rotation_constraint_num_faces"])
     optRotationConstraintNumFaces = modelsNode["options"]["rotation_constraint_num_faces"].as<int>();
-
   if (modelsNode["options"]["scene_sampling_mode"])
     optSceneSamplingMode = modelsNode["options"]["scene_sampling_mode"].as<int>();
+  if (modelsNode["options"]["allow_outliers"])
+    optAllowOutliers = modelsNode["options"]["allow_outliers"].as<bool>();
+  if (modelsNode["options"]["phi_max"])
+    optPhiMax = modelsNode["options"]["phi_max"].as<double>();
+  if (modelsNode["options"]["sample_distance"])
+    optSampleDistance = modelsNode["options"]["sample_distance"].as<double>();
+  if (modelsNode["options"]["sample_model"])
+    optSampleModel = modelsNode["options"]["sample_model"].as<int>();
+  if (modelsNode["options"]["model_set"])
+    optModelSet = modelsNode["options"]["model_set"].as<vector<int>>();
 
 
   std::vector<Model> models;
@@ -254,34 +268,59 @@ int main(int argc, char** argv) {
   pcl::PointCloud<PointType>::Ptr actual_model_pts (new pcl::PointCloud<PointType> ());
   map<int, int> correspondences_gt;
 
+  // different kind of sampling: pick random vertex
+  int model_num = -1;
+  if (model_num >= 0)
+    model_num = optSampleModel;
+  else if (optSceneSamplingMode == 2)
+    model_num = rand() % models.size();
+
   int k=0;
-  for (auto iter = models.begin(); iter != models.end(); iter++){
-    Matrix3Xd scene_samples;
-    switch (optSceneSamplingMode){
-      case 0:
-        scene_samples = get_face_midpoints(*iter);
-        break;
-      case 1:
-        scene_samples = sample_from_surface_of_model(*iter, optNumRays / models.size());
-        break;
-      default:
-        printf("Bad scene sampling mode! %d\n", optSceneSamplingMode);
-        exit(-1);
-    }
-    auto samples_model_frame = iter->model_transform * scene_samples;
-    auto samples_scene_frame = iter->scene_transform * scene_samples;
-    for (int i=0; i<samples_scene_frame.cols(); i++){
-      scene_pts->push_back(PointType( samples_scene_frame(0, i), samples_scene_frame(1, i), samples_scene_frame(2, i)));
-      // overkill doing this right now, as the scene = simpletf * model in same order. but down the road may get
-      // more imaginative with this
-      actual_model_pts->push_back(PointType( samples_model_frame(0, i), samples_model_frame(1, i), samples_model_frame(2, i)));
-      correspondences_gt[k] = k;
-      k++;
+  for (int m=0; m<models.size(); m++){
+    if (model_num == -1 || m == model_num){
+      int vertex_num = rand() % models[m].vertices.cols();
+      Vector3d target_vertex = models[m].vertices.col(vertex_num);
+      int num_scene_samples = 0;
+      int target_num_rays = optNumRays;
+      if (model_num == -1) target_num_rays /= models.size();
+      Matrix3Xd scene_samples;
+      while (num_scene_samples < target_num_rays){
+        Matrix3Xd new_scene_samples = sample_from_surface_of_model(models[m], target_num_rays);
+        scene_samples.conservativeResize(3, num_scene_samples + new_scene_samples.cols());
+        for (int i=0; i<new_scene_samples.cols(); i++){
+          if (optSceneSamplingMode != 2 || (target_vertex - new_scene_samples.col(i)).norm() < optSampleDistance){
+            scene_samples.col(num_scene_samples) = new_scene_samples.col(i);
+            num_scene_samples++;
+          }
+          if (num_scene_samples == optNumRays){
+            break;
+          }
+        }
+        scene_samples.conservativeResize(3, num_scene_samples);
+      }
+
+      auto samples_model_frame = models[m].model_transform * scene_samples;
+      auto samples_scene_frame = models[m].scene_transform * scene_samples;
+      for (int i=0; i<samples_scene_frame.cols(); i++){
+        scene_pts->push_back(PointType( samples_scene_frame(0, i), samples_scene_frame(1, i), samples_scene_frame(2, i)));
+        // overkill doing this right now, as the scene = simpletf * model in same order. but down the road may get
+        // more imaginative with this
+        actual_model_pts->push_back(PointType( samples_model_frame(0, i), samples_model_frame(1, i), samples_model_frame(2, i)));
+        correspondences_gt[k] = k;
+        k++;
+      }
     }
   }
-
   printf("Running with %d scene pts\n", (int)scene_pts->size());
 
+  // Prune down to only models we've been instructed to use
+  if (optModelSet.size() > 0){
+    vector<Model> new_model_set;
+    for (int i=0; i<optModelSet.size(); i++){
+      new_model_set.push_back(models[optModelSet[i]]);
+    }
+    models = new_model_set;
+  }
 
   // Do meshing conversions and setup -- models vertices all stored
   // at origin for now, overlapping each other
@@ -389,9 +428,11 @@ int main(int argc, char** argv) {
 
   // Optimization pushes on slacks to make them tight (make them do their job)
   prog.AddLinearCost(1.0 * VectorXd::Ones(scene_pts->size()), {phi});
+  /*
   for (int k=0; k<3; k++){
     prog.AddLinearCost(1.0 * VectorXd::Ones(alpha.cols()), {alpha.row(k)});
   }
+  */
 
   // Constrain slacks nonnegative, to help the estimation of lower bound in relaxation  
   prog.AddBoundingBoxConstraint(0.0, std::numeric_limits<double>::infinity(), {phi});
@@ -399,19 +440,25 @@ int main(int argc, char** argv) {
     prog.AddBoundingBoxConstraint(0.0, std::numeric_limits<double>::infinity(), {alpha.row(k)});
   }
 
-
-  // Constrain each row of C to sum to 1, to make them proper
+  // Constrain each row of C to sum to 1 if a face is selected, to make them proper
   // affine coefficients
-  Eigen::MatrixXd C1 = Eigen::MatrixXd::Ones(1, C.cols());
+  Eigen::MatrixXd C1 = Eigen::MatrixXd::Ones(1, C.cols()+f.cols());
+  // sum(C_i) = sum(f_i)
+  // sum(C_i) - sum(f_i) = 0
+  C1.block(0, C.cols(), 1, f.cols()) = -Eigen::MatrixXd::Ones(1, f.cols());
   for (size_t k=0; k<C.rows(); k++){
-    prog.AddLinearEqualityConstraint(C1, 1, {C.row(k).transpose()});
+    prog.AddLinearEqualityConstraint(C1, 0, {C.row(k).transpose(), f.row(k).transpose()});
   }
 
   // Constrain each row of f to sum to 1, to force selection of exactly
   // one face to correspond to
   Eigen::MatrixXd f1 = Eigen::MatrixXd::Ones(1, f.cols());
   for (size_t k=0; k<f.rows(); k++){
-    prog.AddLinearEqualityConstraint(f1, 1, {f.row(k).transpose()});
+    if (optAllowOutliers){
+      prog.AddLinearConstraint(f1, 0, 1, {f.row(k).transpose()}); 
+    } else {
+      prog.AddLinearEqualityConstraint(f1, 1, {f.row(k).transpose()});
+    }
   }
 
   // Force all elems of C nonnegative
@@ -471,6 +518,17 @@ int main(int argc, char** argv) {
       {phi.block<1,1>(i, 0),
        alpha.col(i)});
 
+      // If we're allowing outliers, we need to constrain each phi_i to be bigger than
+      // a penalty amount if no faces are selected
+      if (optAllowOutliers){
+        // phi_i >= phi_max - (ones * f_i)*BIG
+        // -> phi_ + (ones * f_i)*BIG >= phi_max
+        Eigen::MatrixXd A_phimax = Eigen::MatrixXd::Ones(1, f.cols() + 1);
+        A_phimax.block(0, 0, 1, f.cols()) = Eigen::MatrixXd::Ones(1, f.cols())*kBigNumber;
+        for (size_t k=0; k<f.rows(); k++){
+          prog.AddLinearConstraint(A_phimax, optPhiMax, std::numeric_limits<double>::infinity(), {f.row(k).transpose(), phi.row(k)});
+        }
+      }
 
       // Alphaconstr, containing the scene and model points and a translation bias term, is used the constraints
       // on the three elems of alpha_{i, l}
@@ -671,7 +729,8 @@ int main(int argc, char** argv) {
             }
           }
         }
-        detections.push_back(detection);
+        if (detection.correspondences.size() > 0)
+          detections.push_back(detection);
       }
       reextract_solution = false;
 

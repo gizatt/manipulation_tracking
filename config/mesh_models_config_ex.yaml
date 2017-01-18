@@ -1,8 +1,14 @@
 options:
     # Scene sampling mode 0 = center of each face
-    # scene sampling mode 1 = num_rays surface points randomly
-    scene_sampling_mode: 0
-    num_rays: 10 # if using random scene point sampling, sample this many points
+    # scene sampling mode 1 = num_rays surface points randomly uniformly across faces of specified model, or all of them (don't specify model)
+    # scene sampling mode 2 = num_rays surface points, within sample_distance of a random vertex on specified model (or random model if unspecified)
+    scene_sampling_mode: 1
+    num_rays: 50 # if using random scene point sampling, sample this many points
+    sample_distance: 0.05
+    sample_model: 0
+
+    model_set: [0] # which models to actually include for matching (all are used for point sampling, this can be used to create outliers)
+
     # options of rot constraints:
     # 0: constrained to ground truth
     # 1: unconstrained
@@ -10,18 +16,22 @@ options:
     # 3: McCormick quaternion
     # 4: McCormick directly on rotmat
     # 5: Conservative RPY limits
-    rotation_constraint: 4
+    rotation_constraint: 0
+    rotation_constraint_num_faces: 3
+
+    allow_outliers: true
+    phi_max: 0.01
 
     gurobi_int_options:
         #MIPFocus: 1
         PoolSearchMode: 2
-        PoolSolutions: 10
+        PoolSolutions: 20
 
     gurobi_float_options:
-        TimeLimit: 100
-        PoolGap: 0.05
+        TimeLimit: 3600
+        PoolGap: 0.0
         #FeasRelaxBigM: 100
-        MIPGap: 0.05
+        MIPGap: 0.0
         #Heuristics: 0.05
  
 models:
