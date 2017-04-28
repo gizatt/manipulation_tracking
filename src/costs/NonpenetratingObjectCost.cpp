@@ -115,13 +115,13 @@ NonpenetratingObjectCost::NonpenetratingObjectCost(std::shared_ptr<RigidBodyTree
 
     Eigen::VectorXd distances;
     Eigen::Matrix3Xd normals;
-    std::vector<int> body_ids;
+    std::vector<long unsigned int> body_ids;
     robot_object->collisionRaycast(robot_object_kinematics_cache,
                           source_pts,
                           dest_pts,
+                          false,
                           distances, normals,
-                          body_ids,
-                          false);
+                          body_ids);
 
     for (int i=0; i < attempt_num_pts; i++){
       if (distances(i) > 0){

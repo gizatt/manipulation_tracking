@@ -5,7 +5,7 @@ include_directories( ./ )
 
 add_subdirectory(costs)
 add_subdirectory(object_scanning)
-add_subdirectory(detection)
+# add_subdirectory(detection)
 
 add_library(ManipulationTracker SHARED ManipulationTracker.cpp)
 pods_use_pkg_config_packages(ManipulationTracker drake-convex-hull drake-multibody-parsers eigen3 lcmtypes_bot2-core)

@@ -73,8 +73,8 @@ int main(int argc, char** argv) {
     endpoints(1, k) = -origins(1, k);
     endpoints(2, k) = -origins(2, k);
   }
-  vector<int> collision_body(kNumRays);
-  robot.collisionRaycast(robot_kinematics_cache, origins, endpoints, distances, normals, collision_body, false);
+  vector<long unsigned int> collision_body(kNumRays);
+  robot.collisionRaycast(robot_kinematics_cache, origins, endpoints, false, distances, normals, collision_body);
 
   for (int k=0; k<kNumRays; k++){
     if (distances(k) >= 0 && collision_body[k] == 1){

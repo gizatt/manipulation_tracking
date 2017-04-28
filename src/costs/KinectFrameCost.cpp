@@ -429,13 +429,13 @@ bool KinectFrameCost::constructCost(ManipulationTracker * tracker, const Eigen::
       Vector3d origin = kinect2world*Vector3d::Zero();
       Matrix3Xd origins(3, raycast_endpoints.cols());
       Matrix3Xd normals(3, raycast_endpoints.cols());
-      std::vector<int> body_idx(raycast_endpoints.cols());
+      std::vector<long unsigned int> body_idx(raycast_endpoints.cols());
       for (int i=0; i < raycast_endpoints.cols(); i++)
         origins.block<3, 1>(0, i) = origin;
 
       Matrix3Xd raycast_endpoints_world = kinect2world*raycast_endpoints;
       double before_raycast = getUnixTime();
-      robot->collisionRaycast(robot_kinematics_cache,origins,raycast_endpoints_world,distances,normals,body_idx);
+      robot->collisionRaycast(robot_kinematics_cache,origins,raycast_endpoints_world,false,distances,normals,body_idx);
       if (verbose)
         printf("Raycast took %f\n", getUnixTime() - before_raycast);
 
