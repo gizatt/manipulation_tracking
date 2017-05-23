@@ -4,7 +4,7 @@
 #include <stdexcept>
 #include <iostream>
 #include "ManipulationTrackerCost.hpp"
-#include "drake/systems/plants/RigidBodyTree.h"
+#include "drake/multibody/rigid_body_tree.h"
 #include <lcm/lcm-cpp.hpp>
 #include <memory>
 #include <mutex>
@@ -13,7 +13,6 @@
 #include "lcmtypes/bot_core/rigid_transform_t.hpp"
 #include "lcmtypes/bot_core/raw_t.hpp"
 #include "lcmtypes/kinect/frame_msg_t.hpp"
-#include "lcmtypes/vicon/body_t.hpp"
 #include "lcmtypes/bot_core/image_t.hpp"
 #include <kinect/kinect-utils.h>
 #include <mutex>
@@ -24,8 +23,8 @@
 
 class NonpenetratingObjectCost : public ManipulationTrackerCost {
 public:
-  NonpenetratingObjectCost(std::shared_ptr<RigidBodyTree> robot_, std::vector<int> robot_correspondences_,
-        std::shared_ptr<RigidBodyTree> robot_object_, std::vector<int> robot_object_correspondences_, std::shared_ptr<lcm::LCM> lcm_, YAML::Node config);
+  NonpenetratingObjectCost(std::shared_ptr<RigidBodyTree<double> > robot_, std::vector<int> robot_correspondences_,
+        std::shared_ptr<RigidBodyTree<double> > robot_object_, std::vector<int> robot_object_correspondences_, std::shared_ptr<lcm::LCM> lcm_, YAML::Node config);
   ~NonpenetratingObjectCost() {};
   bool constructCost(ManipulationTracker * tracker, const Eigen::Matrix<double, Eigen::Dynamic, 1> x_old, Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>& Q, Eigen::Matrix<double, Eigen::Dynamic, 1>& f, double& K);
 
@@ -54,13 +53,11 @@ private:
   int object_index = 0;
   int object_state_index = 0;
 
-  std::shared_ptr<RigidBodyTree> robot;
-  KinematicsCache<double> robot_kinematics_cache;
+  std::shared_ptr<RigidBodyTree<double> > robot;
   int nq;
   std::vector<int> robot_correspondences;
 
-  std::shared_ptr<RigidBodyTree> robot_object;
-  KinematicsCache<double> robot_object_kinematics_cache;
+  std::shared_ptr<RigidBodyTree<double> > robot_object;
   int nq_object;
   std::vector<int> robot_object_correspondences;
 

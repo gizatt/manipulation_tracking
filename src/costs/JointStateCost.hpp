@@ -4,7 +4,7 @@
 #include <stdexcept>
 #include <iostream>
 #include "ManipulationTrackerCost.hpp"
-#include "drake/systems/plants/RigidBodyTree.h"
+#include "drake/multibody/rigid_body_tree.h"
 #include <lcm/lcm-cpp.hpp>
 #include <memory>
 #include <mutex>
@@ -14,7 +14,7 @@
 
 class JointStateCost : public ManipulationTrackerCost {
 public:
-  JointStateCost(std::shared_ptr<const RigidBodyTree> robot_, std::shared_ptr<lcm::LCM> lcm_, YAML::Node config);
+  JointStateCost(std::shared_ptr<const RigidBodyTree<double> > robot_, std::shared_ptr<lcm::LCM> lcm_, YAML::Node config);
   ~JointStateCost() {};
 
   bool constructCost(ManipulationTracker * tracker, const Eigen::Matrix<double, Eigen::Dynamic, 1> x_old, Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>& Q, Eigen::Matrix<double, Eigen::Dynamic, 1>& f, double& K);
@@ -31,7 +31,7 @@ private:
 
   std::shared_ptr<lcm::LCM> lcm;
   lcm::Subscription * state_sub;
-  std::shared_ptr<const RigidBodyTree> robot;
+  std::shared_ptr<const RigidBodyTree<double> > robot;
   int nq;
 
   Eigen::Matrix<double, Eigen::Dynamic, 1> x_robot_measured;

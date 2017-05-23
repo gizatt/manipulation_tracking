@@ -1,0 +1,25 @@
+cmd "pserver" {
+    exec = "bot-param-server /home/gizatt/drc/software/config/irb140/irb140.cfg";
+    host = "localhost";
+}
+cmd "kinect_openni_read" {
+    exec = "kinect-openni-lcm -z -j -r 10";
+    host = "localhost";
+}
+cmd "kinect_rgb_translate" {
+    exec = "kinect-rgb-tool";
+    host = "localhost";
+}
+cmd "kinect_image_images_translate" {
+    exec = "/home/gizatt/manipulation_tracking_distro/drc_core_utils/scripts/irbkinectsimpleconverter.py";
+    host = "localhost";
+}
+cmd "object detector" {
+    exec = "runObjectScanner object_scanning_setup.yaml";
+    host = "localhost";
+}
+
+cmd "april_tags_generic" {
+    exec = "drc-apriltags-driver -c /home/gizatt/manipulation_tracking_distro/apriltags_driver/config/gelsight_setup_config.yaml --asus 1";
+    host = "localhost";
+}

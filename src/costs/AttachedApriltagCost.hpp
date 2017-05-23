@@ -4,7 +4,7 @@
 #include <stdexcept>
 #include <iostream>
 #include "ManipulationTrackerCost.hpp"
-#include "drake/systems/plants/RigidBodyTree.h"
+#include "drake/multibody/rigid_body_tree.h"
 #include <lcm/lcm-cpp.hpp>
 #include <memory>
 #include <mutex>
@@ -12,14 +12,14 @@
 #include <bot_lcmgl_client/lcmgl.h>
 #include <bot_frames/bot_frames.h>
 #include <bot_param/param_client.h>
-#include "lcmtypes/vicon/body_t.hpp"
+#include "lcmtypes/bot_core/rigid_transform_t.hpp"
 
 
 #include <lcmtypes/bot_core/rigid_transform_t.hpp>
 
 class AttachedApriltagCost : public ManipulationTrackerCost {
 public:
-  AttachedApriltagCost(std::shared_ptr<const RigidBodyTree> robot_, std::shared_ptr<lcm::LCM> lcm_, YAML::Node config);
+  AttachedApriltagCost(std::shared_ptr<const RigidBodyTree<double> > robot_, std::shared_ptr<lcm::LCM> lcm_, YAML::Node config);
   ~AttachedApriltagCost() {};
 
   void initBotConfig(const char* filename);
@@ -33,7 +33,7 @@ public:
                            const bot_core::rigid_transform_t* msg);
   void handleCameraOffsetMsg(const lcm::ReceiveBuffer* rbuf,
                            const std::string& chan,
-                           const vicon::body_t* msg);
+                           const bot_core::rigid_transform_t* msg);
 
 private:
   std::string robot_name = "";
@@ -64,8 +64,7 @@ private:
   Eigen::Isometry3d kinect2robot;
   
   std::shared_ptr<lcm::LCM> lcm;
-  std::shared_ptr<const RigidBodyTree> robot;
-  KinematicsCache<double> robot_kinematics_cache;
+  std::shared_ptr<const RigidBodyTree<double> > robot;
   int nq;
 
   std::mutex detectionsMutex;

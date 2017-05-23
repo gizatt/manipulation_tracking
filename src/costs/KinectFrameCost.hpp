@@ -4,7 +4,7 @@
 #include <stdexcept>
 #include <iostream>
 #include "ManipulationTrackerCost.hpp"
-#include "drake/systems/plants/RigidBodyTree.h"
+#include "drake/multibody/rigid_body_tree.h"
 #include <lcm/lcm-cpp.hpp>
 #include <memory>
 #include <mutex>
@@ -13,7 +13,6 @@
 #include "lcmtypes/bot_core/rigid_transform_t.hpp"
 #include "lcmtypes/bot_core/raw_t.hpp"
 #include "lcmtypes/kinect/frame_msg_t.hpp"
-#include "lcmtypes/vicon/body_t.hpp"
 #include "lcmtypes/bot_core/image_t.hpp"
 #include <kinect/kinect-utils.h>
 #include <mutex>
@@ -24,7 +23,7 @@
 
 class KinectFrameCost : public ManipulationTrackerCost {
 public:
-  KinectFrameCost(std::shared_ptr<RigidBodyTree> robot_, std::shared_ptr<lcm::LCM> lcm_, YAML::Node config);
+  KinectFrameCost(std::shared_ptr<RigidBodyTree<double>> robot_, std::shared_ptr<lcm::LCM> lcm_, YAML::Node config);
   ~KinectFrameCost() {};
   bool constructCost(ManipulationTracker * tracker, const Eigen::Matrix<double, Eigen::Dynamic, 1> x_old, Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>& Q, Eigen::Matrix<double, Eigen::Dynamic, 1>& f, double& K);
 
@@ -39,7 +38,7 @@ public:
                            const kinect::frame_msg_t* msg);
   void handleCameraOffsetMsg(const lcm::ReceiveBuffer* rbuf,
                            const std::string& chan,
-                           const vicon::body_t* msg);
+                           const bot_core::rigid_transform_t* msg);
 
    // bounds to cut down point cloud, in world coords
   struct BoundingBox
@@ -79,8 +78,7 @@ private:
   bool world_frame = true;
 
   std::shared_ptr<lcm::LCM> lcm;
-  std::shared_ptr<RigidBodyTree> robot;
-  KinematicsCache<double> robot_kinematics_cache;
+  std::shared_ptr<RigidBodyTree<double>> robot;
   int nq;
 
   bot_lcmgl_t* lcmgl_lidar_ = NULL;

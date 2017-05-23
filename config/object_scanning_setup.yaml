@@ -1,0 +1,13 @@
+apriltags:
+  - id: 215
+    channel: APRIL_TAG_0215_TO_CAMERA_LEFT
+    edge_length: 0.1
+  - id: 216
+    channel: APRIL_TAG_0216_TO_CAMERA_LEFT
+    edge_length: 0.1
+  - id: 217
+    channel: APRIL_TAG_0217_TO_CAMERA_LEFT
+    edge_length: 0.1
+  - id: 218
+    channel: APRIL_TAG_0218_TO_CAMERA_LEFT
+    edge_length: 0.1

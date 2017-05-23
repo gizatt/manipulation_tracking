@@ -7,7 +7,7 @@
 #include <vector>
 #include <Eigen/Dense>
 
-#include "drake/systems/plants/shapes/DrakeShapes.h"
+#include "drake/multibody/shapes/drake_shapes.h"
 
 
 class GelsightOpenGLSim {

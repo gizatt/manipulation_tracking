@@ -5,15 +5,17 @@
 #include <cmath>
 #include <cfloat>
 #include "drake/util/drakeGeometryUtil.h"
-#include <drake/systems/plants/parser_urdf.h>
+#include "drake/math/roll_pitch_yaw.h"
+#include "drake/multibody/parsers/urdf_parser.h"
 
 #include "common/common.hpp"
 
 using namespace std;
 using namespace Eigen;
 using namespace drake::math;
+using namespace drake::parsers::urdf;
 
-std::shared_ptr<RigidBodyTree> setupRobotFromConfig(YAML::Node config, Eigen::VectorXd& x0_robot, std::string base_path, bool verbose, bool less_collision){
+std::shared_ptr<RigidBodyTree<double>> setupRobotFromConfig(YAML::Node config, Eigen::VectorXd& x0_robot, std::string base_path, bool verbose, bool less_collision){
   // generate robot from yaml file by adding each robot in sequence
   // first robot -- need to initialize the RBT
   int old_num_positions = 0;
@@ -25,26 +27,28 @@ std::shared_ptr<RigidBodyTree> setupRobotFromConfig(YAML::Node config, Eigen::Ve
     robots_string = "robots";
 
   auto manip = config[robots_string].begin();
-  std::shared_ptr<RigidBodyTree> robot(new RigidBodyTree(base_path + manip->second["urdf"].as<string>()));
-  x0_robot.resize(robot->number_of_positions());
+  std::shared_ptr<RigidBodyTree<double>> robot(new RigidBodyTree<double>());
+  AddModelInstanceFromUrdfFileWithRpyJointToWorld(base_path + manip->second["urdf"].as<string>(), robot.get());
+
+  x0_robot.resize(robot->get_num_positions());
   if (manip->second["q0"] && manip->second["q0"].Type() == YAML::NodeType::Map){
-    for (int i=old_num_positions; i < robot->number_of_positions(); i++){
-      auto find = manip->second["q0"][robot->getPositionName(i)];
+    for (int i=old_num_positions; i < robot->get_num_positions(); i++){
+      auto find = manip->second["q0"][robot->get_position_name(i)];
       if (find)
         x0_robot(i) = find.as<double>();
       else // unnecessary in this first loop but here for clarity
         x0_robot(i) = 0.0;
     }
   }
-  old_num_positions = robot->number_of_positions();
+  old_num_positions = robot->get_num_positions();
   manip++;
   // each new robot can be added via addRobotFromURDF
   while (manip != config[robots_string].end()){
-    drake::parsers::urdf::AddModelInstanceFromURDF(base_path + manip->second["urdf"].as<string>(), DrakeJoint::ROLLPITCHYAW, robot.get());
-    x0_robot.conservativeResize(robot->number_of_positions());
+    AddModelInstanceFromUrdfFileWithRpyJointToWorld(base_path + manip->second["urdf"].as<string>(), robot.get());
+    x0_robot.conservativeResize(robot->get_num_positions());
     if (manip->second["q0"] && manip->second["q0"].Type() == YAML::NodeType::Map){
-      for (int i=old_num_positions; i < robot->number_of_positions(); i++){
-        auto find = manip->second["q0"][robot->getPositionName(i)];
+      for (int i=old_num_positions; i < robot->get_num_positions(); i++){
+        auto find = manip->second["q0"][robot->get_position_name(i)];
         if (find){
           x0_robot(i) = find.as<double>();
         }
@@ -53,21 +57,21 @@ std::shared_ptr<RigidBodyTree> setupRobotFromConfig(YAML::Node config, Eigen::Ve
         }
       }
     } else {
-      x0_robot.block(old_num_positions, 0, robot->number_of_positions()-old_num_positions, 1) *= 0.0;
+      x0_robot.block(old_num_positions, 0, robot->get_num_positions()-old_num_positions, 1) *= 0.0;
     }
 
-    old_num_positions = robot->number_of_positions();
+    old_num_positions = robot->get_num_positions();
     manip++;
   }
   robot->compile();
 
-  x0_robot.conservativeResize(robot->number_of_positions() + robot->number_of_velocities());
-  x0_robot.block(robot->number_of_positions(), 0, robot->number_of_velocities(), 1).setZero();
+  x0_robot.conservativeResize(robot->get_num_positions() + robot->get_num_velocities());
+  x0_robot.block(robot->get_num_positions(), 0, robot->get_num_velocities(), 1).setZero();
 
   if (verbose){
     cout << "All position names and init values: " << endl;
-    for (int i=0; i < robot->number_of_positions(); i++){
-      cout << "\t " << i << ": \"" << robot->getPositionName(i) << "\" = " << x0_robot[i] << endl;
+    for (int i=0; i < robot->get_num_positions(); i++){
+      cout << "\t " << i << ": \"" << robot->get_position_name(i) << "\" = " << x0_robot[i] << endl;
     }
   }
   return robot;
@@ -81,7 +85,7 @@ static bool vector_contains_str(std::vector<std::string> vec, std::string str) {
   return false;
 }
 
-std::shared_ptr<RigidBodyTree> setupRobotFromConfigSubset(YAML::Node config, Eigen::VectorXd& x0_robot_subset, std::string base_path,
+std::shared_ptr<RigidBodyTree<double>> setupRobotFromConfigSubset(YAML::Node config, Eigen::VectorXd& x0_robot_subset, std::string base_path,
     bool verbose, bool less_collision, bool exclusionary, std::vector<std::string> exceptions, std::vector<int> &index_correspondences){
   // generate robot from yaml file by adding each robot in sequence
   // if some robots are to be excluded, their yaml file names will appear in exceptions
@@ -97,25 +101,25 @@ std::shared_ptr<RigidBodyTree> setupRobotFromConfigSubset(YAML::Node config, Eig
 
   auto manip = config[robots_string].begin();
   
-  std::shared_ptr<RigidBodyTree> robot(new RigidBodyTree());
-  std::shared_ptr<RigidBodyTree> robot_subset(new RigidBodyTree());
+  std::shared_ptr<RigidBodyTree<double>> robot(new RigidBodyTree<double>());
+  std::shared_ptr<RigidBodyTree<double>> robot_subset(new RigidBodyTree<double>());
 
-  x0_robot_subset.resize(robot_subset->number_of_positions());
+  x0_robot_subset.resize(robot_subset->get_num_positions());
 
-  old_num_positions = robot->number_of_positions();
-  old_num_positions_subset = robot_subset->number_of_positions();
+  old_num_positions = robot->get_num_positions();
+  old_num_positions_subset = robot_subset->get_num_positions();
 
   // each new robot can b
   while (manip != config[robots_string].end()) {
-    drake::parsers::urdf::AddModelInstanceFromURDF(base_path + manip->second["urdf"].as<string>(), DrakeJoint::ROLLPITCHYAW, robot.get());
+    AddModelInstanceFromUrdfFileWithRpyJointToWorld(base_path + manip->second["urdf"].as<string>(), robot.get());
     if (vector_contains_str(exceptions, manip->first.as<std::string>()) != exclusionary) { // check (CONTAINED) XOR (EXCLUSIONARY)
-      drake::parsers::urdf::AddModelInstanceFromURDF(base_path + manip->second["urdf"].as<string>(), DrakeJoint::ROLLPITCHYAW, robot_subset.get());
+      AddModelInstanceFromUrdfFileWithRpyJointToWorld(base_path + manip->second["urdf"].as<string>(), robot_subset.get());
 
-      x0_robot_subset.conservativeResize(robot_subset->number_of_positions());
+      x0_robot_subset.conservativeResize(robot_subset->get_num_positions());
 
       if (manip->second["q0"] && manip->second["q0"].Type() == YAML::NodeType::Map){
-        for (int i=old_num_positions_subset; i < robot_subset->number_of_positions(); i++){
-          auto find = manip->second["q0"][robot_subset->getPositionName(i)];
+        for (int i=old_num_positions_subset; i < robot_subset->get_num_positions(); i++){
+          auto find = manip->second["q0"][robot_subset->get_position_name(i)];
           if (find){
             x0_robot_subset(i) = find.as<double>();
           }
@@ -124,48 +128,48 @@ std::shared_ptr<RigidBodyTree> setupRobotFromConfigSubset(YAML::Node config, Eig
           }
         }
       } else {
-        x0_robot_subset.block(old_num_positions_subset, 0, robot_subset->number_of_positions()-old_num_positions_subset, 1) *= 0.0;
+        x0_robot_subset.block(old_num_positions_subset, 0, robot_subset->get_num_positions()-old_num_positions_subset, 1) *= 0.0;
       }
 
       int cur_position = old_num_positions;
-      for (int i=old_num_positions_subset; i < robot_subset->number_of_positions(); i++){
+      for (int i=old_num_positions_subset; i < robot_subset->get_num_positions(); i++){
         // for each new index, make a correspondence with whole robot's indices
         index_correspondences.push_back(cur_position);
         cur_position++;
       }
     }
 
-    old_num_positions = robot->number_of_positions();
-    old_num_positions_subset = robot_subset->number_of_positions();
+    old_num_positions = robot->get_num_positions();
+    old_num_positions_subset = robot_subset->get_num_positions();
 
     manip++;
   }
   robot_subset->compile();
 
-//  x0_robot_subset.conservativeResize(robot_subset->number_of_positions() + robot_subset->number_of_velocities());
-//  x0_robot_subset.block(robot_subset->number_of_positions(), 0, robot->number_of_velocities(), 1).setZero();
+//  x0_robot_subset.conservativeResize(robot_subset->get_num_positions() + robot_subset->get_num_velocities());
+//  x0_robot_subset.block(robot_subset->get_num_positions(), 0, robot->get_num_velocities(), 1).setZero();
 
   if (verbose){
     cout << "All position names and init values: " << endl;
-    for (int i=0; i < robot_subset->number_of_positions(); i++){
-      cout << "\t " << i << ": \"" << robot->getPositionName(i) << "\" = " << x0_robot_subset[i] << endl;
+    for (int i=0; i < robot_subset->get_num_positions(); i++){
+      cout << "\t " << i << ": \"" << robot->get_position_name(i) << "\" = " << x0_robot_subset[i] << endl;
     }
   }
 
   return robot_subset;
 }
 
-ManipulationTracker::ManipulationTracker(std::shared_ptr<const RigidBodyTree> robot, Eigen::Matrix<double, Eigen::Dynamic, 1> x0_robot, std::shared_ptr<lcm::LCM> lcm, YAML::Node config, bool verbose) :
+ManipulationTracker::ManipulationTracker(std::shared_ptr<const RigidBodyTree<double>> robot, Eigen::Matrix<double, Eigen::Dynamic, 1> x0_robot, std::shared_ptr<lcm::LCM> lcm, YAML::Node config, bool verbose) :
     robot_(robot),
     lcm_(lcm),
     verbose_(verbose),
-    robot_kinematics_cache_(robot->bodies)
+    robot_kinematics_cache_(robot->doKinematics(x0_robot))
 {
-  if (robot_->number_of_positions() + robot_->number_of_velocities() != x0_robot.rows()){
-    printf("Expected initial condition with %d rows, got %ld rows.\n", robot_->number_of_positions() + robot_->number_of_velocities(), x0_robot.rows());
+  if (robot_->get_num_positions() + robot_->get_num_velocities() != x0_robot.rows()){
+    printf("Expected initial condition with %d rows, got %ld rows.\n", robot_->get_num_positions() + robot_->get_num_velocities(), x0_robot.rows());
     exit(0);
   }
- 
+
   // spawn initial decision variables from robot state
   x_.resize(x0_robot.rows());
   x_.setZero();
@@ -281,7 +285,7 @@ void ManipulationTracker::addCost(std::shared_ptr<ManipulationTrackerCost> new_c
   // spawn any necessary new decision variables
   int new_decision_vars = new_cost->getNumExtraVars();
   if (new_decision_vars > 0){
-    x_.conservativeResize(x_.rows() + new_decision_vars, 1);
+    x_.conservativeResize(x_.rows() + new_decision_vars);
     x_.block(x_.rows()-new_decision_vars, 0, new_decision_vars, 1) = new_cost->getExtraVarsX0();
     covar_.conservativeResize(x_.rows(), x_.rows());
     covar_.block(covar_.rows()-new_decision_vars, 0, new_decision_vars, covar_.cols()).setZero();
@@ -292,7 +296,7 @@ void ManipulationTracker::addCost(std::shared_ptr<ManipulationTrackerCost> new_c
   new_cost_and_view.first = new_cost;
 
   // robot positions and velocities are the first nX indices
-  for (int i=0; i < robot_->number_of_positions() + robot_->number_of_velocities(); i++){
+  for (int i=0; i < robot_->get_num_positions() + robot_->get_num_velocities(); i++){
     new_cost_and_view.second.push_back(i);
   }
   // the rest of the new vars are on the very end
@@ -309,7 +313,7 @@ void ManipulationTracker::update(){
   // Performs an EKF-like update of our given state.
 
   // get the robot state ready:
-  int nq = robot_->number_of_positions();
+  int nq = robot_->get_num_positions();
   int nx = x_.rows();
   VectorXd q_old = x_.block(0, 0, nq, 1);
   robot_kinematics_cache_.initialize(q_old);
@@ -343,19 +347,19 @@ void ManipulationTracker::update(){
       these_vars = dynamics_vars_defaults_;
 
     printf("For robot %s and link %s, using vars %f and %f\n", robot_->bodies[i]->get_model_name().c_str(), robot_->bodies[i]->get_name().c_str(), these_vars.floating_base_var, these_vars.other_var);
-    if (robot_->bodies[i]->getJoint().isFloating() && !std::isinf(these_vars.floating_base_var)){
-      for (int j = 0; j < robot_->bodies[i]->getJoint().getNumPositions(); j++){
+    if (robot_->bodies[i]->getJoint().is_floating() && !std::isinf(these_vars.floating_base_var)){
+      for (int j = 0; j < robot_->bodies[i]->getJoint().get_num_positions(); j++){
         covar_pred(j + robot_->bodies[i]->get_position_start_index(), j + robot_->bodies[i]->get_position_start_index()) += these_vars.floating_base_var;
       }
-      for (int j = 0; j < robot_->bodies[i]->getJoint().getNumVelocities(); j++){
+      for (int j = 0; j < robot_->bodies[i]->getJoint().get_num_velocities(); j++){
         covar_pred(j + robot_->bodies[i]->get_velocity_start_index(), j + robot_->bodies[i]->get_velocity_start_index()) += these_vars.floating_base_var;
       }
     }
-    else if (!robot_->bodies[i]->getJoint().isFloating() && !std::isinf(these_vars.other_var)){
-      for (int j = 0; j < robot_->bodies[i]->getJoint().getNumPositions(); j++){
+    else if (!robot_->bodies[i]->getJoint().is_floating() && !std::isinf(these_vars.other_var)){
+      for (int j = 0; j < robot_->bodies[i]->getJoint().get_num_positions(); j++){
         covar_pred(j + robot_->bodies[i]->get_position_start_index(), j + robot_->bodies[i]->get_position_start_index()) += these_vars.other_var;
       }
-      for (int j = 0; j < robot_->bodies[i]->getJoint().getNumVelocities(); j++){
+      for (int j = 0; j < robot_->bodies[i]->getJoint().get_num_velocities(); j++){
         covar_pred(j + robot_->bodies[i]->get_velocity_start_index(), j + robot_->bodies[i]->get_velocity_start_index()) += these_vars.other_var;
       }
     }
@@ -456,9 +460,9 @@ void ManipulationTracker::update(){
     }
 
     // perform reduced solve
-    auto QR = Q_reduced.colPivHouseholderQr();
+    ColPivHouseholderQR<MatrixXd> QR = Q_reduced.colPivHouseholderQr();
     VectorXd q_new_reduced = QR.solve(-f_reduced);
-    MatrixXd Q_reduced_inverse = QR.inverse();
+    MatrixXd Q_reduced_inverse = Q_reduced.inverse();
 
     // reexpand
     ir = 0;
@@ -487,7 +491,7 @@ void ManipulationTracker::update(){
     // find the floating base of the desired robot
     int floating_base_body = -1;
     for (int i=0; i<robot_->bodies.size(); i++){
-      if (robot_->bodies[i]->get_model_name() == force_align_robot_ && robot_->bodies[i]->getJoint().isFloating()){
+      if (robot_->bodies[i]->get_model_name() == force_align_robot_ && robot_->bodies[i]->getJoint().is_floating()){
         floating_base_body = i;
         break;
       }
@@ -514,7 +518,7 @@ void ManipulationTracker::update(){
     force_align =  to_dest_frame * force_align.inverse();
     // and update all floating bases in our robot with that
     for (int i=1; i<robot_->bodies.size(); i++){
-      if (robot_->bodies[i]->getJoint().isFloating()){
+      if (robot_->bodies[i]->getJoint().is_floating()){
         x_.block<3, 1>(robot_->bodies[i]->get_position_start_index() + 0, 0) = 
           force_align*x_.block<3, 1>(robot_->bodies[i]->get_position_start_index() + 0, 0);
 
@@ -540,7 +544,7 @@ void ManipulationTracker::publish(){
     // find the floating base of the desired robot
     int floating_base_body = -1;
     for (int i=0; i<robot_->bodies.size(); i++){
-      if (robot_->bodies[i]->get_model_name() == post_transform_robot_ && robot_->bodies[i]->getJoint().isFloating()){
+      if (robot_->bodies[i]->get_model_name() == post_transform_robot_ && robot_->bodies[i]->getJoint().is_floating()){
         floating_base_body = i;
         break;
       }
@@ -582,7 +586,7 @@ void ManipulationTracker::publish(){
           bool found_floating = false;
           for (int i=0; i<robot_->bodies.size(); i++){
             if (robot_->bodies[i]->get_model_name() == robot_name){
-              if (robot_->bodies[i]->getJoint().isFloating()){
+              if (robot_->bodies[i]->getJoint().is_floating()){
                 Vector3d xyz = post_transform*x_.block<3, 1>(robot_->bodies[i]->get_position_start_index() + 0, 0);
                 manipulation_state.pose.translation.x = xyz[0];
                 manipulation_state.pose.translation.y = xyz[1];
@@ -601,11 +605,11 @@ void ManipulationTracker::publish(){
                 found_floating = true;
               } else {
                 // warning: if numpositions != numvelocities, problems arise...
-                manipulation_state.num_joints += robot_->bodies[i]->getJoint().getNumPositions();
-                for (int j=0; j < robot_->bodies[i]->getJoint().getNumPositions(); j++){
-                  manipulation_state.joint_name.push_back(robot_->bodies[i]->getJoint().getPositionName(j));
+                manipulation_state.num_joints += robot_->bodies[i]->getJoint().get_num_positions();
+                for (int j=0; j < robot_->bodies[i]->getJoint().get_num_positions(); j++){
+                  manipulation_state.joint_name.push_back(robot_->bodies[i]->getJoint().get_position_name(j));
                   manipulation_state.joint_position.push_back(x_[robot_->bodies[i]->get_position_start_index() + j]);
-                  manipulation_state.joint_velocity.push_back(x_[robot_->bodies[i]->get_position_start_index() + j + robot_->number_of_positions()]);
+                  manipulation_state.joint_velocity.push_back(x_[robot_->bodies[i]->get_position_start_index() + j + robot_->get_num_positions()]);
                 }
               }
             }
@@ -617,13 +621,13 @@ void ManipulationTracker::publish(){
 
         // publish just the floating base transform?
         else if (it->publish_type == "transform") {
-          vicon::body_t floating_base_transform;
+          bot_core::rigid_transform_t floating_base_transform;
           floating_base_transform.utime = getUnixTime();
 
           bool found_floating = false;
           for (int i=0; i<robot_->bodies.size(); i++){
             if (robot_->bodies[i]->get_model_name() == robot_names_[roboti]){
-              if (robot_->bodies[i]->getJoint().isFloating()){
+              if (robot_->bodies[i]->getJoint().is_floating()){
                 Vector3d xyz = post_transform*x_.block<3, 1>(robot_->bodies[i]->get_position_start_index() + 0, 0);
                 floating_base_transform.trans[0] = xyz[0];
                 floating_base_transform.trans[1] = xyz[1];

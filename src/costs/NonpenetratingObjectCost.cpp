@@ -10,7 +10,7 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
-#include "drake/systems/plants/joints/RevoluteJoint.h"
+#include "drake/multibody/joints/revolute_joint.h"
 
 using namespace std;
 using namespace Eigen;
@@ -33,16 +33,14 @@ void eigen2cv( const Eigen::Matrix<_Tp, _rows, _cols, _options, _maxRows, _maxCo
     }
 }
 
-NonpenetratingObjectCost::NonpenetratingObjectCost(std::shared_ptr<RigidBodyTree> robot_, std::vector<int> robot_correspondences_,
-        std::shared_ptr<RigidBodyTree> robot_object_, std::vector<int> robot_object_correspondences_, std::shared_ptr<lcm::LCM> lcm_, YAML::Node config) :
+NonpenetratingObjectCost::NonpenetratingObjectCost(std::shared_ptr<RigidBodyTree<double> > robot_, std::vector<int> robot_correspondences_,
+        std::shared_ptr<RigidBodyTree<double> > robot_object_, std::vector<int> robot_object_correspondences_, std::shared_ptr<lcm::LCM> lcm_, YAML::Node config) :
     lcm(lcm_),
     robot(robot_),
-    robot_kinematics_cache(robot->bodies),
-    nq(robot->number_of_positions()),
+    nq(robot->get_num_positions()),
     robot_correspondences(robot_correspondences_),
     robot_object(robot_object_),
-    robot_object_kinematics_cache(robot_object->bodies),
-    nq_object(robot_object->number_of_positions()),
+    nq_object(robot_object->get_num_positions()),
     robot_object_correspondences(robot_object_correspondences_)
 {
   std::cout << "Important #1: " << robot_correspondences.size() << "\n";
@@ -87,10 +85,9 @@ NonpenetratingObjectCost::NonpenetratingObjectCost(std::shared_ptr<RigidBodyTree
   //uto save_pc_sub = lcm->subscribe("IRB140_ESTIMATOR_SAVE_POINTCLOUD", &NonpenetratingObjectCost::handleSavePointcloudMsg, this);
   //save_pc_sub->setQueueCapacity(1);
 
-  VectorXd q_object_old(robot_object->number_of_positions());
+  VectorXd q_object_old(robot_object->get_num_positions());
   q_object_old *= 0;
-  robot_object_kinematics_cache.initialize(q_object_old);
-  robot_object->doKinematics(robot_object_kinematics_cache);
+  auto robot_object_kinematics_cache = robot->doKinematics(q_object_old);
 
     // Use raycasting on robot_object to get a smattering of points on object surface
   surface_pts.resize(3, num_surface_pts);
@@ -118,13 +115,13 @@ NonpenetratingObjectCost::NonpenetratingObjectCost(std::shared_ptr<RigidBodyTree
 
     Eigen::VectorXd distances;
     Eigen::Matrix3Xd normals;
-    std::vector<int> body_ids;
+    std::vector<long unsigned int> body_ids;
     robot_object->collisionRaycast(robot_object_kinematics_cache,
                           source_pts,
                           dest_pts,
+                          false,
                           distances, normals,
-                          body_ids,
-                          false);
+                          body_ids);
 
     for (int i=0; i < attempt_num_pts; i++){
       if (distances(i) > 0){
@@ -196,21 +193,19 @@ bool NonpenetratingObjectCost::constructCost(ManipulationTracker * tracker, cons
 
   // TODO: LOOOOOOOTS TO DO HERE
 
-  int nq_full = tracker->getRobot()->number_of_positions();
+  int nq_full = tracker->getRobot()->get_num_positions();
   VectorXd q_old_full = x_old.block(0,0,nq_full, 1);
 
   // First, convert x_old into corresponding q values for robot and robot_object
-  VectorXd q_old(robot->number_of_positions());
+  VectorXd q_old(robot->get_num_positions());
   for (int i=0; i<robot_correspondences.size(); i++)
     q_old(i) = x_old(robot_correspondences[i]);
-  robot_kinematics_cache.initialize(q_old);
-  robot->doKinematics(robot_kinematics_cache);
+  auto robot_kinematics_cache = robot->doKinematics(q_old);
 
-  VectorXd q_object_old(robot_object->number_of_positions());
+  VectorXd q_object_old(robot_object->get_num_positions());
   for (int i=0; i<robot_object_correspondences.size(); i++)
     q_object_old(i) = x_old(robot_object_correspondences[i]);
-  robot_object_kinematics_cache.initialize(q_object_old);
-  robot_object->doKinematics(robot_object_kinematics_cache);
+  auto robot_object_kinematics_cache = robot->doKinematics(q_object_old);
   
 
   Matrix3Xd global_surface_pts = robot_object->transformPoints(robot_object_kinematics_cache, surface_pts, robot_object_id, 0);  

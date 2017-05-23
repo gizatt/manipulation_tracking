@@ -10,14 +10,16 @@
 #include "costs/NonpenetratingObjectCost.hpp"
 #include "yaml-cpp/yaml.h"
 #include "common/common.hpp"
+#include "unistd.h"
 
 using namespace std;
 using namespace Eigen;
 
 int main(int argc, char** argv) {
-  const char* drc_path = std::getenv("DRC_BASE");
+  char * drc_path = std::getenv("DRC_BASE");
   if (!drc_path) {
-    throw std::runtime_error("environment variable DRC_BASE is not set");
+    printf("Environment variable DRC_BASE is not set -- assuming global paths\n");
+    drc_path = "";
   }
 
   if (argc != 2){
@@ -35,7 +37,7 @@ int main(int argc, char** argv) {
   YAML::Node config = YAML::LoadFile(configFile);
 
   VectorXd x0_robot;
-  std::shared_ptr<const RigidBodyTree> robot = setupRobotFromConfig(config, x0_robot, string(drc_path), true, false);
+  std::shared_ptr<const RigidBodyTree<double>> robot = setupRobotFromConfig(config, x0_robot, string(drc_path), true, false);
 
   // initialize tracker itself
   ManipulationTracker estimator(robot, x0_robot, lcm, config, true);

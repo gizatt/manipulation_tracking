@@ -4,7 +4,7 @@
 #include <stdexcept>
 #include <iostream>
 #include "ManipulationTrackerCost.hpp"
-#include "drake/systems/plants/RigidBodyTree.h"
+#include "drake/multibody/rigid_body_tree.h"
 #include <lcm/lcm-cpp.hpp>
 #include <memory>
 #include <mutex>
@@ -12,7 +12,6 @@
 #include <bot_lcmgl_client/lcmgl.h>
 #include <bot_frames/bot_frames.h>
 #include <bot_param/param_client.h>
-#include "lcmtypes/vicon/body_t.hpp"
 #include "lcmtypes/drake/lcmt_optotrak.hpp"
 
 
@@ -20,7 +19,7 @@
 
 class OptotrakMarkerCost : public ManipulationTrackerCost {
 public:
-  OptotrakMarkerCost(std::shared_ptr<const RigidBodyTree> robot_, std::shared_ptr<lcm::LCM> lcm_, YAML::Node config);
+  OptotrakMarkerCost(std::shared_ptr<const RigidBodyTree<double> > robot_, std::shared_ptr<lcm::LCM> lcm_, YAML::Node config);
   ~OptotrakMarkerCost() {};
 
   void initBotConfig(const char* filename);
@@ -69,8 +68,7 @@ private:
   Eigen::Isometry3d kinect2robot;
   
   std::shared_ptr<lcm::LCM> lcm;
-  std::shared_ptr<const RigidBodyTree> robot;
-  KinematicsCache<double> robot_kinematics_cache;
+  std::shared_ptr<const RigidBodyTree<double> > robot;
   int nq;
 
   std::mutex detectionsMutex;

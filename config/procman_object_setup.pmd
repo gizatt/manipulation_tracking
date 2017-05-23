@@ -1,0 +1,68 @@
+group "00.params" {
+    cmd "pserver" {
+        exec = "bot-param-server $DRC_BASE/software/config/irb140/irb140.cfg";
+        host = "localhost";
+    }
+}
+
+group "01.kinect_tools" {
+    cmd "kinect_openni_read" {
+        exec = "kinect-openni-lcm -z -j -r 10";
+        host = "localhost";
+    }
+    cmd "kinect_rgb_translate" {
+        exec = "kinect-rgb-tool";
+        host = "localhost";
+    }
+}
+
+group "02.director" {
+    cmd "the_director" {
+        exec = "director --director_config $DRC_BASE/software/models/IRB140/director_config.json --config_file $DRC_BASE/software/config/irb140/irb140.cfg";
+        host = "localhost";
+    }
+}
+
+group "03.manipulation_trackers" {
+    cmd "optotrak tracker" {
+        exec = "runManipulationTracker $DRC_BASE/software/perception/manipulation_tracking/config/estimator_config_irb140_gelsight_gt_optotrak.yaml";
+        host = "localhost";
+    }
+    cmd "apriltags tracker" {
+        exec = "runManipulationTracker $DRC_BASE/software/perception/manipulation_tracking/config/estimator_config_apriltags_only.yaml";
+        host = "localhost";
+    }
+    cmd "gelsight tracker bolt" {
+        exec = "runManipulationTracker $DRC_BASE/software/perception/manipulation_tracking/config/estimator_config_irb140_gelsight.yaml";
+        host = "localhost";
+    }
+    cmd "gelsight tracker cube" {
+        exec = "runManipulationTracker $DRC_BASE/software/perception/manipulation_tracking/config/estimator_config_irb140_gelsight_cube.yaml";
+        host = "localhost";
+    }
+    cmd "error calculator" {
+        exec = "runErrorCalculator $DRC_BASE/software/perception/manipulation_tracking/config/errorcalculator_config.yaml";
+        host = "localhost";
+    }
+}
+
+group "04.object_detector" {
+    cmd "object detector" {
+        exec = "runObjectDetector object_detector_cube.yaml";
+        host = "localhost";
+    }
+}
+
+group "05.april_tags" {
+    cmd "april_tags_generic" {
+        exec = "drc-apriltags-driver -c $DRC_BASE/software/perception/apriltags_driver/config/gelsight_setup_config.yaml --asus 1";
+        host = "localhost";
+    }
+}
+
+group "06.gelsight_drivers" {
+    cmd "gelsight_depth_publisher" {
+        exec = "~/gelsight_se/build/gelsight_depth_driver 0 -v 1 -o 0 -l $DRC_BASE/../gelsight_se/trained_lookup.dat";
+        host = "localhost";
+    }
+}

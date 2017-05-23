@@ -1,6 +1,7 @@
 #undef NDEBUG
 #include "KinectFrameCost.hpp"
 
+#include "drake/multibody/joints/revolute_joint.h"
 #include <assert.h> 
 #include <fstream>
 #include "common/common.hpp"
@@ -11,7 +12,6 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
-#include "drake/systems/plants/joints/RevoluteJoint.h"
 
 using namespace std;
 using namespace Eigen;
@@ -34,11 +34,10 @@ void eigen2cv( const Eigen::Matrix<_Tp, _rows, _cols, _options, _maxRows, _maxCo
     }
 }
 
-KinectFrameCost::KinectFrameCost(std::shared_ptr<RigidBodyTree> robot_, std::shared_ptr<lcm::LCM> lcm_, YAML::Node config) :
+KinectFrameCost::KinectFrameCost(std::shared_ptr<RigidBodyTree<double>> robot_, std::shared_ptr<lcm::LCM> lcm_, YAML::Node config) :
     robot(robot_),
-    robot_kinematics_cache(robot->bodies),
     lcm(lcm_),
-    nq(robot->number_of_positions())
+    nq(robot->get_num_positions())
 {
   if (config["icp_var"])
     icp_var = config["icp_var"].as<double>();
@@ -189,9 +188,8 @@ bool KinectFrameCost::constructCost(ManipulationTracker * tracker, const Eigen::
     return false;
   }
   else {
-    VectorXd q_old = x_old.block(0, 0, robot->number_of_positions(), 1);
-    robot_kinematics_cache.initialize(q_old);
-    robot->doKinematics(robot_kinematics_cache);
+    VectorXd q_old = x_old.block(0, 0, robot->get_num_positions(), 1);
+    auto robot_kinematics_cache = robot->doKinematics(q_old); 
 
     // pull points from buffer
     Eigen::Matrix3Xd full_cloud;
@@ -319,8 +317,11 @@ bool KinectFrameCost::constructCost(ManipulationTracker * tracker, const Eigen::
                 cout << "Zero points " << points.block<3, 1>(0, j).transpose() << " slipping in at bdyidx " << body_idx[j] << endl;
               }
               if ((points.block<3, 1>(0, j) - x.block<3, 1>(0, j)).norm() <= max_considered_icp_distance){
-                auto joint = dynamic_cast<const RevoluteJoint *>(&robot->bodies[body_idx[j]]->getJoint());
+                
+                
+                //auto joint = dynamic_cast<const RevoluteJoint *>(&robot->bodies[body_idx[j]]->getJoint());
                 bool too_close_to_joint = false;
+                /*
                 if (joint){
                   // axis in body frame:
                   const Vector3d n = joint->getRotationAxis();
@@ -333,7 +334,7 @@ bool KinectFrameCost::constructCost(ManipulationTracker * tracker, const Eigen::
                     too_close_to_joint = true;
                   }
                 }
-
+                */
                 if (too_close_to_joint == false){
                   z.block<3, 1>(0, k) = points.block<3, 1>(0, j);
                   z_prime.block<3, 1>(0, k) = x.block<3, 1>(0, j);
@@ -428,13 +429,13 @@ bool KinectFrameCost::constructCost(ManipulationTracker * tracker, const Eigen::
       Vector3d origin = kinect2world*Vector3d::Zero();
       Matrix3Xd origins(3, raycast_endpoints.cols());
       Matrix3Xd normals(3, raycast_endpoints.cols());
-      std::vector<int> body_idx(raycast_endpoints.cols());
+      std::vector<long unsigned int> body_idx(raycast_endpoints.cols());
       for (int i=0; i < raycast_endpoints.cols(); i++)
         origins.block<3, 1>(0, i) = origin;
 
       Matrix3Xd raycast_endpoints_world = kinect2world*raycast_endpoints;
       double before_raycast = getUnixTime();
-      robot->collisionRaycast(robot_kinematics_cache,origins,raycast_endpoints_world,distances,normals,body_idx);
+      robot->collisionRaycast(robot_kinematics_cache,origins,raycast_endpoints_world,false,distances,normals,body_idx);
       if (verbose)
         printf("Raycast took %f\n", getUnixTime() - before_raycast);
 
@@ -640,7 +641,7 @@ bool KinectFrameCost::constructCost(ManipulationTracker * tracker, const Eigen::
     }
 
     if (have_hardcoded_kinect2world_){
-      vicon::body_t floating_base_transform;
+      bot_core::rigid_transform_t floating_base_transform;
       floating_base_transform.utime = getUnixTime();
       floating_base_transform.trans[0] = kinect2world.matrix()(0, 3);
       floating_base_transform.trans[1] = kinect2world.matrix()(1, 3);
@@ -660,7 +661,7 @@ bool KinectFrameCost::constructCost(ManipulationTracker * tracker, const Eigen::
 
 void KinectFrameCost::handleCameraOffsetMsg(const lcm::ReceiveBuffer* rbuf,
                            const std::string& chan,
-                           const vicon::body_t* msg){
+                           const bot_core::rigid_transform_t* msg){
   camera_offset_mutex.lock();
   Vector3d trans(msg->trans[0], msg->trans[1], msg->trans[2]);
   Quaterniond rot(msg->quat[0], msg->quat[1], msg->quat[2], msg->quat[3]);
